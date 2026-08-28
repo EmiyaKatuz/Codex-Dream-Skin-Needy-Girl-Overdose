@@ -8,9 +8,11 @@
     composerFooter: ':is([class*="_footer_"], [data-composer-footer-responsive])',
     stickyComposer: 'main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]) [class~="sticky"][class~="bottom-0"]',
     contextStrip: 'div[class~="relative"][class~="min-w-0"][class~="overflow-clip"][class~="border-x"][class~="border-t"]',
-    environmentPanel: 'div[class*="bg-token-dropdown-background"][class~="rounded-3xl"]',
+    environmentPanel: 'div:is([class*="bg-token-dropdown-background"], [class~="bg-surface-elevated-secondary"])[class~="rounded-3xl"]',
     environmentToggle: 'button[class~="group/section-toggle"]',
     environmentGit: '[data-testid*="git"], [aria-label*="git" i], [class*="git-"]',
+    changesAdded: ':is([class*="git-decoration-added"], [class*="text-codex-git-added"])',
+    changesDeleted: ':is([class*="git-decoration-deleted"], [class*="text-codex-git-deleted"])',
     workspace: '[class*="contain:layout_paint"], [class~="bg-token-main-surface-primary"]',
     workspaceEvidence: '[role="tablist"], [role="tabpanel"], .xterm, .thread-scroll-container',
     sidebar: 'aside.app-shell-left-panel, [data-testid="app-shell-floating-left-panel"], [data-ds-part="sidebar"]',
@@ -56,8 +58,8 @@
     '[class*="group/activity-header"]',
     '[class*="group/command"]',
     '[class*="group/output"]',
-    '[class*="git-decoration-added"]',
-    '[class*="git-decoration-deleted"]',
+    selectors.changesAdded,
+    selectors.changesDeleted,
     '.xterm',
     ':is([class*="contain:layout_paint"], [role="tabpanel"]) [class~="h-toolbar-pane"]',
     '[class*="group/summary-panel-item"]',
@@ -489,7 +491,7 @@
   const classifyChanges = () => {
     const changedPattern = /(?:\d+\s+files?\s+changed|files?\s+changed|\u4e2a\u6587\u4ef6\u5df2\u66f4\u6539|\u5df2\u66f4\u6539\s*\d+\s*\u4e2a\u6587\u4ef6)/i;
     const candidates = [...document.querySelectorAll(
-      'button:has([class*="git-decoration-added"]):has([class*="git-decoration-deleted"])',
+      `button:has(${selectors.changesAdded}):has(${selectors.changesDeleted})`,
     )].filter((button) => changedPattern.test(textOf(button)));
     for (const pill of candidates) {
       const wrapper = pill.parentElement;

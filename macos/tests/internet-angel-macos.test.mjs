@@ -715,7 +715,7 @@ function makeOverlayFixture({
     .addQuery(environmentGitSelector, gitSignal);
 
   const structuralEnvironment = makeNode({
-    className: "relative rounded-3xl bg-token-dropdown-background",
+    className: "relative rounded-3xl bg-surface-elevated-secondary",
     rect: { left: 1378, top: 58, width: 300, height: 199 },
     text: "Tools",
   });
@@ -975,6 +975,35 @@ function makeOverlayFixture({
     changesClipHost,
   );
 
+  const modernChangesClipHost = makeNode({ className: "relative overflow-hidden rounded-3xl" });
+  const modernChangesShell = makeNode({ className: "rounded-3xl border-border/80" });
+  const modernChangesWrapper = makeNode();
+  const modernChangesPill = makeNode({ text: "1 个文件已更改 +152 -0" });
+  const modernChangesAddedSelector = '[class*="text-codex-git-added"]';
+  const modernChangesDeletedSelector = '[class*="text-codex-git-deleted"]';
+  const modernChangesAdded = makeNode({
+    className: "text-codex-git-added",
+    matches: [modernChangesAddedSelector],
+    text: "+152",
+  });
+  const modernChangesDeleted = makeNode({
+    className: "text-codex-git-deleted",
+    matches: [modernChangesDeletedSelector],
+    text: "-0",
+  });
+  modernChangesPill.parentElement = modernChangesWrapper;
+  modernChangesPill
+    .addQuery(modernChangesAddedSelector, modernChangesAdded)
+    .addQuery(modernChangesDeletedSelector, modernChangesDeleted);
+  modernChangesWrapper.closestNodes.set(
+    ':not(button)[class*="rounded-3xl"][class*="border"]',
+    modernChangesShell,
+  );
+  modernChangesWrapper.closestNodes.set(
+    ':not(button)[class~="overflow-hidden"][class~="rounded-3xl"]',
+    modernChangesClipHost,
+  );
+
   const systemToast = makeNode({
     matches: ["[data-sonner-toast]"],
     text: "Rate limit reset opportunity",
@@ -1025,6 +1054,11 @@ function makeOverlayFixture({
     [`${shellSelector} [class~="sticky"][class~="bottom-0"]`, [sticky]],
     ['div[class*="bg-token-dropdown-background"][class~="rounded-3xl"]', [
       environment,
+      radixEnvironment,
+      lookalike,
+    ]],
+    ['div:is([class*="bg-token-dropdown-background"], [class~="bg-surface-elevated-secondary"])[class~="rounded-3xl"]', [
+      environment,
       structuralEnvironment,
       radixEnvironment,
       lookalike,
@@ -1048,6 +1082,10 @@ function makeOverlayFixture({
     ['[class*="group/activity-header"]', [activityHeader, streamingActivityHeader]],
     ['[class*="group/turn-diff-header"]', [editedHeader]],
     ['button:has([class*="git-decoration-added"]):has([class*="git-decoration-deleted"])', [changesPill]],
+    ['button:has(:is([class*="git-decoration-added"], [class*="text-codex-git-added"])):has(:is([class*="git-decoration-deleted"], [class*="text-codex-git-deleted"]))', [
+      changesPill,
+      modernChangesPill,
+    ]],
     [stableSidebarSelector, publicSidebarOnly ? [] : [sidebar]],
     [sidebarSelector, [sidebar]],
     ['div.vertical-scroll-fade-mask[class~="overflow-y-auto"]', [paletteScroll]],
@@ -1178,6 +1216,9 @@ function makeOverlayFixture({
     changesClipHost,
     changesPill,
     changesShell,
+    modernChangesClipHost,
+    modernChangesPill,
+    modernChangesShell,
     goalProgress,
     goalStep,
     goalMode,
@@ -1476,6 +1517,13 @@ assert.equal(component(fixture.radixSourcesAction), "environment-action");
 assert.equal(component(fixture.changesShell), "changes-shell");
 assert.equal(component(fixture.changesClipHost), "changes-clip-host");
 assert.equal(component(fixture.changesPill), "changes-pill");
+assert.equal(component(fixture.modernChangesShell), "changes-shell");
+assert.equal(component(fixture.modernChangesClipHost), "changes-clip-host");
+assert.equal(
+  component(fixture.modernChangesPill),
+  "changes-pill",
+  "Codex 26.820 change summaries must retain the existing changes component skin.",
+);
 assert.equal(
   component(fixture.workspace),
   "side-workspace",
@@ -1635,8 +1683,26 @@ dynamicSystemToast.flushFrames();
 assert.equal(component(dynamicSystemToast.systemToast), "system-toast");
 assert.equal(dynamicSystemToastMetrics.classifyRuns, 2);
 
+const dynamicModernChanges = activateOverlayFixture();
+dynamicModernChanges.bodyMutation({
+  type: "childList",
+  target: dynamicModernChanges.context.document.body,
+  addedNodes: [dynamicModernChanges.modernChangesPill],
+  removedNodes: [],
+});
+assert.equal(
+  dynamicModernChanges.frames.size,
+  1,
+  "A Codex 26.820 change summary mount must schedule classification without a click fallback.",
+);
+dynamicModernChanges.flushFrames();
+
 const detachedEnvironmentEvidence = activateOverlayFixture();
-assert.equal(component(detachedEnvironmentEvidence.structuralEnvironment), "environment");
+assert.equal(
+  component(detachedEnvironmentEvidence.structuralEnvironment),
+  "environment",
+  "Codex 26.818 elevated Environment surfaces must retain the existing semantic classifier.",
+);
 assert.equal(component(detachedEnvironmentEvidence.structuralGitHost), null);
 assert.equal(component(detachedEnvironmentEvidence.structuralGitSignal), null);
 detachedEnvironmentEvidence.removeStructuralEnvironmentGitEvidence();

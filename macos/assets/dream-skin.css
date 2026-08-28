@@ -1360,6 +1360,17 @@ html[data-dream-skin="active"][data-dream-art-wide="true"] main:is(.main-surface
   background: transparent !important;
 }
 
+/* Codex 26.818 places two opaque fades around the sticky thread composer.
+   Match their complete utility signatures inside non-Home main surfaces so
+   unrelated application gradients keep their native paint. */
+html[data-dream-skin="active"] main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]):not(:has([role="main"]))
+  [class~="pointer-events-none"][class~="bottom-0"][class~="h-full"][class~="bg-gradient-to-t"][class~="from-surface"][class~="via-surface"],
+html[data-dream-skin="active"] main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]):not(:has([role="main"]))
+  [class~="pointer-events-none"][class~="-bottom-1"][class~="h-7"][class~="bg-gradient-to-t"][class~="from-surface"][class~="to-transparent"] {
+  background: transparent !important;
+  background-image: none !important;
+}
+
 /* Codex paints a second opaque fade behind the sticky composer. The composer
    already owns its readable surface, so retaining this layer creates a false
    bottom panel and makes the control look duplicated. */

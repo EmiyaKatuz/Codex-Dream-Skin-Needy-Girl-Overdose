@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### 修复
+
+- 兼容 Codex 26.818 任务页输入区的两层 `from-surface` 渐隐，避免已换肤的输入框后方仍显示原生黑色底板。
+- 兼容 Codex 26.820 的 `bg-surface-elevated-secondary` 环境面板和 `text-codex-git-added/deleted` 文件变更摘要；新旧 DOM 都继续使用原有 Internet Angel 组件样式，延迟挂载时也会重新分类。
+
 ## 1.5.15 — 2026-08-19
 
 ### 更新

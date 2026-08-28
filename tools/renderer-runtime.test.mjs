@@ -507,6 +507,16 @@ export async function runRendererRuntimeTest(assetRoot) {
   );
   assert.match(
     css,
+    /\[class~="h-full"\]\[class~="bg-gradient-to-t"\]\[class~="from-surface"\]\[class~="via-surface"\]/,
+    "The current 148px sticky composer fade must be removed by its full utility signature.",
+  );
+  assert.match(
+    css,
+    /\[class~="h-7"\]\[class~="bg-gradient-to-t"\]\[class~="from-surface"\]\[class~="to-transparent"\]/,
+    "The current 28px composer-top fade must be removed by its full utility signature.",
+  );
+  assert.match(
+    css,
     /:not\(:has\(main:is\(\.main-surface, \[data-app-shell-main-surface\], \[class\*=\"_MainContentSurface_\"\]\)\)\)[\s\S]{0,120}\[data-ds-part="sidebar"\]/,
     "Core CSS must style the validated generic sidebar when the exact shell selector is absent.",
   );

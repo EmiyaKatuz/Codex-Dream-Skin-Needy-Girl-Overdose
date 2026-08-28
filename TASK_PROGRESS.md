@@ -1,6 +1,75 @@
 # Task Progress
 
-Updated: 2026-08-13 CST (Asia/Shanghai)
+Updated: 2026-08-27 CST (Asia/Shanghai)
+
+## Codex 26.818 missing surfaces
+
+- [PR opened] Branch `codex/fix-26-818-missing-surfaces` was pushed to the
+  `Maker-Wen` fork after the authenticated account was denied direct write
+  access to `EmiyaKatuz`. Cross-fork PR #27 targets `EmiyaKatuz/main`:
+  `https://github.com/EmiyaKatuz/Codex-Dream-Skin-Needy-Girl-Overdose/pull/27`.
+  The PR is open, not merged, and no tag or Release has been created.
+- [PR readiness] Added `Unreleased` entries to both platform changelogs. The
+  user explicitly chose not to attach a screenshot. PR Notes must state that
+  macOS live verification passed, while Windows PowerShell and real Windows
+  visual validation remain CI or physical-host gates.
+- [implemented] Commit `b4a0bdb` extends the existing file-change summary
+  classifier and mutation hints for Codex 26.820
+  `text-codex-git-added/deleted` descendants while preserving the old
+  `git-decoration-added/deleted` contract and current `changes-*` CSS.
+- [TDD verified] The 26.820 fixture first failed with a missing
+  `changes-shell`, then passed after the shared selector change. The fixture
+  also proves dynamically mounted summaries schedule the existing body
+  observer, while the legacy fixture keeps all three `changes-*` markers.
+- [regression verified] The final complete macOS suite exited 0 with Swift
+  build, XCTest `12/12`, verifier `7/7`, Safe CSS `12/12`, renderer,
+  ZIP/import and transaction checks passing. Windows renderer, three-platform
+  Internet Angel sync, JavaScript syntax and `git diff --check` also pass.
+- [live gap] Revision `34aa0c08580dbf7937de` passed exact live verification,
+  but the visible file-change summary unmounted when the user switched tasks
+  before its final computed style could be sampled. Do not claim a final live
+  screenshot of this component until it appears again.
+
+- [implemented] The two Codex 26.818 opaque `from-surface` composer fades are
+  cleared only inside non-Home main surfaces. The shared macOS source and the
+  fork's independent Windows base CSS carry the same bounded rule at commit
+  `db6a5fc`.
+- [implemented] Live DOM inspection showed the visible Environment panel now
+  uses `bg-surface-elevated-secondary` instead of
+  `bg-token-dropdown-background`. The shared classifier and macOS verifier
+  accept both exact surface classes while retaining the existing host,
+  geometry, button and semantic gates at commit `9e09990`.
+- [scope] Reuse the existing delayed component reconciliation and backport
+  only the two exact Codex 26.818 composer-fade selectors from upstream
+  `v1.5.16`; do not merge unrelated upstream removals or release changes.
+- [workspace] Worktree
+  `/private/tmp/Codex-Dream-Skin-Needy-Girl-Overdose-fix-26-818` on branch
+  `codex/fix-26-818-missing-surfaces`, based on clean `main` at `1190e27`.
+- [TDD] macOS and Windows renderer tests first failed on the missing 148 px
+  and 28 px fade signatures, then passed after the CSS change. The macOS
+  classifier and verifier tests likewise failed on the elevated Environment
+  surface, then passed after the selector union.
+- [verified] The final complete `./macos/tests/run-tests.sh` exited 0 with the
+  Swift product build, XCTest `12/12`, verifier `7/7`, Safe CSS `12/12`,
+  renderer, theme ZIP/import, installer and transaction checks passing.
+  `windows/tests/renderer-inject.test.mjs`, the three-platform Internet Angel
+  test, runtime sync, JavaScript syntax and `git diff --check` also pass.
+- [live verified] A trusted loopback CDP injection and screenshot verified
+  revision `7efded8e1d4a78310a00`: the open 300 x 331 Environment panel is
+  marked `environment` with the Angel gradient, accent strip and 2 px border;
+  the composer remains themed and the black bottom fades are gone. The exact
+  verifier returns `pass=true`, no horizontal overflow, and
+  `environmentOptionalWhenAbsent=false`.
+- [runtime state] The recorded watcher now runs this worktree's `1.5.15`
+  injector on port 9341 without restarting Codex. The installed engine remains
+  `1.5.12` and its classifier hash differs, so a persistent atomic installation
+  remains pending until Codex is closed; do not describe the current hot
+  runtime as an installed upgrade.
+- [remaining gates] Real Windows visual validation and the PowerShell suite
+  remain for CI or a Windows host. No push, PR, merge, version bump, tag or
+  Release was performed.
+- [design] See
+  `docs/superpowers/specs/2026-08-27-codex-26-818-missing-surfaces-design.md`.
 
 ## macOS and Windows style parity
 

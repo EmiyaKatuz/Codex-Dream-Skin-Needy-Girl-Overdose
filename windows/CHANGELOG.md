@@ -1,5 +1,12 @@
 # Windows Changelog
 
+## Unreleased
+
+### 修复
+
+- 兼容 Codex 26.818 任务页输入区的两层 `from-surface` 渐隐，避免 Internet Angel 输入框后方保留原生底板。
+- 同步 Codex 26.820 的 `bg-surface-elevated-secondary` 环境面板和 `text-codex-git-added/deleted` 文件变更摘要分类兼容，并保留旧版 DOM 选择器。
+
 ## 1.5.15 — 2026-08-19
 
 ### 更新

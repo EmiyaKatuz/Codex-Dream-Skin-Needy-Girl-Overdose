@@ -23,7 +23,7 @@ const selectors = {
   settings: selectorFor("appearance-radio"),
   themePreview: '[data-testid="theme-preview"]',
 };
-const environmentSelector = 'div[class*="bg-token-dropdown-background"][class~="rounded-3xl"]';
+const environmentSelector = 'div:is([class*="bg-token-dropdown-background"], [class~="bg-surface-elevated-secondary"])[class~="rounded-3xl"]';
 for (const [key, selector] of Object.entries(selectors)) {
   assert.equal(typeof selector, "string", `missing selector fixture: ${key}`);
 }
@@ -224,6 +224,7 @@ test("Light Internet Angel accepts its adaptive Environment surface", async () =
       themeId: "preset-internet-angel",
     }),
   });
+  assert.equal(result.environment.visible, true);
   assert.equal(result.angelCoverage.environment, true);
   assert.equal(result.pass, true);
 

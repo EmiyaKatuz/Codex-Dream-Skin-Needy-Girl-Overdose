@@ -90,6 +90,12 @@ assert.ok(css.includes(shellSelector) && css.includes(headerSelector)
   && css.includes("data-local-conversation-final-assistant")
   && css.includes("data-settings-panel-slug"),
 "The Windows overlay must cover every observed Codex 26.727 surface marker.");
+assert.match(css,
+  /\[class~="h-full"\]\[class~="bg-gradient-to-t"\]\[class~="from-surface"\]\[class~="via-surface"\]/,
+  "The current 148px sticky composer fade must be removed by its full utility signature.");
+assert.match(css,
+  /\[class~="h-7"\]\[class~="bg-gradient-to-t"\]\[class~="from-surface"\]\[class~="to-transparent"\]/,
+  "The current 28px composer-top fade must be removed by its full utility signature.");
 assert.match(css, /html\.codex-dream-skin\s*\{[^}]*scrollbar-color:[^}]*scrollbar-width:\s*thin/s,
   "Scrollbar colors must inherit from the skin root instead of matching every renderer node.");
 assert.doesNotMatch(css, /html\.codex-dream-skin \*\s*\{[^}]*scrollbar-color:/s,

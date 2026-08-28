@@ -1348,7 +1348,7 @@ export async function verifySession(session, expectedThemeId = null, expectedRev
           classes.includes('w-8') && classes.includes('rounded-full'));
     }) || null;
     const environmentNode = [...document.querySelectorAll(
-      'div[class*="bg-token-dropdown-background"][class~="rounded-3xl"]',
+      'div:is([class*="bg-token-dropdown-background"], [class~="bg-surface-elevated-secondary"])[class~="rounded-3xl"]',
     )].find((candidate) => {
       if (!candidate.querySelector('button[class~="group/section-toggle"]') ||
           candidate.querySelectorAll('button').length < 2) return false;
