@@ -14,6 +14,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $PortExplicit = $PSBoundParameters.ContainsKey('Port')
+$ProfilePathExplicit = $PSBoundParameters.ContainsKey('ProfilePath') -and [bool]$ProfilePath
 $Injector = Join-Path $PSScriptRoot 'injector.mjs'
 . (Join-Path $PSScriptRoot 'common-windows.ps1')
 . (Join-Path $PSScriptRoot 'theme-windows.ps1')
@@ -135,6 +136,14 @@ try {
   $language = Resolve-DreamSkinLanguage -StateRoot $StateRoot
   $themePaths = Get-DreamSkinThemePaths -StateRoot $StateRoot
   Ensure-DreamSkinManagedDirectory -Path $themePaths.Root -Root $themePaths.Root
+  if (-not $ProfilePathExplicit) {
+    # Chromium 136+ ignores remote-debugging switches for its default data
+    # directory. Keep Dream Skin on a separate persistent profile so current
+    # Codex builds can expose CDP without weakening or modifying the official
+    # profile. A caller-provided path remains an explicit advanced override.
+    $ProfilePath = [System.IO.Path]::GetFullPath((Join-Path $StateRoot 'cdp-profile'))
+    Ensure-DreamSkinManagedDirectory -Path $ProfilePath -Root $StateRoot
+  }
   $StatePath = Join-Path $StateRoot 'state.json'
   $StdoutPath = Join-Path $StateRoot 'injector.log'
   $StderrPath = Join-Path $StateRoot 'injector-error.log'
@@ -403,10 +412,10 @@ try {
         $Port = Resolve-DreamSkinStartPort -Port $Port -PortExplicit $PortExplicit
       }
       $arguments = @('--remote-debugging-address=127.0.0.1', "--remote-debugging-port=$Port")
-      if ($ProfilePath) {
+      if ($ProfilePathExplicit) {
         New-Item -ItemType Directory -Force -Path $ProfilePath | Out-Null
-        $arguments += "--user-data-dir=$ProfilePath"
       }
+      $arguments += "--user-data-dir=$ProfilePath"
       if ($AutoRestartStock) {
         try {
           Assert-DreamSkinAutoRestartControlClear -StateRoot $StateRoot

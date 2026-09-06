@@ -5,7 +5,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd -P)"
 INJECTOR="$SCRIPT_DIR/injector.mjs"
-SKIN_VERSION="1.5.15"
+SKIN_VERSION="1.5.19"
 INSTALL_ROOT="$HOME/.codex/codex-dream-skin-linux"
 STATE_ROOT="${XDG_STATE_HOME:-$HOME/.local/state}/CodexDreamSkin"
 THEME_DIR="$STATE_ROOT/theme"

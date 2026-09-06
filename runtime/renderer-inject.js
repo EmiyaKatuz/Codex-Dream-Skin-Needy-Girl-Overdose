@@ -10,12 +10,34 @@
   const HOME_HUD_ID = "chatgpt-internet-angel-hud";
   const SHELL_ATTR = "data-dream-shell";
   const PART_ATTR = "data-ds-part";
+  const COMPOSER_BORDER_BRIDGES = [
+    "border-color", "border-top-color", "border-right-color", "border-bottom-color",
+    "border-left-color", "border-width", "border-top-width", "border-right-width",
+    "border-bottom-width", "border-left-width", "border-style", "border-top-style",
+    "border-right-style", "border-bottom-style", "border-left-style",
+  ].map((property) => ({
+    property,
+    variable: `--ds-community-composer-${property}`,
+  })).filter(({ variable }) => cssText.includes(`${variable}:`));
   const ROOT_ATTRS = [
     "data-dream-skin", SHELL_ATTR, "data-dream-theme",
     "data-dream-art-wide", "data-dream-art-safe", "data-dream-task-mode",
     "data-dream-art-safe-area", "data-dream-art-task-mode", "data-dream-art-aspect",
     "data-dream-art-ready",
   ];
+  const initialRoute = new URLSearchParams(String(location.search || ""))
+    .get("initialRoute") || "";
+  const pathname = String(location.pathname || "");
+  const excludedPetSurface = location.protocol === "app:" && (
+    pathname.endsWith("/avatar-overlay-composition-surface.html") ||
+    initialRoute === "/avatar-overlay" || initialRoute.startsWith("/avatar-overlay/")
+  );
+  if (excludedPetSurface) {
+    const previous = window[STATE_KEY];
+    if (typeof previous?.cleanup === "function") previous.cleanup();
+    window[DISABLED_KEY] = true;
+    return;
+  }
   const VERSION = __DREAM_SKIN_VERSION_JSON__;
   const STYLE_REVISION = __DREAM_SKIN_STYLE_REVISION_JSON__;
   const PAYLOAD_REVISION = __DREAM_SKIN_PAYLOAD_REVISION_JSON__;
@@ -400,7 +422,7 @@
     const focusY = typeof ART.focusY === "number" ? ART.focusY : profile?.focusY ?? 0.5;
     const taskMode = ART.taskMode && ART.taskMode !== "auto"
       ? ART.taskMode : profile?.taskMode || "ambient";
-    const wide = profile?.wide || false;
+    const wide = profile?.wide || profile?.aspect === "wide" || profile?.aspect === "ultrawide";
     const aspect = profile?.aspect || "unknown";
     const focusXValue = `${(clamp(focusX, 0, 1) * 100).toFixed(2)}%`;
     const focusYValue = `${(clamp(focusY, 0, 1) * 100).toFixed(2)}%`;
@@ -639,6 +661,7 @@
   };
 
   const partNodes = new Set();
+  const composerBorderRestores = new Map();
   const queryAll = (selector) => {
     if (!selector) return [];
     try { return [...document.querySelectorAll(selector)]; } catch { return []; }
@@ -711,6 +734,13 @@
     }
     return [...owners];
   };
+  const fallbackComposerToolbarNodes = (composerNodes) => {
+    if (selectorNodes("composer-toolbar").length || !composerNodes.length) return [];
+    return genericNodes(
+      '[data-composer-footer-responsive], [class*="_ComposerLayoutFooter_"], [class*="_footer_"]',
+    ).filter((node) => composerNodes.some((composer) =>
+      composer !== node && composer.contains?.(node)));
+  };
   const addPart = (desired, part, nodes) => {
     for (const node of nodes) {
       if (node && typeof node.setAttribute === "function" && !desired.has(node)) {
@@ -718,6 +748,43 @@
       }
     }
   };
+  const restoreComposerBorders = (node) => {
+    const saved = composerBorderRestores.get(node);
+    if (!saved) return;
+    for (const [property, { value, priority }] of saved) {
+      if (value) node.style.setProperty(property, value, priority);
+      else node.style.removeProperty(property);
+      metrics.styleWrites += 1;
+    }
+    composerBorderRestores.delete(node);
+  };
+  const refreshComposerBorders = (composerNodes) => {
+    const desired = new Set(COMPOSER_BORDER_BRIDGES.length ? composerNodes : []);
+    for (const node of composerBorderRestores.keys()) {
+      if (!desired.has(node)) restoreComposerBorders(node);
+    }
+    for (const node of desired) {
+      if (!node?.style || composerBorderRestores.has(node)) continue;
+      const saved = new Map();
+      for (const { property, variable } of COMPOSER_BORDER_BRIDGES) {
+        saved.set(property, {
+          value: node.style.getPropertyValue(property),
+          priority: node.style.getPropertyPriority(property),
+        });
+        node.style.setProperty(property, `var(${variable})`, "important");
+        metrics.styleWrites += 1;
+      }
+      composerBorderRestores.set(node, saved);
+    }
+  };
+  const resolvedMessageNodes = () => selectorNodes("message").map((node) => {
+    if (!node?.hasAttribute?.("data-local-conversation-user-anchor")) return node;
+    // Current Codex user anchors span the conversation column. Prefer the
+    // adaptive native bubble, while retaining the older anchor as a fallback.
+    return node.querySelector?.(
+      '[class*="max-w-"][class*="rounded-2xl"][class*="text-start"]',
+    ) ?? node;
+  });
   const refreshParts = () => {
     metrics.partPasses += 1;
     const desired = new Map();
@@ -734,9 +801,12 @@
     addPart(desired, "main", [...selectorNodes("shell-main"), ...fallbackMainNodes()]);
     addPart(desired, "project-list", selectorNodes("project-selector"));
     addPart(desired, "thread", selectorNodes("thread-surface"));
-    addPart(desired, "message", selectorNodes("message"));
-    addPart(desired, "composer", [...selectorNodes("composer-chrome"), ...fallbackComposerNodes()]);
-    addPart(desired, "composer-toolbar", selectorNodes("composer-toolbar"));
+    addPart(desired, "message", resolvedMessageNodes());
+    const composerNodes = [...selectorNodes("composer-chrome"), ...fallbackComposerNodes()];
+    addPart(desired, "composer", composerNodes);
+    addPart(desired, "composer-toolbar", [
+      ...selectorNodes("composer-toolbar"), ...fallbackComposerToolbarNodes(composerNodes),
+    ]);
     addPart(desired, "dialog", selectorNodes("overlay-dialog"));
     const homeHero = selectorNodes("game-source")[0] ??
       selectorNodes("home-icon")[0]?.parentElement;
@@ -756,9 +826,11 @@
       }
       partNodes.add(node);
     }
+    refreshComposerBorders(composerNodes);
   };
 
   const removeParts = () => {
+    for (const node of [...composerBorderRestores.keys()]) restoreComposerBorders(node);
     for (const node of partNodes) node.removeAttribute?.(PART_ATTR);
     partNodes.clear();
     for (const node of queryAll(`[${PART_ATTR}]`)) node.removeAttribute?.(PART_ATTR);

@@ -13,7 +13,7 @@
   <img src="windows/assets/dream-reference.jpg" alt="超天酱 INTERNET ANGEL 主题背景" width="900">
 </p>
 
-> 当前版本：`1.5.15`。Windows、macOS 与 Linux 共用超天酱组件识别、覆盖层和动画运行时。
+> 当前版本：`1.5.19`。Windows、macOS 与 Linux 共用超天酱组件识别、覆盖层和动画运行时。
 
 本项目是基于 [Fei-Away/Codex-Dream-Skin](https://github.com/Fei-Away/Codex-Dream-Skin) 持续开发的独立 fork，主要维护超天酱视觉、跨平台一致性、启动兼容性与安全边界。
 

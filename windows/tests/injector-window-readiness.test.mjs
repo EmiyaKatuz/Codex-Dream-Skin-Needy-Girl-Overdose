@@ -24,7 +24,7 @@ const selectors = {
   shell: 'main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"])',
   sidebar: "aside.app-shell-left-panel",
   header: 'header:is(.app-header-tint, [data-app-shell-header-edge-scroll], [data-app-shell-application-menu-bar], [class*="_Header_"])',
-  composer: ':is(.composer-surface-chrome, [data-composer-surface-variant])',
+  composer: ':is(.composer-surface-chrome, [class*="_ComposerLayoutRoot_"], [data-composer-surface-variant][data-composer-radius-variant])',
   homeIcon: '[data-testid="home-icon"]',
   home: '[role="main"]:has([data-testid="home-icon"])',
   settings: '[data-settings-panel-slug="general-settings"]',
@@ -114,6 +114,9 @@ function makeDomFixture({
   hidden = false,
   viewportWidth = 1280,
   viewportHeight = 800,
+  scrollWidth = viewportWidth,
+  scrollHeight = viewportHeight,
+  forkClassNodes = [],
 } = {}) {
   let homeSignals = Array.isArray(homeSignal)
     ? homeSignal.filter(Boolean)
@@ -126,9 +129,9 @@ function makeDomFixture({
   }
   const styleNode = {};
   const documentElement = {
-    scrollWidth: viewportWidth,
+    scrollWidth,
     clientWidth: viewportWidth,
-    scrollHeight: viewportHeight,
+    scrollHeight,
     clientHeight: viewportHeight,
     getAttribute: (name) => name === "data-dream-skin" ? "active" : null,
   };
@@ -154,6 +157,7 @@ function makeDomFixture({
       return null;
     },
     querySelectorAll(selector) {
+      if (selector === "[class]") return forkClassNodes;
       if (selector === selectors.shell) return shell ? [shell] : [];
       if (selector === selectors.sidebar) return sidebar ? [sidebar] : [];
       if (selector === selectors.header) return header ? [header] : [];
@@ -264,6 +268,15 @@ test("collapsed-sidebar L1 renderer accepts the native header and composer pair"
   });
   assert.equal(missingComposer.result.pass, false);
   assert.equal(missingComposer.result.readiness.structurePass, false);
+});
+
+test("fork-owned dream classes do not invalidate renderer readiness", async () => {
+  const forkMarker = { classList: ["dream-home", "dream-presets-ready"] };
+  const verified = await verify({
+    dom: makeDomFixture({ forkClassNodes: [forkMarker] }),
+  });
+  assert.equal(verified.result.businessClassPollution, 1);
+  assert.equal(verified.result.pass, true);
 });
 
 test("visible settings and home anchors are the only L0 structure exceptions", async () => {
@@ -670,6 +683,27 @@ test("startup-only hidden-document allowance still requires exact native and ren
     assert.equal(inconsistent.result.pass, false);
     assert.equal(inconsistent.result.readiness.hiddenDocumentPass, false);
   }
+});
+
+test("horizontal document overflow cannot be reported as a verified skin", async () => {
+  const boundary = await verify({
+    dom: makeDomFixture({ scrollWidth: 1280 }),
+  });
+  assert.equal(boundary.result.documentOverflow.x, false);
+  assert.equal(boundary.result.pass, true, "Equal document and viewport widths are not overflow.");
+
+  const horizontal = await verify({
+    dom: makeDomFixture({ scrollWidth: 1281 }),
+  });
+  assert.equal(horizontal.result.documentOverflow.x, true);
+  assert.equal(horizontal.result.pass, false);
+
+  const verticalOnly = await verify({
+    dom: makeDomFixture({ scrollHeight: 1600 }),
+  });
+  assert.equal(verticalOnly.result.documentOverflow.y, true);
+  assert.equal(verticalOnly.result.documentOverflow.x, false);
+  assert.equal(verticalOnly.result.pass, true, "Vertical scrolling is expected for long conversations.");
 });
 
 test("zero-size and CSS-hidden shell anchors cannot satisfy L1", async () => {

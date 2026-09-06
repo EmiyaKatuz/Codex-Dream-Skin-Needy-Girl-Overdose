@@ -60,7 +60,6 @@
 html.codex-dream-skin body {
   background: var(--dream-canvas) !important;
   color: var(--dream-text) !important;
-  font-family: "Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI", system-ui, sans-serif !important;
 }
 
 /* Keep native dropdown/popover tokens in the active skin palette. The Codex
@@ -630,6 +629,8 @@ html.codex-dream-skin.dream-art-wide .composer-surface-chrome::before {
 /* Current Codex builds render the home project picker in a hashed utility bar.
    Merge it with the composer so the bottom control reads as one surface. */
 html.codex-dream-skin .dream-home-utility {
+  position: relative;
+  z-index: 3;
   border: 1px solid var(--dream-line) !important;
   border-bottom: 0 !important;
   border-radius: 18px 18px 0 0 !important;
@@ -638,7 +639,7 @@ html.codex-dream-skin .dream-home-utility {
 }
 
 html.codex-dream-skin .dream-home:has(.dream-home-utility) .composer-surface-chrome {
-  border-radius: 0 0 18px 18px !important;
+  border-radius: 18px !important;
   box-shadow: 0 10px 30px color-mix(in oklab, var(--dream-canvas) 20%, transparent),
     inset 1px 0 var(--dream-immersive-line),
     inset -1px 0 var(--dream-immersive-line),
@@ -6556,4 +6557,91 @@ html.codex-dream-skin.dream-art-wide:is(.dream-task-ambient, .dream-task-banner)
       color-mix(in oklab, var(--angel-cyan) 2%, transparent) 0 1px,
       transparent 1px 4px);
   backdrop-filter: blur(1px) saturate(.9);
+}
+
+/* Codex 26.818 compatibility for the independent Windows renderer. Keep the
+   Internet Angel surfaces while respecting native layout and scroll bounds. */
+html.codex-dream-skin [data-markdown-text-style] [data-markdown-table="true"] {
+  box-sizing: border-box;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  margin-inline: 0 !important;
+}
+
+html.codex-dream-skin [data-markdown-text-style]
+  [data-markdown-table="true"] > [class~="horizontal-scroll-fade-mask"] {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+}
+
+html.codex-dream-skin main [data-vscode-context][tabindex="0"]:focus-visible {
+  outline: none !important;
+}
+
+html.codex-dream-skin.dream-route-task main
+  [class~="pointer-events-none"][class~="bottom-0"][class~="h-full"][class~="bg-gradient-to-t"][class~="from-surface"][class~="via-surface"],
+html.codex-dream-skin.dream-route-task main
+  [class~="pointer-events-none"][class~="-bottom-1"][class~="h-7"][class~="bg-gradient-to-t"][class~="from-surface"][class~="to-transparent"] {
+  background: transparent !important;
+  background-image: none !important;
+}
+
+html.codex-dream-skin [data-codex-composer-root][data-composer-placement="home"]
+  [data-composer-home-utility-bar-position="above"] {
+  position: relative;
+  z-index: 3;
+  background: var(--dream-immersive-composer) !important;
+  border: 1px solid var(--dream-line) !important;
+  border-bottom: 0 !important;
+  border-radius: 18px 18px 0 0 !important;
+}
+
+html.codex-dream-skin .thread-scroll-container
+  [data-response-annotation-conversation][data-response-annotation-target] {
+  box-sizing: border-box;
+  margin-block: 4px 10px !important;
+  padding: 14px 16px !important;
+  border: 1px solid var(--dream-line-soft) !important;
+  border-radius: 18px !important;
+  background: color-mix(in oklab, var(--dream-surface) 72%, transparent) !important;
+  color: var(--dream-text) !important;
+}
+
+html.codex-dream-skin .thread-scroll-container [data-local-conversation-final-assistant]
+  [data-response-annotation-conversation][data-response-annotation-target] {
+  margin: 0 !important;
+  border-color: transparent !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+}
+
+html.codex-dream-skin .thread-scroll-container [data-local-conversation-item-target-ids] {
+  box-sizing: border-box;
+  padding: 10px 12px !important;
+  border: 1px solid var(--dream-line-soft) !important;
+  border-radius: 14px !important;
+  background: color-mix(in oklab, var(--dream-surface) 78%, transparent) !important;
+  color: var(--dream-text) !important;
+}
+
+html.codex-dream-skin .thread-scroll-container
+  [data-local-conversation-item-target-ids] :is(p, pre, code, samp, kbd, span) {
+  opacity: 1 !important;
+}
+
+html.codex-dream-skin [data-ds-part="composer"]
+  :is(button[class~="bg-primary-solid"], button[aria-label="发送"], button[aria-label="停止"], button[aria-label*="语音"], button[aria-label*="send" i], button[aria-label*="stop" i], button[aria-label*="voice" i]) {
+  background: var(--dream-accent) !important;
+  color: var(--dream-accent-ink) !important;
+}
+
+html.codex-dream-skin [data-ds-part="composer"]
+  :is(button[class~="bg-primary-solid"], button[aria-label="发送"], button[aria-label="停止"], button[aria-label*="语音"], button[aria-label*="send" i], button[aria-label*="stop" i], button[aria-label*="voice" i]) * {
+  color: currentColor !important;
+  opacity: 1 !important;
 }

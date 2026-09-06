@@ -1,8 +1,29 @@
 ((cssText, artDataUrl, rawConfig, sidebarScrollQuietEnabled) => {
   const STATE_KEY = "__CODEX_DREAM_SKIN_STATE__";
+  const rendererLocation = typeof location === "undefined" ? window.location : location;
+  const routeSearch = typeof URLSearchParams === "function"
+    ? new URLSearchParams(String(rendererLocation?.search || ""))
+    : null;
+  const initialRoute = routeSearch?.get("initialRoute") || "";
+  if (rendererLocation?.protocol === "app:" && (
+    String(rendererLocation.pathname || "").endsWith("/avatar-overlay-composition-surface.html") ||
+    initialRoute === "/avatar-overlay" || initialRoute.startsWith("/avatar-overlay/")
+  )) {
+    window[STATE_KEY]?.cleanup?.();
+    window.__CODEX_DREAM_SKIN_DISABLED__ = true;
+    return;
+  }
   const STYLE_ID = "codex-dream-skin-style";
   const DIFFS_THEME_STYLE_ID = "codex-dream-skin-diffs-theme";
   const PART_ATTR = "data-ds-part";
+  const composerBorderRestores = new Map();
+  const composerBorderBridges = [
+    "border-color", "border-top-color", "border-right-color", "border-bottom-color",
+    "border-left-color", "border-width", "border-top-width", "border-right-width",
+    "border-bottom-width", "border-left-width", "border-style", "border-top-style",
+    "border-right-style", "border-bottom-style", "border-left-style",
+  ].map((property) => ({ property, variable: `--ds-community-composer-${property}` }))
+    .filter(({ variable }) => cssText.includes(`${variable}:`));
   const FLOATING_SIDEBAR_SELECTOR = '[data-testid="app-shell-floating-left-panel"]';
   const INTERNET_ANGEL_THEME_IDS = new Set([
     "preset-internet-angel",
@@ -19,8 +40,8 @@
   const SIDEBAR_SCROLL_QUIET_CLASS = "dream-sidebar-scroll-quiet";
   const SETTINGS_CONTENT_SELECTOR = '[class~="scrollbar-stable"][class~="flex-1"][class~="overflow-y-auto"][class~="p-panel"]';
   const MESSAGE_SELECTOR = ':is([data-message-author-role], [data-local-conversation-user-anchor], [data-local-conversation-final-assistant])';
-  const COMPOSER_SELECTOR = ':is(.composer-surface-chrome, [data-composer-surface-variant])';
-  const COMPOSER_TOOLBAR_SELECTOR = ':is(.composer-surface-chrome [class*="_footer_"], [data-composer-surface-variant] [data-composer-footer-responsive])';
+  const COMPOSER_SELECTOR = ':is(.composer-surface-chrome, [class*="_ComposerLayoutRoot_"], [data-composer-surface-variant][data-composer-radius-variant])';
+  const COMPOSER_TOOLBAR_SELECTOR = ':is(.composer-surface-chrome [class*="_footer_"], [class*="_ComposerLayoutRoot_"] [class*="_ComposerLayoutFooter_"], [class*="_ComposerLayoutRoot_"] [data-composer-footer-responsive], [data-composer-surface-variant][data-composer-radius-variant] [data-composer-footer-responsive])';
   const CHROME_ID = "codex-dream-skin-chrome";
   const FALLBACK_PRESETS_ID = "codex-dream-skin-presets";
   const HOME_SUGGESTIONS_SELECTOR = [
@@ -557,6 +578,7 @@
   };
 
   const clearSkinDom = () => {
+    for (const node of [...composerBorderRestores.keys()]) restoreComposerBorders(node);
     const root = document.documentElement;
     if (resizeObserver) {
       for (const target of resizeTargets) {
@@ -1066,6 +1088,36 @@
     return [...owners];
   };
   const safeCssPartNodes = new Set();
+  const restoreComposerBorders = (node) => {
+    const saved = composerBorderRestores.get(node);
+    if (!saved) return;
+    for (const [property, { value, priority }] of saved) {
+      if (value) node.style.setProperty(property, value, priority);
+      else node.style.removeProperty(property);
+    }
+    composerBorderRestores.delete(node);
+  };
+  const refreshComposerBorders = (nodes) => {
+    const desired = new Set(composerBorderBridges.length ? nodes : []);
+    for (const node of composerBorderRestores.keys()) {
+      if (!desired.has(node)) restoreComposerBorders(node);
+    }
+    for (const node of desired) {
+      if (!node?.style || composerBorderRestores.has(node)) continue;
+      const saved = new Map();
+      for (const { property, variable } of composerBorderBridges) {
+        saved.set(property, {
+          value: node.style.getPropertyValue(property),
+          priority: node.style.getPropertyPriority(property),
+        });
+        node.style.setProperty(property, `var(${variable})`, "important");
+      }
+      composerBorderRestores.set(node, saved);
+    }
+  };
+  const resolvedMessageNode = (node) => node?.hasAttribute?.("data-local-conversation-user-anchor")
+    ? node.querySelector?.('[class*="max-w-"][class*="rounded-2xl"][class*="text-start"]') ?? node
+    : node;
   const pruneDisconnectedSafeCssParts = () => {
     let pruned = 0;
     for (const node of [...safeCssPartNodes]) {
@@ -1110,8 +1162,9 @@
     add("main", [...all(SHELL_MAIN_SELECTOR), ...(!all(SHELL_MAIN_SELECTOR).length ? [resolvedMain()].filter(Boolean) : [])]);
     add("project-list", all(".group\\/project-selector"));
     add("thread", all(".thread-scroll-container"));
-    add("message", all(MESSAGE_SELECTOR));
-    add("composer", [...all(COMPOSER_SELECTOR), ...fallbackComposer()]);
+    add("message", all(MESSAGE_SELECTOR).map(resolvedMessageNode));
+    const composerNodes = [...all(COMPOSER_SELECTOR), ...fallbackComposer()];
+    add("composer", composerNodes);
     add("composer-toolbar", all(COMPOSER_TOOLBAR_SELECTOR));
     add("dialog", all('[role="dialog"]'));
     const homeHero = [
@@ -1128,6 +1181,7 @@
       if (node.getAttribute?.(PART_ATTR) !== part) node.setAttribute(PART_ATTR, part);
       safeCssPartNodes.add(node);
     }
+    refreshComposerBorders(composerNodes);
   };
 
   const incrementalSafePartRules = [
@@ -1219,8 +1273,9 @@
       const match = incrementalSafePartRules.find(([, selector]) => node.matches?.(selector));
       if (!match) continue;
       const [part] = match;
-      if (node.getAttribute?.(PART_ATTR) !== part) node.setAttribute?.(PART_ATTR, part);
-      safeCssPartNodes.add(node);
+      const target = part === "message" ? resolvedMessageNode(node) : node;
+      if (target.getAttribute?.(PART_ATTR) !== part) target.setAttribute?.(PART_ATTR, part);
+      safeCssPartNodes.add(target);
     }
     return matches.size > 0;
   };

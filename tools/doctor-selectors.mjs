@@ -46,16 +46,33 @@ export function gradeDoctorResult(contract, pageResult) {
     baseState: pageResult.baseState,
     overlay: pageResult.overlay,
     appearance: pageResult.appearance,
+    provenance: contract.verifiedAgainst ?? null,
     tiers,
     pass,
     exitCode: pass ? 0 : 1,
   };
 }
 
+function formatProvenance(provenance) {
+  if (!provenance || typeof provenance !== "object") return "provenance unavailable";
+
+  const versions = Array.isArray(provenance.codexVersions) ? provenance.codexVersions : [];
+  const date = typeof provenance.date === "string" && provenance.date ? provenance.date : "unknown";
+  const gaps = Array.isArray(provenance.gaps) ? provenance.gaps.length : 0;
+  const references = versions.map((entry) => {
+    const platform = String(entry?.platform || "unknown").replace(/[\r\n]+/g, " ");
+    const version = String(entry?.version || "unknown").replace(/[\r\n]+/g, " ");
+    const evidence = String(entry?.evidence || "unknown").replace(/[\r\n]+/g, " ");
+    return `${platform}/${version} evidence=${evidence}`;
+  });
+  return `provenance date=${date} references=${references.join(" | ") || "none"} gaps=${gaps}`;
+}
+
 export function formatDoctorResult(result) {
   const lines = [
     `state=${result.state} appearance=${result.appearance}` +
       (result.overlay ? ` base=${result.baseState}` : ""),
+    formatProvenance(result.provenance),
   ];
   for (const tier of ["L1", "L2"]) {
     const entries = result.tiers[tier];
