@@ -353,6 +353,7 @@ jobs:
     needs: [guard, create-tag]
     if: needs.guard.outputs.should_release == 'true'
     runs-on: windows-latest
+    timeout-minutes: 20
     steps:
       - name: Check out source
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
@@ -379,22 +380,31 @@ jobs:
           if (-not $resolved) { throw 'Inno Setup 6 (ISCC.exe) is not available on the runner.' }
           "ISCC_PATH=$resolved" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
+      - name: Run Windows PowerShell 5.1 regressions
+        shell: pwsh
+        run: |
+          & powershell.exe -NoLogo -NoProfile -ExecutionPolicy RemoteSigned `
+            -File .\windows\tests\run-tests.ps1
+          if ($LASTEXITCODE -ne 0) { throw "Windows PowerShell 5.1 regressions failed with exit code $LASTEXITCODE." }
+          & powershell.exe -NoLogo -NoProfile -ExecutionPolicy RemoteSigned `
+            -File .\windows\tests\installer-static.tests.ps1
+          if ($LASTEXITCODE -ne 0) { throw "Windows PowerShell 5.1 installer checks failed with exit code $LASTEXITCODE." }
+
+      - name: Run PowerShell 7 regressions
+        shell: pwsh
+        run: |
+          & pwsh.exe -NoLogo -NoProfile -ExecutionPolicy RemoteSigned `
+            -File .\windows\tests\run-tests.ps1
+          if ($LASTEXITCODE -ne 0) { throw "PowerShell 7 regressions failed with exit code $LASTEXITCODE." }
+          & pwsh.exe -NoLogo -NoProfile -ExecutionPolicy RemoteSigned `
+            -File .\windows\tests\installer-static.tests.ps1
+          if ($LASTEXITCODE -ne 0) { throw "PowerShell 7 installer checks failed with exit code $LASTEXITCODE." }
+
       - name: Build Setup.exe with pinned Node runtime
         shell: pwsh
         env:
           VERSION: ${{ needs.guard.outputs.version }}
         run: |
-          # Users run the shipped scripts under whichever shell their machine
-          # has, so both hosts must pass before the artifact is built.  Only
-          # Windows PowerShell 5.1 was exercised here previously.
-          foreach ($shell in @('powershell.exe', 'pwsh.exe')) {
-            & $shell -NoLogo -NoProfile -ExecutionPolicy RemoteSigned `
-              -File .\windows\tests\run-tests.ps1
-            if ($LASTEXITCODE -ne 0) { throw "Windows regressions failed under $shell with exit code $LASTEXITCODE." }
-            & $shell -NoLogo -NoProfile -ExecutionPolicy RemoteSigned `
-              -File .\windows\tests\installer-static.tests.ps1
-            if ($LASTEXITCODE -ne 0) { throw "Installer static checks failed under $shell with exit code $LASTEXITCODE." }
-          }
           $output = Join-Path $env:RUNNER_TEMP 'codex-dream-skin-release'
           New-Item -ItemType Directory -Path $output -Force | Out-Null
           & powershell.exe -NoProfile -ExecutionPolicy RemoteSigned `
