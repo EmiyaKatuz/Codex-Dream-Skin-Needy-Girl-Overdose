@@ -854,7 +854,7 @@ html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) .gro
     border-color .18s cubic-bezier(.22, 1, .36, 1) !important;
 }
 
-html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) .group\/home-suggestions button [class~="text-token-text-primary"] {
+html[data-dream-skin="active"] [role="main"]:has([data-testid="home-icon"]) .group\/home-suggestions button :is([class~="text-token-text-primary"], [class~="text-default"]) {
   color: var(--ds-text) !important;
 }
 

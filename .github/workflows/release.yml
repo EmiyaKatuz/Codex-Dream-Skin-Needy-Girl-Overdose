@@ -466,6 +466,10 @@ jobs:
 
           This release was built automatically from ${RELEASE_SHA} after the version bump reached main.
           EOF
+          if [[ -f "docs/releases/v${VERSION}.md" ]]; then
+            printf '\n' >> release-notes.md
+            cat "docs/releases/v${VERSION}.md" >> release-notes.md
+          fi
 
       - name: Stage, verify, and publish release
         env:

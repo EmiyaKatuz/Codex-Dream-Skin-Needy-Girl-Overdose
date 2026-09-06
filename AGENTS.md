@@ -8,6 +8,7 @@
 - 中大型任务必须建立或更新根目录 `TASK_PROGRESS.md`。记录目标、范围、当前分支或 worktree、已完成项、进行中项、阻塞、测试结果、PR、合并及 Release 状态。
 - 在每个里程碑、任务切换、出现阻塞、准备交接以及上下文可能压缩前更新 `TASK_PROGRESS.md`。内容必须可让新 Agent 直接续做，不只写“处理中”。
 - `TASK_PROGRESS.md` 是本地连续性文件，不提交密钥、令牌、Webhook、个人路径中的隐私数据或未经确认的生产配置。
+- `TASK_PROGRESS.md`、`.local-evidence/` 等任务流水与本机证据只保留本地，禁止提交；`main` 文件树不得包含 `TASK_PROGRESS.md`。已跟踪的进度文件须取消跟踪并保留本地副本。
 
 ## 优先级
 
