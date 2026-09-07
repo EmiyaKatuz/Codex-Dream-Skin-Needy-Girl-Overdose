@@ -42,6 +42,19 @@ const findNestedHas = (css) => {
 for (const file of files) {
   test(`Home suggestion text supports old and current native classes in ${file}`, () => {
     const css = readFileSync(join(root, file), "utf8");
+    if (file.startsWith("windows/")) {
+      const home = '.dream-home .group\\/home-suggestions';
+      const labels = ':is([class~="text-token-text-primary"], [class~="text-default"])';
+      assert.ok(css.includes(`html.codex-dream-skin ${home} button ${labels} {\n  color: var(--dream-text) !important;\n}`),
+        "Windows must theme both observed Home suggestion text classes.");
+      const iconRule = css.slice(css.indexOf(`${home} button svg {`)).split("}")[0];
+      assert.match(iconRule, /color:\s*currentColor\s*!important;/,
+        "Windows suggestion icons must inherit their colored icon plate foreground.");
+      const plateRule = css.slice(css.indexOf(`${home} button > span:first-child > span:first-child {`)).split("}")[0];
+      assert.match(plateRule, /color:\s*var\(--dream-accent-ink\)\s*!important;/);
+      assert.match(plateRule, /background:\s*var\(--dream-accent\)\s*!important;/);
+      return;
+    }
     const home = file.startsWith("runtime/")
       ? "__DREAM_SELECTOR_HOME_ROUTE__ __DREAM_SELECTOR_HOME_SUGGESTIONS__"
       : '[role="main"]:has([data-testid="home-icon"]) .group\\/home-suggestions';
@@ -58,7 +71,9 @@ for (const file of files) {
 
   test(`base skin preserves native body fonts in ${file}`, () => {
     const css = readFileSync(join(root, file), "utf8");
-    const bodyRule = css.match(/html\[data-dream-skin="active"\] body\s*\{([^}]*)\}/);
+    const bodyRule = css.match(file.startsWith("windows/")
+      ? /html\.codex-dream-skin body\s*\{([^}]*)\}/
+      : /html\[data-dream-skin="active"\] body\s*\{([^}]*)\}/);
     assert.ok(bodyRule, "The base body rule must remain present.");
     assert.doesNotMatch(bodyRule[1], /\bfont(?:-family)?\s*:/i,
       "The base skin must not override native UI or inherited code fonts (#399).");

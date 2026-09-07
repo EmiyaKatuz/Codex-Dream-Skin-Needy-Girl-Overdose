@@ -465,6 +465,10 @@ html.codex-dream-skin.dream-safe-center .dream-home > div:first-child > div:firs
   background: var(--dream-accent-soft) !important;
 }
 
+html.codex-dream-skin .dream-home .group\/home-suggestions button :is([class~="text-token-text-primary"], [class~="text-default"]) {
+  color: var(--dream-text) !important;
+}
+
 .dream-home .group\/home-suggestions button > span:first-child > span:first-child {
   width: 38px;
   height: 38px;
