@@ -419,7 +419,7 @@ assert.match(
 );
 assert.match(
   baseCss,
-  /:is\(aside\.app-shell-left-panel, \[data-testid="app-shell-floating-left-panel"\]\) svg\s*\{[^}]*color:\s*rgb\(var\(--ds-muted-rgb\) \/ \.96\)\s*!important/,
+  /:is\(aside\.app-shell-left-panel, \[data-testid="app-shell-floating-left-panel"\]\) svg:not\(\[style\^="color:"\]\):not\(\[style\*=";color:"\]\):not\(\[style\*="; color:"\]\)\s*\{[^}]*color:\s*rgb\(var\(--ds-muted-rgb\) \/ \.96\)\s*!important/,
   "Floating sidebar icons must reuse the fixed sidebar's theme tint.",
 );
 assert.match(
@@ -429,7 +429,7 @@ assert.match(
 );
 assert.match(
   baseCss,
-  /:is\(aside\.app-shell-left-panel, \[data-testid="app-shell-floating-left-panel"\]\) :is\(button, a\):hover svg\s*\{[^}]*color:\s*var\(--ds-accent\)\s*!important/,
+  /:is\(aside\.app-shell-left-panel, \[data-testid="app-shell-floating-left-panel"\]\) :is\(button, a\):hover svg:not\(\[style\^="color:"\]\):not\(\[style\*=";color:"\]\):not\(\[style\*="; color:"\]\)\s*\{[^}]*color:\s*var\(--ds-accent\)\s*!important/,
   "Floating sidebar hover icons must reuse the fixed sidebar's theme tint.",
 );
 assert.match(
@@ -439,7 +439,7 @@ assert.match(
 );
 assert.match(
   baseCss,
-  /:is\(aside\.app-shell-left-panel, \[data-testid="app-shell-floating-left-panel"\]\) \[aria-current="page"\] svg\s*\{[^}]*color:\s*var\(--ds-accent\)\s*!important/,
+  /:is\(aside\.app-shell-left-panel, \[data-testid="app-shell-floating-left-panel"\]\) \[aria-current="page"\] svg:not\(\[style\^="color:"\]\):not\(\[style\*=";color:"\]\):not\(\[style\*="; color:"\]\)\s*\{[^}]*color:\s*var\(--ds-accent\)\s*!important/,
   "Floating current-page icons must reuse the fixed sidebar's base highlight.",
 );
 assert.match(

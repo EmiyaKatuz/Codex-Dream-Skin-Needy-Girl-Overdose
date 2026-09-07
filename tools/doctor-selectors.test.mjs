@@ -1,12 +1,20 @@
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
-import { gradeDoctorResult, selectorMatchesScope } from "./doctor-selectors.mjs";
+import { gradeDoctorResult, formatDoctorResult, selectorMatchesScope } from "./doctor-selectors.mjs";
 
 const contract = JSON.parse(await fs.readFile(new URL("./selectors.json", import.meta.url), "utf8"));
 const selectorFor = (key) => contract.selectors.find((entry) => entry.key === key)?.selector;
-assert.match(contract.verifiedAgainst.codexVersionWindows, /26\.814\.5167\.0/,
+const windowsBaseline = contract.verifiedAgainst.codexVersions.find(
+  (entry) => entry.platform === "windows" && entry.version === "26.814.5167.0",
+);
+assert.ok(windowsBaseline,
   "The selector contract must retain the latest live Windows verification baseline.");
-assert.match(contract.verifiedAgainst.verdict, /现有联合选择器完整命中/);
+assert.equal(windowsBaseline.version, "26.814.5167.0");
+assert.equal(windowsBaseline.platform, "windows");
+assert.match(windowsBaseline.evidence, /^maintainer:/,
+  "The Windows baseline must retain maintainer evidence strength.");
+assert.match(contract.verifiedAgainst.verdict, /上游 26\.818 扩展来自报告者证据/);
+assert.ok(contract.verifiedAgainst.gaps.length > 0);
 assert.equal(
   selectorFor("shell-main"),
   "main:is(.main-surface, [data-app-shell-main-surface], [class*=\"_MainContentSurface_\"])",
@@ -47,6 +55,14 @@ const home = resultFor("home", [
 ]);
 assert.equal(home.pass, true);
 assert.equal(home.exitCode, 0);
+assert.deepEqual(home.provenance, contract.verifiedAgainst);
+assert.match(
+  formatDoctorResult(home),
+  /provenance date=2026-08-27 references=.*windows\/26\.814\.5167\.0 evidence=maintainer:/,
+  "Doctor output must identify the verified builds and evidence strength.",
+);
+assert.match(formatDoctorResult(home), /windows\/26\.818 evidence=reporter:/);
+assert.doesNotMatch(formatDoctorResult(home), /newest=/);
 assert.equal(home.tiers.L1.length, 6);
 assert.equal(home.tiers.L2.find(({ key }) => key === "project-selector").status, "miss(config)");
 

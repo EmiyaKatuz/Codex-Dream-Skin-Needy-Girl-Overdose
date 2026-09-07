@@ -13,7 +13,7 @@
   <img src="windows/assets/dream-reference.jpg" alt="INTERNET ANGEL theme background" width="900">
 </p>
 
-> Current version: `1.5.15`. Windows, macOS, and Linux share the same INTERNET ANGEL component classifier, overlay, and animation runtime.
+> Current version: `1.5.19`. Windows, macOS, and Linux share the same INTERNET ANGEL component classifier, overlay, and animation runtime.
 
 This independent fork builds on [Fei-Away/Codex-Dream-Skin](https://github.com/Fei-Away/Codex-Dream-Skin). Its focus is the INTERNET ANGEL visual system, cross-platform parity, launcher compatibility, and clear security boundaries.
 

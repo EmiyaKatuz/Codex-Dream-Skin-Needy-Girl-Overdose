@@ -34,4 +34,7 @@ assert.match(
   "A manual retry must resume an incomplete release from its immutable existing tag commit.",
 );
 
+assert.match(workflow, /cat "docs\/releases\/v\$\{VERSION\}\.md" >> release-notes\.md/,
+  "Version-specific changes and contributor credits must reach the public release notes.");
+
 console.log("PASS: Release workflow binds assets and tag to the exact event commit.");
