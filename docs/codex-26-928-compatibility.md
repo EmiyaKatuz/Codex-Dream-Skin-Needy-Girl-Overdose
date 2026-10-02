@@ -52,6 +52,6 @@ JavaScript/shell 语法与差异检查通过。
 修复前后的容器布局、输入交互、多尺寸首页、背景作用域，以及真实扩展脚本的
 延迟分类和清理。它不是官方 Codex App 的实机验证；当前云端未安装该客户端，
 也未验证 Windows 原生材质或 macOS 原生窗口。平台原生 PowerShell/Swift 检查由
-对应 CI job 执行，本轮未运行这些 job。
+对应 CI job 执行，结果见 [修复 PR #30](https://github.com/EmiyaKatuz/Codex-Dream-Skin-Needy-Girl-Overdose/pull/30) 与版本准备 PR 的检查记录。
 
-本次为源码适配，版本保持 `1.5.19`；未发布新的安装包。
+本修复纳入 `1.5.20`；安装包及发布状态以 [v1.5.20 Release](https://github.com/EmiyaKatuz/Codex-Dream-Skin-Needy-Girl-Overdose/releases/tag/v1.5.20) 为准。
