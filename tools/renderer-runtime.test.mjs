@@ -562,7 +562,7 @@ export async function runRendererRuntimeTest(assetRoot) {
   assert.ok(css.includes(`${shellSelector}:has([role="main"])`));
   assert.ok(css.includes(`${shellSelector}:not(:has([role="main"]))`));
   assert.ok(css.includes(headerSelector));
-  assert.match(css, /:is\(\.app-shell-main-content-top-fade, \[data-app-shell-main-content-top-fade\], \[class\*=\"_MainContentTopFade_\"\]\)/);
+  assert.match(css, /:is\(\.app-shell-main-content-top-fade, \[class\*=\"_MainContentTopFade_\"\]\)/);
   assert.doesNotMatch(css, /:has\([^()]*:has\(/);
   assert.doesNotMatch(
     css,

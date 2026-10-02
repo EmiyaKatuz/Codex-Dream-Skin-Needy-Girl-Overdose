@@ -85,11 +85,11 @@ assert.ok(css.includes('html.codex-dream-skin [data-ds-part="composer"]')
   && extensionCss.includes("[data-angel-component]"),
   "Windows CSS must style generic/side-chat composers, right sidebar, and keep the wallpaper visible.");
 assert.ok(css.includes(shellSelector) && css.includes(headerSelector)
-  && css.includes("data-app-shell-main-content-top-fade")
+  && css.includes('[class*="_MainContentTopFade_"]')
   && css.includes("data-local-conversation-user-anchor")
   && css.includes("data-local-conversation-final-assistant")
   && css.includes("data-settings-panel-slug"),
-"The Windows overlay must cover every observed Codex 26.727 surface marker.");
+"The Windows overlay must cover shell and message markers without treating the current top-fade host as decoration.");
 assert.match(css,
   /\[class~="h-full"\]\[class~="bg-gradient-to-t"\]\[class~="from-surface"\]\[class~="via-surface"\]/,
   "The current 148px sticky composer fade must be removed by its full utility signature.");

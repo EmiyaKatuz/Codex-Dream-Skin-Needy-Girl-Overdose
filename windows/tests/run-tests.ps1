@@ -1518,7 +1518,6 @@ args = [
     'main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]) > header:is(.app-header-tint, [data-app-shell-header-edge-scroll], [data-app-shell-application-menu-bar], [class*="_Header_"])',
     '[class~="group/application-menu-top-bar"]',
     '.app-shell-main-content-top-fade',
-    'data-app-shell-main-content-top-fade',
     '_MainContentTopFade_',
     '.thread-scroll-container .bg-gradient-to-t.from-token-main-surface-primary',
     '--dream-immersive-composer',
@@ -1949,6 +1948,11 @@ args = [
   $homeResponsiveTest = Invoke-DreamSkinNative -FilePath $node.Path -ArgumentList @(
     (Join-Path $PSScriptRoot 'home-responsive-css.test.mjs'))
   if ($homeResponsiveTest.ExitCode -ne 0) { throw 'Fullscreen Home responsive-layout regression test failed.' }
+  # The former top-fade data attribute now marks the whole content host.
+  # Verify paint-only decoration and content visibility instead of requiring it.
+  $currentSurfacesTest = Invoke-DreamSkinNative -FilePath $node.Path -ArgumentList @(
+    (Join-Path $projectRoot 'tools\current-codex-surfaces.test.mjs'))
+  if ($currentSurfacesTest.ExitCode -ne 0) { throw 'Current Codex content-surface regression test failed.' }
   $bootstrapTest = Invoke-DreamSkinNative -FilePath $node.Path -ArgumentList @(
     (Join-Path $PSScriptRoot 'injector-bootstrap.test.mjs'))
   if ($bootstrapTest.ExitCode -ne 0) {

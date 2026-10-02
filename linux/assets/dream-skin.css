@@ -215,19 +215,19 @@ html.codex-dream-skin .dream-home {
   background: var(--dream-surface) !important;
 }
 
-.dream-home > div:first-child {
+.dream-home > div:first-child:not([class~="group/home-composer-layout"]) {
   min-height: 100% !important;
   padding-top: 24px !important;
 }
 
-.dream-home > div:first-child > div:first-child {
+.dream-home > div:first-child:not([class~="group/home-composer-layout"]) > div:first-child {
   flex: 0 0 clamp(390px, 42cqw, 510px) !important;
   min-height: 390px !important;
   align-items: flex-start !important;
   padding-bottom: 0 !important;
 }
 
-.dream-home > div:first-child > div:first-child > div:first-child {
+.dream-home > div:first-child:not([class~="group/home-composer-layout"]) > div:first-child > div:first-child {
   position: relative !important;
   isolation: isolate;
   width: calc(100% - 56px) !important;
@@ -246,11 +246,11 @@ html.codex-dream-skin .dream-home {
   box-shadow: var(--dream-shadow) !important;
 }
 
-html.codex-dream-skin.dream-art-wide .dream-home > div:first-child > div:first-child > div:first-child {
+html.codex-dream-skin.dream-art-wide .dream-home > div:first-child:not([class~="group/home-composer-layout"]) > div:first-child > div:first-child {
   background-size: cover !important;
 }
 
-.dream-home > div:first-child > div:first-child > div:first-child::before {
+.dream-home > div:first-child:not([class~="group/home-composer-layout"]) > div:first-child > div:first-child::before {
   content: "";
   position: absolute;
   z-index: 0;
@@ -259,19 +259,19 @@ html.codex-dream-skin.dream-art-wide .dream-home > div:first-child > div:first-c
   background: linear-gradient(90deg, var(--dream-hero-shade) 0 32%, transparent 70%);
 }
 
-html.codex-dream-skin.dream-safe-right .dream-home > div:first-child > div:first-child > div:first-child::before {
+html.codex-dream-skin.dream-safe-right .dream-home > div:first-child:not([class~="group/home-composer-layout"]) > div:first-child > div:first-child::before {
   background: linear-gradient(270deg, var(--dream-hero-shade) 0 32%, transparent 70%);
 }
 
-html.codex-dream-skin.dream-safe-center .dream-home > div:first-child > div:first-child > div:first-child::before {
+html.codex-dream-skin.dream-safe-center .dream-home > div:first-child:not([class~="group/home-composer-layout"]) > div:first-child > div:first-child::before {
   background: radial-gradient(ellipse at center, var(--dream-hero-shade) 0 23%, transparent 72%);
 }
 
-html.codex-dream-skin.dream-safe-none .dream-home > div:first-child > div:first-child > div:first-child::before {
+html.codex-dream-skin.dream-safe-none .dream-home > div:first-child:not([class~="group/home-composer-layout"]) > div:first-child > div:first-child::before {
   background: transparent;
 }
 
-.dream-home > div:first-child > div:first-child > div:first-child > div:first-child {
+.dream-home > div:first-child:not([class~="group/home-composer-layout"]) > div:first-child > div:first-child > div:first-child {
   position: relative;
   z-index: 1;
   box-sizing: border-box;
@@ -281,26 +281,26 @@ html.codex-dream-skin.dream-safe-none .dream-home > div:first-child > div:first-
   padding: 30px 40px;
 }
 
-.dream-home > div:first-child > div:first-child > div:first-child > div:first-child > div:first-child {
+.dream-home > div:first-child:not([class~="group/home-composer-layout"]) > div:first-child > div:first-child > div:first-child > div:first-child {
   width: min(48%, 520px) !important;
   align-items: flex-start !important;
   gap: 0 !important;
 }
 
-html.codex-dream-skin.dream-safe-right .dream-home > div:first-child > div:first-child > div:first-child > div:first-child {
+html.codex-dream-skin.dream-safe-right .dream-home > div:first-child:not([class~="group/home-composer-layout"]) > div:first-child > div:first-child > div:first-child {
   justify-content: flex-end !important;
 }
 
-html.codex-dream-skin.dream-safe-right .dream-home > div:first-child > div:first-child > div:first-child > div:first-child > div:first-child {
+html.codex-dream-skin.dream-safe-right .dream-home > div:first-child:not([class~="group/home-composer-layout"]) > div:first-child > div:first-child > div:first-child > div:first-child {
   align-items: flex-end !important;
   text-align: right !important;
 }
 
-html.codex-dream-skin.dream-safe-center .dream-home > div:first-child > div:first-child > div:first-child > div:first-child {
+html.codex-dream-skin.dream-safe-center .dream-home > div:first-child:not([class~="group/home-composer-layout"]) > div:first-child > div:first-child > div:first-child {
   justify-content: center !important;
 }
 
-html.codex-dream-skin.dream-safe-center .dream-home > div:first-child > div:first-child > div:first-child > div:first-child > div:first-child {
+html.codex-dream-skin.dream-safe-center .dream-home > div:first-child:not([class~="group/home-composer-layout"]) > div:first-child > div:first-child > div:first-child > div:first-child {
   align-items: center !important;
   text-align: center !important;
 }
@@ -325,7 +325,7 @@ html.codex-dream-skin.dream-safe-center .dream-home > div:first-child > div:firs
   pointer-events: auto !important;
 }
 
-.dream-home [data-feature="game-source"] button {
+.dream-home:not(:has(> [class~="group/home-composer-layout"])) [data-feature="game-source"] button {
   margin: 0 4px;
   padding: 2px 7px;
   border: 1px solid var(--dream-line);
@@ -335,7 +335,7 @@ html.codex-dream-skin.dream-safe-center .dream-home > div:first-child > div:firs
   text-underline-offset: 4px;
 }
 
-.dream-home > div:first-child > div:first-child > div:first-child > div:nth-child(2) {
+.dream-home > div:first-child:not([class~="group/home-composer-layout"]) > div:first-child > div:first-child > div:nth-child(2) {
   left: 0 !important;
   right: 0 !important;
   top: 100% !important;
@@ -489,7 +489,7 @@ html.codex-dream-skin.dream-art-wide main.main-surface [role="main"] {
 }
 
 html.codex-dream-skin.dream-art-wide main.main-surface.dream-home-shell
-  .dream-home > div:first-child > div:first-child > div:first-child {
+  .dream-home > div:first-child:not([class~="group/home-composer-layout"]) > div:first-child > div:first-child {
   border: 0 !important;
   border-radius: 0 !important;
   background: transparent !important;
@@ -497,7 +497,7 @@ html.codex-dream-skin.dream-art-wide main.main-surface.dream-home-shell
 }
 
 html.codex-dream-skin.dream-art-wide main.main-surface.dream-home-shell
-  .dream-home > div:first-child > div:first-child > div:first-child::before {
+  .dream-home > div:first-child:not([class~="group/home-composer-layout"]) > div:first-child > div:first-child::before {
   content: none !important;
 }
 
@@ -570,9 +570,9 @@ html.codex-dream-skin.dream-art-wide main.main-surface .app-shell-main-content-f
   border-top: 0 !important;
 }
 
-html.codex-dream-skin.dream-art-wide main.main-surface .app-shell-main-content-top-fade {
-  display: none !important;
+html.codex-dream-skin.dream-art-wide main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]) :is(.app-shell-main-content-top-fade, [class*="_MainContentTopFade_"]) {
   background: transparent !important;
+  background-image: none !important;
 }
 
 html.codex-dream-skin.dream-art-wide main.main-surface
@@ -585,32 +585,32 @@ html.codex-dream-skin.dream-art-wide main.main-surface
     --thread-content-max-width: min(940px, calc(100cqw - 36px)) !important;
   }
 
-  .dream-home > div:first-child > div:first-child > div:first-child {
+  .dream-home > div:first-child:not([class~="group/home-composer-layout"]) > div:first-child > div:first-child {
     width: calc(100% - 36px) !important;
   }
 }
 
 @media (max-width: 900px) {
-  .dream-home > div:first-child {
+  .dream-home > div:first-child:not([class~="group/home-composer-layout"]) {
     padding-top: 16px !important;
   }
 
-  .dream-home > div:first-child > div:first-child {
+  .dream-home > div:first-child:not([class~="group/home-composer-layout"]) > div:first-child {
     flex-basis: 370px !important;
     min-height: 370px !important;
   }
 
-  .dream-home > div:first-child > div:first-child > div:first-child {
+  .dream-home > div:first-child:not([class~="group/home-composer-layout"]) > div:first-child > div:first-child {
     height: 220px !important;
     min-height: 220px !important;
     border-radius: 16px !important;
   }
 
-  .dream-home > div:first-child > div:first-child > div:first-child > div:first-child {
+  .dream-home > div:first-child:not([class~="group/home-composer-layout"]) > div:first-child > div:first-child > div:first-child {
     padding: 24px;
   }
 
-  .dream-home > div:first-child > div:first-child > div:first-child > div:first-child > div:first-child {
+  .dream-home > div:first-child:not([class~="group/home-composer-layout"]) > div:first-child > div:first-child > div:first-child > div:first-child {
     width: 62% !important;
   }
 
@@ -626,21 +626,21 @@ html.codex-dream-skin.dream-art-wide main.main-surface
 }
 
 @media (max-width: 680px) {
-  .dream-home > div:first-child > div:first-child > div:first-child::before,
-  html.codex-dream-skin.dream-safe-right .dream-home > div:first-child > div:first-child > div:first-child::before,
-  html.codex-dream-skin.dream-safe-center .dream-home > div:first-child > div:first-child > div:first-child::before {
+  .dream-home > div:first-child:not([class~="group/home-composer-layout"]) > div:first-child > div:first-child::before,
+  html.codex-dream-skin.dream-safe-right .dream-home > div:first-child:not([class~="group/home-composer-layout"]) > div:first-child > div:first-child::before,
+  html.codex-dream-skin.dream-safe-center .dream-home > div:first-child:not([class~="group/home-composer-layout"]) > div:first-child > div:first-child::before {
     background: color-mix(in oklab, var(--dream-surface) 78%, transparent);
   }
 
-  .dream-home > div:first-child > div:first-child > div:first-child > div:first-child,
-  html.codex-dream-skin.dream-safe-right .dream-home > div:first-child > div:first-child > div:first-child > div:first-child,
-  html.codex-dream-skin.dream-safe-center .dream-home > div:first-child > div:first-child > div:first-child > div:first-child {
+  .dream-home > div:first-child:not([class~="group/home-composer-layout"]) > div:first-child > div:first-child > div:first-child,
+  html.codex-dream-skin.dream-safe-right .dream-home > div:first-child:not([class~="group/home-composer-layout"]) > div:first-child > div:first-child > div:first-child,
+  html.codex-dream-skin.dream-safe-center .dream-home > div:first-child:not([class~="group/home-composer-layout"]) > div:first-child > div:first-child > div:first-child {
     justify-content: center !important;
   }
 
-  .dream-home > div:first-child > div:first-child > div:first-child > div:first-child > div:first-child,
-  html.codex-dream-skin.dream-safe-right .dream-home > div:first-child > div:first-child > div:first-child > div:first-child > div:first-child,
-  html.codex-dream-skin.dream-safe-center .dream-home > div:first-child > div:first-child > div:first-child > div:first-child > div:first-child {
+  .dream-home > div:first-child:not([class~="group/home-composer-layout"]) > div:first-child > div:first-child > div:first-child > div:first-child,
+  html.codex-dream-skin.dream-safe-right .dream-home > div:first-child:not([class~="group/home-composer-layout"]) > div:first-child > div:first-child > div:first-child > div:first-child,
+  html.codex-dream-skin.dream-safe-center .dream-home > div:first-child:not([class~="group/home-composer-layout"]) > div:first-child > div:first-child > div:first-child > div:first-child {
     width: min(88%, 440px) !important;
     align-items: center !important;
     text-align: center !important;
@@ -1939,7 +1939,7 @@ html.codex-dream-skin :is(aside.app-shell-left-panel, [data-testid="app-shell-fl
    box is unnecessary. Releasing it reveals Codex's native suggestion grid,
    which is intentionally positioned just below that box. */
 html.codex-dream-skin.dream-art-wide main.main-surface.dream-home-shell
-  .dream-home > div:first-child > div:first-child > div:first-child {
+  .dream-home > div:first-child:not([class~="group/home-composer-layout"]) > div:first-child > div:first-child {
   overflow: visible !important;
 }
 
@@ -2391,7 +2391,7 @@ html.codex-dream-skin main.main-surface.dream-home-shell > header.app-header-tin
 }
 
 /* Home hero: one real wallpaper surface framed like a retro broadcast panel. */
-.dream-home > div:first-child > div:first-child > div:first-child {
+.dream-home > div:first-child:not([class~="group/home-composer-layout"]) > div:first-child > div:first-child {
   border: 2px solid var(--angel-blue) !important;
   border-radius: 7px !important;
   box-shadow:
@@ -2400,7 +2400,7 @@ html.codex-dream-skin main.main-surface.dream-home-shell > header.app-header-tin
     5px 5px 0 color-mix(in oklab, var(--angel-pink) 70%, var(--angel-ink)) !important;
 }
 
-.dream-home > div:first-child > div:first-child > div:first-child::after {
+.dream-home > div:first-child:not([class~="group/home-composer-layout"]) > div:first-child > div:first-child::after {
   content: "✦ INTERNET ANGEL // CODEX";
   position: absolute;
   z-index: 2;
@@ -2427,7 +2427,7 @@ html.codex-dream-skin main.main-surface.dream-home-shell > header.app-header-tin
 }
 
 /* The actual project selector stays clickable and becomes a cyan/pink capsule. */
-.dream-home [data-feature="game-source"] button {
+.dream-home:not(:has(> [class~="group/home-composer-layout"])) [data-feature="game-source"] button {
   margin-top: 8px !important;
   padding: 5px 10px !important;
   color: var(--angel-ink) !important;
@@ -2441,7 +2441,7 @@ html.codex-dream-skin main.main-surface.dream-home-shell > header.app-header-tin
   text-shadow: 0 1px color-mix(in oklab, #fff 64%, transparent);
 }
 
-.dream-home [data-feature="game-source"] button:hover {
+.dream-home:not(:has(> [class~="group/home-composer-layout"])) [data-feature="game-source"] button:hover {
   transform: translate(-1px, -1px);
   box-shadow: 4px 4px 0 color-mix(in oklab, var(--angel-ink) 88%, transparent) !important;
 }
@@ -4845,7 +4845,7 @@ html.codex-dream-skin ::-webkit-scrollbar-track {
 }
 
 @media (max-width: 680px) {
-  .dream-home > div:first-child > div:first-child > div:first-child::after {
+  .dream-home > div:first-child:not([class~="group/home-composer-layout"]) > div:first-child > div:first-child::after {
     content: "✦ ANGEL // CODEX";
     top: 8px;
     right: 8px;
@@ -4867,27 +4867,27 @@ html.codex-dream-skin ::-webkit-scrollbar-track {
     --thread-content-max-width: min(860px, calc(100cqw - 36px)) !important;
   }
 
-  html.codex-dream-skin .dream-home > div:first-child {
+  html.codex-dream-skin .dream-home > div:first-child:not([class~="group/home-composer-layout"]) {
     padding-top: 14px !important;
   }
 
-  html.codex-dream-skin .dream-home > div:first-child > div:first-child {
+  html.codex-dream-skin .dream-home > div:first-child:not([class~="group/home-composer-layout"]) > div:first-child {
     flex-basis: 390px !important;
     min-height: 360px !important;
   }
 
-  html.codex-dream-skin .dream-home > div:first-child > div:first-child > div:first-child {
+  html.codex-dream-skin .dream-home > div:first-child:not([class~="group/home-composer-layout"]) > div:first-child > div:first-child {
     width: calc(100% - 36px) !important;
     height: clamp(190px, 28cqw, 224px) !important;
     min-height: 190px !important;
     border-radius: 7px 18px 7px 18px !important;
   }
 
-  html.codex-dream-skin .dream-home > div:first-child > div:first-child > div:first-child > div:first-child {
+  html.codex-dream-skin .dream-home > div:first-child:not([class~="group/home-composer-layout"]) > div:first-child > div:first-child > div:first-child {
     padding: 21px 26px !important;
   }
 
-  html.codex-dream-skin .dream-home > div:first-child > div:first-child > div:first-child > div:first-child > div:first-child {
+  html.codex-dream-skin .dream-home > div:first-child:not([class~="group/home-composer-layout"]) > div:first-child > div:first-child > div:first-child > div:first-child {
     width: min(68%, 440px) !important;
   }
 
@@ -4895,7 +4895,7 @@ html.codex-dream-skin ::-webkit-scrollbar-track {
     font-size: clamp(20px, 3.2cqw, 25px) !important;
   }
 
-  html.codex-dream-skin .dream-home > div:first-child > div:first-child > div:first-child > div:nth-child(2) {
+  html.codex-dream-skin .dream-home > div:first-child:not([class~="group/home-composer-layout"]) > div:first-child > div:first-child > div:nth-child(2) {
     margin-top: 9px !important;
   }
 
@@ -4919,22 +4919,22 @@ html.codex-dream-skin ::-webkit-scrollbar-track {
 }
 
 @container home-main-content (max-height: 650px) {
-  html.codex-dream-skin .dream-home > div:first-child {
+  html.codex-dream-skin .dream-home > div:first-child:not([class~="group/home-composer-layout"]) {
     min-height: 0 !important;
     padding-top: 7px !important;
   }
 
-  html.codex-dream-skin .dream-home > div:first-child > div:first-child {
+  html.codex-dream-skin .dream-home > div:first-child:not([class~="group/home-composer-layout"]) > div:first-child {
     flex: 0 0 clamp(286px, 62cqh, 330px) !important;
     min-height: 0 !important;
   }
 
-  html.codex-dream-skin .dream-home > div:first-child > div:first-child > div:first-child {
+  html.codex-dream-skin .dream-home > div:first-child:not([class~="group/home-composer-layout"]) > div:first-child > div:first-child {
     height: clamp(146px, 32cqh, 184px) !important;
     min-height: 146px !important;
   }
 
-  html.codex-dream-skin .dream-home > div:first-child > div:first-child > div:first-child > div:first-child {
+  html.codex-dream-skin .dream-home > div:first-child:not([class~="group/home-composer-layout"]) > div:first-child > div:first-child > div:first-child {
     padding: 14px 24px !important;
   }
 
@@ -4949,7 +4949,7 @@ html.codex-dream-skin ::-webkit-scrollbar-track {
     font-size: 8px;
   }
 
-  html.codex-dream-skin .dream-home > div:first-child > div:first-child > div:first-child > div:nth-child(2) {
+  html.codex-dream-skin .dream-home > div:first-child:not([class~="group/home-composer-layout"]) > div:first-child > div:first-child > div:nth-child(2) {
     margin-top: 7px !important;
   }
 
@@ -4989,12 +4989,12 @@ html.codex-dream-skin ::-webkit-scrollbar-track {
    70px card rows crossing the native project strip, so reserve a dedicated
    compact command deck above the composer in this smallest useful canvas. */
 @container home-main-content (max-width: 900px) and (max-height: 650px) {
-  html.codex-dream-skin .dream-home > div:first-child > div:first-child > div:first-child {
+  html.codex-dream-skin .dream-home > div:first-child:not([class~="group/home-composer-layout"]) > div:first-child > div:first-child {
     height: 112px !important;
     min-height: 112px !important;
   }
 
-  html.codex-dream-skin .dream-home > div:first-child > div:first-child > div:first-child > div:first-child {
+  html.codex-dream-skin .dream-home > div:first-child:not([class~="group/home-composer-layout"]) > div:first-child > div:first-child > div:first-child {
     padding: 10px 20px !important;
   }
 
@@ -5088,7 +5088,7 @@ html.codex-dream-skin.dream-home-bottom-open #codex-dream-skin-chrome .dream-ang
   height: 174px;
 }
 
-html.codex-dream-skin.dream-home-bottom-open:not(.dream-home-dual-panel) .dream-home > div:first-child > div:first-child {
+html.codex-dream-skin.dream-home-bottom-open:not(.dream-home-dual-panel) .dream-home > div:first-child:not([class~="group/home-composer-layout"]) > div:first-child {
   flex: 0 0 clamp(308px, 66cqh, 352px) !important;
 }
 
@@ -5115,17 +5115,17 @@ html.codex-dream-skin.dream-home-dual-panel .dream-home .composer-surface-chrome
    desktop measure. Query the named Home container so a narrow split view or
    an open auxiliary panel keeps the existing compact layout. */
 @container home-main-content (min-width: 1280px) and (min-height: 780px) {
-  html.codex-dream-skin .dream-home > div:first-child {
+  html.codex-dream-skin .dream-home > div:first-child:not([class~="group/home-composer-layout"]) {
     --dream-home-wide-content-max: min(1560px, calc(100cqw - 112px));
     --thread-content-max-width: var(--dream-home-wide-content-max) !important;
   }
 
-  html.codex-dream-skin .dream-home > div:first-child > div:first-child > div:first-child {
+  html.codex-dream-skin .dream-home > div:first-child:not([class~="group/home-composer-layout"]) > div:first-child > div:first-child {
     width: var(--dream-home-wide-content-max) !important;
     max-width: 1560px !important;
   }
 
-  html.codex-dream-skin .dream-home > div:first-child > div:first-child > div:first-child > div:nth-child(2) {
+  html.codex-dream-skin .dream-home > div:first-child:not([class~="group/home-composer-layout"]) > div:first-child > div:first-child > div:nth-child(2) {
     margin-top: 24px !important;
   }
 
@@ -5156,7 +5156,7 @@ html.codex-dream-skin.dream-home-dual-panel .dream-home .composer-surface-chrome
 @media (prefers-reduced-motion: reduce) {
   #codex-dream-skin-chrome *,
   html.codex-dream-skin :is(aside.app-shell-left-panel, [data-testid="app-shell-floating-left-panel"]) button:hover,
-  .dream-home [data-feature="game-source"] button:hover,
+  .dream-home:not(:has(> [class~="group/home-composer-layout"])) [data-feature="game-source"] button:hover,
   .dream-home .group\/home-suggestions button:hover,
   html.codex-dream-skin button[class~="bg-token-foreground"]:hover {
     animation: none !important;
@@ -6348,4 +6348,50 @@ html.codex-dream-skin.dream-home-bottom-open #codex-dream-skin-chrome :where(
     opacity: 0 !important;
     transform: none !important;
   }
+}
+
+/* Codex 26.924–26.928 compatibility (reporter evidence: upstream #416–#421).
+   The top-fade data attribute now belongs to the entire content column. Only
+   decorative classes are cleared above; no fade rule may collapse its host.
+   Modern Home uses group/home-composer-layout and is excluded from the legacy
+   positional hero sizing, including responsive overrides. */
+
+/* The outer page surface paints over the shared viewport artwork. */
+html.codex-dream-skin.dream-art-wide body > div > [class*="_PageSurfaceLayout_"] {
+  background: transparent !important;
+  background-image: none !important;
+}
+
+/* Projects: the route surface is a direct child, not every card below it. */
+html.codex-dream-skin.dream-art-wide [data-app-shell-focus-area] > .bg-surface {
+  background: transparent !important;
+  background-image: none !important;
+}
+
+/* Pull Requests: clear stacked route panes, preserving nested overlays,
+   form controls and public card surfaces. */
+html.codex-dream-skin.dream-art-wide [data-app-shell-pane-frame],
+html.codex-dream-skin.dream-art-wide [data-app-shell-pane-frame] .bg-surface:not(:where(
+  [role="dialog"], [role="dialog"] *, [role="menu"], [role="menu"] *,
+  [role="listbox"], [role="listbox"] *,
+  [data-radix-popper-content-wrapper], [data-radix-popper-content-wrapper] *,
+  form, form *, [data-ds-part="card"], [data-ds-part="card"] *
+)) {
+  background: transparent !important;
+  background-image: none !important;
+}
+
+/* Customize: only remove the sticky header paint; retain native blur and
+   never touch a sticky shell containing the composer. */
+html.codex-dream-skin.dream-art-wide [data-app-shell-focus-area] [data-sticky]:not(:has([data-codex-composer-root]))::before {
+  background: transparent !important;
+  background-image: none !important;
+}
+
+/* The 26.924 thread composer fade extends above and below the input.
+   Keep its native geometry and pointer behavior, and match every paint token. */
+html.codex-dream-skin.dream-art-wide main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]):not(:has([role="main"]))
+  [class~="pointer-events-none"][class~="inset-x-0"][class~="-top-8"][class~="bottom-0"][class~="z-0"][class~="bg-gradient-to-t"][class~="from-surface"][class~="via-surface"] {
+  background: transparent !important;
+  background-image: none !important;
 }
