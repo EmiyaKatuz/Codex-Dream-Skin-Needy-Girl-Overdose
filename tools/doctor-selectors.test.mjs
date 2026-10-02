@@ -13,7 +13,11 @@ assert.equal(windowsBaseline.version, "26.814.5167.0");
 assert.equal(windowsBaseline.platform, "windows");
 assert.match(windowsBaseline.evidence, /^maintainer:/,
   "The Windows baseline must retain maintainer evidence strength.");
-assert.match(contract.verifiedAgainst.verdict, /上游 26\.818 扩展来自报告者证据/);
+for (const version of ["26.818", "26.928.2636.0"]) {
+  const evidence = contract.verifiedAgainst.codexVersions.find((entry) => entry.version === version);
+  assert.match(evidence?.evidence || "", /^reporter:/,
+    `${version} must retain reporter evidence, not claim local live verification.`);
+}
 assert.ok(contract.verifiedAgainst.gaps.length > 0);
 assert.equal(
   selectorFor("shell-main"),
@@ -31,7 +35,7 @@ assert.doesNotMatch(selectorFor("shell-main"), /_[A-Za-z]+_[a-z0-9]{4,}/);
 assert.doesNotMatch(selectorFor("header-tint"), /_[A-Za-z]+_[a-z0-9]{4,}/);
 assert.equal(
   selectorFor("main-content-top-fade"),
-  ':is(.app-shell-main-content-top-fade, [data-app-shell-main-content-top-fade], [class*="_MainContentTopFade_"])',
+  ':is(.app-shell-main-content-top-fade, [class*="_MainContentTopFade_"])',
 );
 assert.equal(
   selectorFor("message"),
@@ -58,7 +62,7 @@ assert.equal(home.exitCode, 0);
 assert.deepEqual(home.provenance, contract.verifiedAgainst);
 assert.match(
   formatDoctorResult(home),
-  /provenance date=2026-08-27 references=.*windows\/26\.814\.5167\.0 evidence=maintainer:/,
+  /provenance date=2026-10-03 references=.*windows\/26\.814\.5167\.0 evidence=maintainer:/,
   "Doctor output must identify the verified builds and evidence strength.",
 );
 assert.match(formatDoctorResult(home), /windows\/26\.818 evidence=reporter:/);

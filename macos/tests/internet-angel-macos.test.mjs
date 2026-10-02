@@ -21,8 +21,6 @@ const overlayScriptPath = path.join(macosRoot, "assets", "internet-angel-extensi
 const runtimeOverlayScriptPath = path.join(macosRoot, "..", "runtime", "internet-angel-extension.js");
 const windowsRoot = path.resolve(macosRoot, "..", "windows");
 const shellSelector = 'main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"])';
-const composerSelector = ':is(.composer-surface-chrome, [data-composer-surface-variant], [data-ds-part="composer"])';
-const composerFooterSelector = ':is([class*="_footer_"], [data-composer-footer-responsive])';
 const assistantMarkdownSelector = '[data-markdown-text-style="assistant-message"]';
 
 async function isFile(filePath) {
@@ -626,7 +624,32 @@ class FixtureNode {
     const alternatives = splitSelectorList(selector);
     if (alternatives.includes("[data-angel-component]")
       && this.attributes.has("data-angel-component")) return true;
-    return alternatives.some((alternative) => this.matchSelectors.has(alternative));
+    return alternatives.some((alternative) => {
+      if (this.matchSelectors.has(alternative)) return true;
+      // Evaluate the class/attribute alternatives used by composers instead of
+      // registering the expected query result: module-only fixtures must fail
+      // if the runtime drops their alias, even while the test query is unchanged.
+      const descendant = alternative.indexOf(") :is(");
+      if (descendant >= 0) {
+        if (!this.matches(alternative.slice(descendant + 2))) return false;
+        for (let parent = this.parentElement; parent; parent = parent.parentElement) {
+          if (parent.matches(alternative.slice(0, descendant + 1))) return true;
+        }
+        return false;
+      }
+      if (alternative.startsWith(":is(") && alternative.endsWith(")")) {
+        return this.matches(alternative.slice(4, -1));
+      }
+      const className = alternative.match(/^\.([\w-]+)$/)?.[1];
+      if (className) return this.className.split(/\s+/).includes(className);
+      const attribute = alternative.match(/^\[([\w-]+)(?:(\*?=)"([^"]*)")?\]$/);
+      if (!attribute) return false;
+      const [, name, operator, value] = attribute;
+      const actual = name === "class" ? this.className : this.getAttribute(name);
+      if (actual === null) return false;
+      if (!operator) return true;
+      return operator === "*=" ? actual.includes(value) : actual === value;
+    });
   }
   closest(selector) { return this.closestNodes.get(selector) || null; }
   getBoundingClientRect() {
@@ -643,6 +666,8 @@ function makeOverlayFixture({
   delayedPublicComposer = false,
   delayedWorkspaceEvidence = false,
   modernComposer = false,
+  moduleComposerOnly = false,
+  delayedComposerFooter = false,
   publicComposerOnly = false,
   publicSidebarOnly = false,
 } = {}) {
@@ -660,14 +685,16 @@ function makeOverlayFixture({
     return node;
   };
   const composer = makeNode({
-    className: modernComposer || publicComposerOnly || delayedPublicComposer
+    className: modernComposer || moduleComposerOnly
       ? "_ComposerLayoutRoot_fixture"
+      : publicComposerOnly || delayedPublicComposer ? "generic-prompt-fixture"
       : "composer-surface-chrome",
   });
   if (modernComposer) composer.setAttribute("data-composer-surface-variant", "default");
   if (publicComposerOnly) composer.setAttribute("data-ds-part", "composer");
   const composerFooter = makeNode({
-    className: modernComposer || publicComposerOnly ? "flex items-center" : "_footer_fixture",
+    className: moduleComposerOnly ? "_ComposerLayoutFooter_fixture"
+      : modernComposer || publicComposerOnly ? "flex items-center" : "_footer_fixture",
   });
   if (modernComposer || publicComposerOnly) {
     composerFooter.setAttribute("data-composer-footer-responsive", "true");
@@ -676,8 +703,15 @@ function makeOverlayFixture({
   const send = makeNode();
   const goalMode = makeNode({ text: "Goal" });
   goalMode.setAttribute("aria-label", "Goal mode");
+  const ordinaryFooter = makeNode({ className: "_SettingsFooter_fixture" });
+  const unrelatedComposerFooter = makeNode({ className: "_ComposerLayoutFooter_unrelated" });
+  ordinaryFooter.parentElement = composer;
+  composer.queryChildren.add(ordinaryFooter);
+  if (!delayedComposerFooter) {
+    composerFooter.parentElement = composer;
+    composer.queryChildren.add(composerFooter);
+  }
   composer
-    .addQuery(composerFooterSelector, composerFooter)
     .addQuery('[contenteditable="true"]', editor)
     .addQuery("button", [send, goalMode]);
 
@@ -1050,7 +1084,6 @@ function makeOverlayFixture({
   const body = makeNode();
   sidebar.parentElement = body;
   const documentQueries = new Map([
-    [composerSelector, delayedPublicComposer ? [] : [composer]],
     [`${shellSelector} [class~="sticky"][class~="bottom-0"]`, [sticky]],
     ['div[class*="bg-token-dropdown-background"][class~="rounded-3xl"]', [
       environment,
@@ -1115,13 +1148,14 @@ function makeOverlayFixture({
     },
     querySelector(selector) {
       if (selector === shellSelector) return shell;
-      return (documentQueries.get(selector) || [])[0] || null;
+      return this.querySelectorAll(selector)[0] || null;
     },
     querySelectorAll(selector) {
       if (selector === "[data-angel-component]") {
         return nodes.filter((node) => node.isConnected && node.attributes.has("data-angel-component"));
       }
-      return (documentQueries.get(selector) || []).filter((node) => node.isConnected);
+      return (documentQueries.get(selector) || nodes.filter((node) => node.matches(selector)))
+        .filter((node) => node.isConnected);
     },
   };
   const observers = [];
@@ -1154,6 +1188,8 @@ function makeOverlayFixture({
   return {
     composer,
     composerFooter,
+    ordinaryFooter,
+    unrelatedComposerFooter,
     context: {
       document,
       innerWidth: 1678,
@@ -1304,13 +1340,20 @@ function makeOverlayFixture({
     },
     publishComposerPart() {
       composer.setAttribute("data-ds-part", "composer");
-      documentQueries.set(composerSelector, [composer]);
       notifyBodyMutation({
         type: "attributes",
         target: composer,
         attributeName: "data-ds-part",
         addedNodes: [],
         removedNodes: [],
+      });
+    },
+    mountComposerFooter() {
+      composerFooter.parentElement = composer;
+      composer.queryChildren.add(composerFooter);
+      notifyBodyMutation({
+        type: "childList", target: composer,
+        addedNodes: [composerFooter], removedNodes: [],
       });
     },
     removeFixedSidebar() {
@@ -1410,6 +1453,49 @@ assert.equal(component(modernComposerFixture.composerFooter), "composer-footer",
 assert.equal(component(modernComposerFixture.editor), "composer-input");
 assert.equal(component(modernComposerFixture.send), "composer-action");
 assert.equal(component(modernComposerFixture.goalMode), "goal-mode-trigger");
+
+const moduleComposerFixture = makeOverlayFixture({ moduleComposerOnly: true });
+moduleComposerFixture.composer.className = "_ComposerLayoutRoot_newhash_19";
+moduleComposerFixture.composerFooter.className = "_ComposerLayoutFooter_newhash_87";
+for (const attribute of ["data-composer-surface-variant", "data-ds-part"]) {
+  assert.equal(moduleComposerFixture.composer.getAttribute(attribute), null);
+}
+assert.equal(moduleComposerFixture.composerFooter.getAttribute("data-composer-footer-responsive"), null);
+vm.runInNewContext(
+  runtimeOverlayScript.replace("__INTERNET_ANGEL_EXTENSION_ENABLED_JSON__", "true"),
+  moduleComposerFixture.context,
+);
+assert.equal(component(moduleComposerFixture.composer), "composer",
+  "A CSS Module composer root must be styled without waiting for a renderer part marker.");
+assert.equal(component(moduleComposerFixture.composerFooter), "composer-footer",
+  "A CSS Module footer must be styled when the responsive data attribute is absent.");
+assert.equal(component(moduleComposerFixture.editor), "composer-input");
+assert.equal(component(moduleComposerFixture.send), "composer-action");
+assert.equal(component(moduleComposerFixture.ordinaryFooter), null,
+  "An unrelated footer inside the composer must not win the footer binding.");
+assert.equal(component(moduleComposerFixture.unrelatedComposerFooter), null,
+  "A module footer outside a recognized composer must remain unmarked.");
+cleanupOverlayFixture(moduleComposerFixture, runtimeOverlayScript);
+for (const node of [moduleComposerFixture.composer, moduleComposerFixture.composerFooter,
+  moduleComposerFixture.editor, moduleComposerFixture.send]) {
+  assert.equal(component(node), null, "Disabling the extension must clear module composer markers.");
+}
+
+const delayedModuleFooter = activateOverlayFixture({
+  moduleComposerOnly: true,
+  delayedComposerFooter: true,
+}, runtimeOverlayScript);
+assert.equal(component(delayedModuleFooter.composer), "composer");
+assert.equal(component(delayedModuleFooter.composerFooter), null);
+const classifyRunsBeforeFooter = delayedModuleFooter.window[registryKey].metrics.classifyRuns;
+delayedModuleFooter.mountComposerFooter();
+assert.equal(delayedModuleFooter.frames.size, 1,
+  "A module footer inserted after mount must pass the structural mutation filter.");
+delayedModuleFooter.flushFrames();
+assert.equal(component(delayedModuleFooter.composerFooter), "composer-footer");
+assert.equal(delayedModuleFooter.window[registryKey].metrics.classifyRuns, classifyRunsBeforeFooter + 1);
+assert.equal(component(delayedModuleFooter.ordinaryFooter), null);
+cleanupOverlayFixture(delayedModuleFooter, runtimeOverlayScript);
 
 const publicComposerFixture = activateOverlayFixture({ publicComposerOnly: true });
 assert.equal(

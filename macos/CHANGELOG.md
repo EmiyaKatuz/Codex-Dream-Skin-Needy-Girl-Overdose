@@ -12,6 +12,9 @@
 
 ### 修复
 
+- 适配 Codex 26.924–26.928 的内容容器与首页结构：顶部渐隐只清除绘制，不再隐藏承载消息和输入框的属性宿主；新版 Home composer 不再套用旧版 hero 固定尺寸。
+- 补齐外层 PageSurface、Projects、Pull Requests、Customize 与新版输入区渐隐的背景适配，保留弹窗、菜单、表单和卡片底色；Internet Angel 识别仅带 CSS Module 类的输入框与工具栏。
+- 更新三端选择器同步与兼容证据。依据上游报告和云端回归，非三端真实客户端验收；范围见 `docs/codex-26-928-compatibility.md`。
 - 兼容 Codex 26.818 任务页输入区的两层 `from-surface` 渐隐，避免已换肤的输入框后方仍显示原生黑色底板。
 - 兼容 Codex 26.820 的 `bg-surface-elevated-secondary` 环境面板和 `text-codex-git-added/deleted` 文件变更摘要；新旧 DOM 都继续使用原有 Internet Angel 组件样式，延迟挂载时也会重新分类。
 

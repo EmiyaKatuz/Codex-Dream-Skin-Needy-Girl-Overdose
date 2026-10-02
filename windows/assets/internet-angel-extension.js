@@ -4,8 +4,8 @@
   const componentAttribute = "data-angel-component";
   const selectors = {
     shell: 'main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"])',
-    composer: ':is(.composer-surface-chrome, [data-composer-surface-variant], [data-ds-part="composer"])',
-    composerFooter: ':is([class*="_footer_"], [data-composer-footer-responsive])',
+    composer: ':is(.composer-surface-chrome, [class*="_ComposerLayoutRoot_"], [data-composer-surface-variant], [data-ds-part="composer"])',
+    composerFooter: ':is([class*="_footer_"], [class*="_ComposerLayoutFooter_"], [data-composer-footer-responsive])',
     stickyComposer: 'main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]) [class~="sticky"][class~="bottom-0"]',
     contextStrip: 'div[class~="relative"][class~="min-w-0"][class~="overflow-clip"][class~="border-x"][class~="border-t"]',
     environmentPanel: 'div:is([class*="bg-token-dropdown-background"], [class~="bg-surface-elevated-secondary"])[class~="rounded-3xl"]',

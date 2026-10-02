@@ -144,7 +144,7 @@ const outputs = [
     // contract beside the renderer assets while keeping tools/selectors.json
     // as the only editable source.
     content: selectorSource,
-    paths: ["macos/assets/selectors.json", "windows/assets/selectors.json"],
+    paths: ["macos/assets/selectors.json", "windows/assets/selectors.json", "linux/assets/selectors.json"],
   },
   {
     content: compileSelectorTokens(sourceCss, "runtime/dream-skin.css"),

@@ -32,7 +32,7 @@ assert.match(adaptiveSection, /@container home-main-content \(max-width: 900px\)
 assert.match(adaptiveSection, /@container home-main-content \(max-height: 650px\)/);
 assert.match(adaptiveSection, /@container home-main-content \(max-width: 900px\) and \(max-height: 650px\)/);
 assert.match(adaptiveSection, /\.dream-presets-grid\s*\{[\s\S]*?grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/);
-assert.match(adaptiveSection, /\.dream-home > div:first-child > div:first-child\s*\{[\s\S]*?flex:\s*0 0 clamp\(286px, 62cqh, 330px\)/);
+assert.match(adaptiveSection, /\.dream-home > div:first-child:not\(\[class~="group\/home-composer-layout"\]\) > div:first-child\s*\{[\s\S]*?flex:\s*0 0 clamp\(286px, 62cqh, 330px\)/);
 assert.match(adaptiveSection, /\.dream-home \.composer-surface-chrome\s*\{[\s\S]*?min-height:\s*82px[\s\S]*?max-height:\s*112px/);
 assert.match(adaptiveSection, /dream-home-side-open[\s\S]*?dream-angel-webcam-card[\s\S]*?display:\s*none/);
 assert.match(adaptiveSection, /dream-home-bottom-open[\s\S]*?\.dream-angel-stage\s*\{[\s\S]*?--dream-composer-top/);
