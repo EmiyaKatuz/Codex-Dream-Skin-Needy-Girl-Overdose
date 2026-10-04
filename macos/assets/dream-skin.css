@@ -1593,11 +1593,16 @@ html[data-dream-skin="active"] [data-ds-part="message"] { border-radius: 16px; }
 
 @layer dreamskin-accessibility {
   @media (prefers-reduced-motion: reduce) {
-    html[data-dream-skin="active"] *,
-    html[data-dream-skin="active"] *::before,
-    html[data-dream-skin="active"] *::after {
+    html[data-dream-skin="active"] [data-ds-part],
+    html[data-dream-skin="active"] :is(#chatgpt-internet-angel-deck, #chatgpt-internet-angel-hud, #chatgpt-internet-angel-sidebar) * {
       scroll-behavior: auto !important;
       transition-duration: .01ms !important;
+    }
+    /* Limit animation reduction to owned decoration; native busy indicators
+       inside a themed content part must keep their progress feedback. */
+    html[data-dream-skin="active"] :is(#chatgpt-internet-angel-hud, #chatgpt-internet-angel-sidebar) *,
+    html[data-dream-skin="active"] :is(#chatgpt-internet-angel-hud, #chatgpt-internet-angel-sidebar) *::before,
+    html[data-dream-skin="active"] :is(#chatgpt-internet-angel-hud, #chatgpt-internet-angel-sidebar) *::after {
       animation-duration: .01ms !important;
       animation-iteration-count: 1 !important;
     }

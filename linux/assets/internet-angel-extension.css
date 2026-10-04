@@ -1483,11 +1483,8 @@ html[data-dream-skin="active"][data-dream-theme="internet-angel"] ::-webkit-scro
 }
 
 @media (prefers-reduced-motion: reduce) {
-  html[data-dream-skin="active"][data-dream-theme="internet-angel"] *,
-  html[data-dream-skin="active"][data-dream-theme="internet-angel"] *::before,
-  html[data-dream-skin="active"][data-dream-theme="internet-angel"] *::after {
-    animation-duration: .01ms !important;
-    animation-iteration-count: 1 !important;
+  html[data-dream-skin="active"][data-dream-theme="internet-angel"] [data-angel-component] {
+    /* Components own theme transitions, not their nested native spinners. */
     scroll-behavior: auto !important;
     transition-duration: .01ms !important;
   }

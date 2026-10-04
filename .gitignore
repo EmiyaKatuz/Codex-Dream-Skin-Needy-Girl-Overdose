@@ -10,6 +10,10 @@ release/
 # Keep the large captured DOM/screenshot fixtures local, but version the
 # canonical renderer sources that generate both platform assets.
 runtime/*
+!runtime/theme-motion.js
+!runtime/theme-motion.css
+!runtime/motion-settings.mjs
+!runtime/motion-payload.mjs
 !runtime/
 !runtime/dream-skin.css
 !runtime/image-metadata.mjs

@@ -1396,7 +1396,7 @@ args = [
   foreach ($releaseAsset in @(
     'dream-skin.css', 'internet-angel-acrylic.css', 'internet-angel-extension.css',
     'internet-angel-extension.js', 'renderer-inject.js', 'safe-css-policy.json', 'safe-css-validator.mjs', 'selectors.json',
-    'theme-package-validator.mjs'
+    'theme-package-validator.mjs', 'theme-motion.js', 'theme-motion.css', 'motion-settings.mjs', 'motion-payload.mjs'
   )) {
     Copy-Item -LiteralPath (Join-Path $Root "assets\$releaseAsset") `
       -Destination $releaseFixtureAssets -Force
@@ -1794,6 +1794,7 @@ args = [
     }
   }
   $node = Get-DreamSkinNodeRuntime
+  & (Join-Path $PSScriptRoot 'tray-motion.tests.ps1') -Root $Root
   & (Join-Path $PSScriptRoot 'community-theme-link.tests.ps1') -Root $Root
   & (Join-Path $PSScriptRoot 'theme-zip-import.tests.ps1') -Root $Root
   & (Join-Path $PSScriptRoot 'config-startup-rollback.tests.ps1') -Root $Root

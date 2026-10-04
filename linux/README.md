@@ -31,7 +31,21 @@ The installer creates a user-level `Codex.desktop` override, refreshes the deskt
 
 ## Performance
 
-Linux defaults to `"performanceMode": "full"`, preserving the complete Choten animation, particles, and filters. DOM refresh is deliberately limited: newly mounted runtime surfaces are classified inside their added subtree without layout measurement, while verified navigation controls, shell-level structural mutations, appearance changes, and a 60-second safety fallback can trigger a delayed full scan; ordinary streamed text updates do not. CDP target events wake the watcher as soon as a runtime renderer window is created, while the 800ms target poll remains as a disconnect fallback. A temporary early observer applies the theme as soon as the new renderer shell appears and then disconnects. Renderer-owned route state replaces root-level relational selectors without changing theme output. Window resizing updates theme geometry once per animation frame, skips duplicate integer-pixel measurements, and runs one full reconciliation after the resize settles. Startup is non-blocking: the watcher waits for verified Codex shell markers, shows one application status, then keeps ordinary renderer maintenance silent. Set `performanceMode` to `"low"` in the active `theme.json` to disable animated ornaments and blur when battery life or GPU load matters more.
+### Motion preferences
+
+Motion preferences are stored separately from themes in `${XDG_STATE_HOME:-~/.local/state}/CodexDreamSkin/motion.json`, so changing a theme preserves your choices. Use the installed script to read or update them:
+
+```bash
+~/.codex/codex-dream-skin-linux/scripts/motion-settings-linux.sh --get
+~/.codex/codex-dream-skin-linux/scripts/motion-settings-linux.sh --set-mode subtle
+~/.codex/codex-dream-skin-linux/scripts/motion-settings-linux.sh --set-effect ambient off
+```
+
+Modes are `system` (the default), `off`, `subtle`, and `full`. Individual effects are `interactions`, `status`, `character`, `ambient`, and `themeTransition`; each accepts `on` or `off`. Commands print the saved settings as JSON and preserve other preferences. They do not start Codex or install dependencies. Missing preferences use the defaults; an invalid configuration is reported rather than overwritten.
+
+### Rendering performance
+
+Linux retains the legacy `performanceMode: low/full` rendering option; the bundled theme uses `full`. Use the independent motion preferences above to control animation. DOM refresh is deliberately limited: newly mounted runtime surfaces are classified inside their added subtree without layout measurement, while verified navigation controls, shell-level structural mutations, appearance changes, and a 60-second safety fallback can trigger a delayed full scan; ordinary streamed text updates do not. CDP target events wake the watcher as soon as a runtime renderer window is created, while the 800ms target poll remains as a disconnect fallback. A temporary early observer applies the theme as soon as the new renderer shell appears and then disconnects. Renderer-owned route state replaces root-level relational selectors without changing theme output. Window resizing updates theme geometry once per animation frame, skips duplicate integer-pixel measurements, and runs one full reconciliation after the resize settles. Startup is non-blocking: the watcher waits for verified Codex shell markers, shows one application status, then keeps ordinary renderer maintenance silent. Existing `performanceMode: low` settings continue to reduce animated ornaments and blur.
 
 On native Wayland sessions, the launcher disables Chromium's incompatible Vulkan surface path and keeps accelerated composition on the OpenGL/ANGLE fallback. X11 sessions retain the Codex default GPU backend.
 

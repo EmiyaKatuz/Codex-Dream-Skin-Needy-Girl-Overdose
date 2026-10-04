@@ -28,7 +28,11 @@ try {
     'renderer-inject.js',
     'dream-skin.css',
     'internet-angel-acrylic.css',
-    'internet-angel-extension.css'
+    'internet-angel-extension.css',
+    'theme-motion.js',
+    'theme-motion.css',
+    'motion-settings.mjs',
+    'motion-payload.mjs'
   )) {
     Copy-Item -LiteralPath (Join-Path $windowsRoot "assets\$assetName") `
       -Destination (Join-Path $packageRoot "assets\$assetName") -Force

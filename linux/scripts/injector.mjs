@@ -8,6 +8,9 @@ import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 import { Script } from "node:vm";
 import { readImageMetadata } from "./image-metadata.mjs";
+import {
+  buildMotionPayload, getMotionSettingsPath, readMotionPreferences, watchMotionPreferences,
+} from "../assets/motion-payload.mjs";
 
 const execFileAsync = promisify(execFile);
 const scriptPath = fileURLToPath(import.meta.url);
@@ -152,6 +155,15 @@ const OPERATION_UI_CSS = `
   }
   @keyframes dream-skin-operation-spin {
     to { transform: rotate(360deg); }
+  }
+  :host-context([data-dream-motion="off"]),
+  :host-context([data-dream-motion="off"]) *,
+  :host-context([data-dream-motion-status="off"]) * {
+    animation: none !important;
+    transition: none !important;
+  }
+  :host-context([data-dream-motion-paused="true"]) * {
+    animation-play-state: paused !important;
   }
   @media (prefers-reduced-motion: reduce) {
     :host, .status { transition: none; }
@@ -744,29 +756,32 @@ async function loadStaticPayloadAssets() {
       fs.readFile(path.join(root, "assets", "renderer-inject.js"), "utf8"),
       fs.readFile(path.join(root, "assets", "internet-angel-extension.css"), "utf8"),
       fs.readFile(path.join(root, "assets", "internet-angel-extension.js"), "utf8"),
+      fs.readFile(path.join(root, "assets", "theme-motion.css"), "utf8"),
+      fs.readFile(path.join(root, "assets", "theme-motion.js"), "utf8"),
     ]).catch((error) => {
       staticPayloadAssets = null;
       throw error;
     });
   }
-  const [css, template, internetAngelCss, internetAngelTemplate] = await staticPayloadAssets;
-  return { css, template, internetAngelCss, internetAngelTemplate, cacheHit };
+  const [css, template, internetAngelCss, internetAngelTemplate, motionCss, motionTemplate] = await staticPayloadAssets;
+  return { css, template, internetAngelCss, internetAngelTemplate, motionCss, motionTemplate, cacheHit };
 }
 
 function invalidateStaticPayloadAssets() {
   staticPayloadAssets = null;
 }
 
-export async function loadPayload(themeDir) {
+export async function loadPayload(themeDir, { motionSettingsPath = getMotionSettingsPath() } = {}) {
   const startedAt = performance.now();
-  const [staticAssets, loaded] = await Promise.all([
+  const [staticAssets, loaded, motionPreferences] = await Promise.all([
     loadStaticPayloadAssets(),
     loadTheme(themeDir),
+    readMotionPreferences(motionSettingsPath),
   ]);
-  const { css: baseCss, template, internetAngelCss, internetAngelTemplate } = staticAssets;
+  const { css: baseCss, template, internetAngelCss, internetAngelTemplate, motionCss, motionTemplate } = staticAssets;
   const { art, extension, theme } = loaded;
   const internetAngelExtension = usesInternetAngelExtension(theme);
-  const css = internetAngelExtension ? `${baseCss}\n${internetAngelCss}` : baseCss;
+  const css = `${baseCss}\n${internetAngelExtension ? internetAngelCss : ""}\n${motionCss}`;
   const styleRevision = createHash("sha256").update(css).digest("hex").slice(0, 20);
   const artMetadata = readImageMetadata(art, extension);
   if (!artMetadata) {
@@ -783,23 +798,32 @@ export async function loadPayload(themeDir) {
     .update(css)
     .update(template)
     .update(internetAngelTemplate)
+    .update(motionTemplate)
+    .update(motionPreferences.signature)
     .update(JSON.stringify(theme))
     .digest("hex")
     .slice(0, 20);
   const basePayload = template
     .replace("__DREAM_SKIN_CSS_JSON__", () => JSON.stringify(css))
-    .replace("__DREAM_SKIN_ART_JSON__", () => JSON.stringify(artDataUrl))
+    .replace("__DREAM_SKIN_ART_JSON__", () => "__dreamSkinMotionArt")
     .replace("__DREAM_SKIN_THEME_JSON__", () => JSON.stringify(theme))
     .replace("__DREAM_SKIN_VERSION_JSON__", () => JSON.stringify(SKIN_VERSION))
     .replace("__DREAM_SKIN_STYLE_REVISION_JSON__", () => JSON.stringify(styleRevision))
     .replace("__DREAM_SKIN_PAYLOAD_REVISION_JSON__", () => JSON.stringify(revision))
     .replace("__DREAM_CSS_JSON__", () => JSON.stringify(css))
-    .replace("__DREAM_ART_JSON__", () => JSON.stringify(artDataUrl))
+    .replace("__DREAM_ART_JSON__", () => "__dreamSkinMotionArt")
     .replace("__DREAM_THEME_JSON__", () => JSON.stringify(theme));
-  const payload = `${basePayload};\n${internetAngelTemplate.replace(
-    "__INTERNET_ANGEL_EXTENSION_ENABLED_JSON__",
-    () => JSON.stringify(internetAngelExtension),
-  )}`;
+  const payload = buildMotionPayload({
+    basePayload, artDataUrl,
+    extensionPayload: internetAngelTemplate.replace(
+      "__INTERNET_ANGEL_EXTENSION_ENABLED_JSON__", () => JSON.stringify(internetAngelExtension),
+    ),
+    motionTemplate,
+    config: {
+      settings: motionPreferences.settings, themeId: theme.id, themeRevision: revision,
+      artKey, artMetadata: { width: artMetadata.width, height: artMetadata.height }, platform: "linux",
+    },
+  });
   const unresolved = payload.match(/__(?:DREAM(?:_SKIN)?|INTERNET_ANGEL_EXTENSION)_[A-Z0-9_]+__/g);
   if (unresolved) throw new Error(`Payload has unresolved placeholders: ${[...new Set(unresolved)].join(", ")}`);
   try {
@@ -809,6 +833,9 @@ export async function loadPayload(themeDir) {
   }
   return {
     imageBytes: art.length,
+    motionSignature: motionPreferences.signature,
+    motionSettings: motionPreferences.settings,
+    motionSettingsRejected: motionPreferences.rejected,
     internetAngelExtension,
     payload,
     revision,
@@ -988,6 +1015,9 @@ async function presentOperationUi(session, token, state, message, timeoutMs = 10
 
 async function removeFromSession(session) {
   return session.evaluate(`(() => {
+    delete window.__CODEX_DREAM_SKIN_MOTION_INJECTION__;
+    try { window.__CODEX_DREAM_SKIN_MOTION_STATE__?.cleanup?.(); } catch {}
+    delete window.__CODEX_DREAM_SKIN_MOTION_STATE__;
     try { window.__CODEX_INTERNET_ANGEL_EXTENSION_STATE__?.cleanup?.(); } catch {}
     delete window.__CODEX_INTERNET_ANGEL_EXTENSION_STATE__;
     window.__CODEX_DREAM_SKIN_DISABLED__ = true;
@@ -1386,7 +1416,8 @@ function watchPayloadSources(themeDir, onDirty) {
         const name = filename ? String(filename) : "";
         const staticChanged = directory === assetsRoot &&
       (!name || name === "dream-skin.css" || name === "renderer-inject.js" ||
-        name === "internet-angel-extension.css" || name === "internet-angel-extension.js");
+        name === "internet-angel-extension.css" || name === "internet-angel-extension.js" ||
+        name === "theme-motion.css" || name === "theme-motion.js");
         if (kind === "static" && !staticChanged) return;
         onDirty({ staticChanged });
       });
@@ -1813,6 +1844,9 @@ async function runWatch(options) {
     }, 45);
   };
   const closePayloadWatchers = watchPayloadSources(options.themeDir, queuePayloadRefresh);
+  const closeMotionWatcher = watchMotionPreferences(queuePayloadRefresh, {
+    initialSignature: current.motionSignature,
+  });
   const closeOperationWatcher = await watchOperationState(options.operationState, (operation) => {
     operationSignalChain = operationSignalChain.then(async () => {
       const previousOperation = activeOperation?.token === operation.token ? activeOperation : null;
@@ -2140,6 +2174,7 @@ async function runWatch(options) {
   } finally {
     if (reloadTimer) clearTimeout(reloadTimer);
     closePayloadWatchers();
+    closeMotionWatcher();
     closeOperationWatcher();
     await reloadChain.catch(() => {});
     await operationSignalChain.catch(() => {});

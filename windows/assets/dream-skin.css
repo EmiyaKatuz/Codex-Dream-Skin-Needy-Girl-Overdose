@@ -757,11 +757,15 @@ html.codex-dream-skin.dream-art-wide main:is(.main-surface, [data-app-shell-main
 
 @layer dreamskin-accessibility {
   @media (prefers-reduced-motion: reduce) {
-    html.codex-dream-skin *,
-    html.codex-dream-skin *::before,
-    html.codex-dream-skin *::after {
+    html.codex-dream-skin [data-ds-part],
+    html.codex-dream-skin :is(#codex-dream-skin-presets, #codex-dream-skin-chrome, #codex-dream-sidebar-ornaments) * {
       scroll-behavior: auto !important;
       transition-duration: .01ms !important;
+    }
+    /* Native progress spinners are not decorative theme animations. */
+    html.codex-dream-skin :is(#codex-dream-skin-chrome, #codex-dream-sidebar-ornaments) *,
+    html.codex-dream-skin :is(#codex-dream-skin-chrome, #codex-dream-sidebar-ornaments) *::before,
+    html.codex-dream-skin :is(#codex-dream-skin-chrome, #codex-dream-sidebar-ornaments) *::after {
       animation-duration: .01ms !important;
       animation-iteration-count: 1 !important;
     }
