@@ -25,6 +25,12 @@ $acquired = $false
 $notify = $null
 $trayIcon = $null
 $menu = $null
+$trayActivityTimer = $null
+$script:trayThemeOperations = [System.Collections.Generic.List[object]]::new()
+$script:trayThemeMenuItems = [System.Collections.Generic.List[object]]::new()
+$script:trayThemeOperationDepth = 0
+$script:trayThemeBusy = $false
+$script:trayBusyItem = $null
 try {
   try { $acquired = $mutex.WaitOne(0) } catch [System.Threading.AbandonedMutexException] { $acquired = $true }
   if (-not $acquired) { exit 0 }
@@ -69,14 +75,28 @@ try {
   }
 
   function Start-DreamSkinPowerShell {
-    param([Parameter(Mandatory = $true)][string]$Script, [string[]]$Arguments = @())
+    param(
+      [Parameter(Mandatory = $true)][string]$Script,
+      [string[]]$Arguments = @(),
+      [switch]$ThemeOperation
+    )
+    if ($ThemeOperation -and $script:trayThemeBusy) {
+      throw (Get-DreamSkinTrayText -Key 'ThemeOperationBusy')
+    }
     $scriptToken = ConvertTo-DreamSkinProcessArgument -Value $Script
     $argumentLine = '-NoProfile -WindowStyle Hidden -ExecutionPolicy RemoteSigned -File ' + $scriptToken
     if ($Arguments.Count -gt 0) { $argumentLine += ' ' + ($Arguments -join ' ') }
     $previousLanguage = $env:DREAMSKIN_LANG
     try {
       $env:DREAMSKIN_LANG = Resolve-DreamSkinLanguage -StateRoot $StateRoot
-      Start-Process -FilePath $powershell -ArgumentList $argumentLine -WindowStyle Hidden | Out-Null
+      $child = Start-Process -FilePath $powershell -ArgumentList $argumentLine -WindowStyle Hidden -PassThru
+      if ($ThemeOperation) {
+        $script:trayThemeOperations.Add($child)
+        Update-DreamSkinTrayOperationState
+        $trayActivityTimer.Start()
+      } else {
+        $child.Dispose()
+      }
     } finally {
       $env:DREAMSKIN_LANG = $previousLanguage
     }
@@ -90,10 +110,12 @@ try {
       [Parameter(Mandatory = $true)][string]$Text,
       [AllowNull()][scriptblock]$Action,
       [bool]$Enabled = $true,
-      [bool]$Checked = $false
+      [bool]$Checked = $false,
+      [switch]$ThemeOperation
     )
     $item = [System.Windows.Forms.ToolStripMenuItem]::new($Text)
-    $item.Enabled = $Enabled
+    $item.Enabled = $Enabled -and (-not $ThemeOperation -or -not $script:trayThemeBusy)
+    if ($ThemeOperation) { $script:trayThemeMenuItems.Add($item) }
     $item.Checked = $Checked
     if ($null -ne $Action) {
       $item.add_Click({
@@ -125,13 +147,123 @@ try {
     [void]$menu.Items.Add($languageMenu)
   }
 
+  function Invoke-DreamSkinTrayMotionCommand {
+    param([Parameter(Mandatory = $true)][string[]]$Arguments)
+    $helper = Join-Path $SkillRoot 'assets\motion-settings.mjs'
+    if (-not (Test-Path -LiteralPath $helper -PathType Leaf)) {
+      throw (Get-DreamSkinTrayText -Key 'MotionUnavailable')
+    }
+    $motionPath = Join-Path $StateRoot 'motion.json'
+    Assert-DreamSkinNoReparseComponents -Path $motionPath
+    $node = Get-DreamSkinNodeRuntime
+    $result = Invoke-DreamSkinNative -FilePath $node.Path -ArgumentList (
+      @($helper) + $Arguments + @('--file', $motionPath)
+    ) -DiscardStderr
+    $json = ($result.Output -join "`n").Trim()
+    if ($result.ExitCode -ne 0 -or $json.Length -gt 4096) {
+      throw (Get-DreamSkinTrayText -Key 'MotionSettingsFailed')
+    }
+    try {
+      $settings = $json | ConvertFrom-Json -ErrorAction Stop
+      if ($null -eq $settings -or $settings.schemaVersion -ne 1 -or
+        $settings.mode -cnotin @('system', 'off', 'subtle', 'full')) {
+        throw 'Invalid motion settings result.'
+      }
+      foreach ($effect in @('interactions', 'status', 'character', 'ambient', 'themeTransition')) {
+        if ($null -eq $settings.effects -or $settings.effects.$effect -isnot [bool]) {
+          throw 'Invalid motion effect result.'
+        }
+      }
+      return $settings
+    } catch {
+      throw (Get-DreamSkinTrayText -Key 'MotionSettingsFailed')
+    }
+  }
+
+  function Add-DreamSkinTrayMotionMenu {
+    $motionMenu = [System.Windows.Forms.ToolStripMenuItem]::new(
+      (Get-DreamSkinTrayText -Key 'Motion')
+    )
+    try { $settings = Invoke-DreamSkinTrayMotionCommand -Arguments @('--get') } catch {
+      $null = Add-DreamSkinTrayItem -Items $motionMenu.DropDownItems `
+        -Text (Get-DreamSkinTrayText -Key 'MotionUnavailable') -Action $null -Enabled $false
+      [void]$menu.Items.Add($motionMenu)
+      return
+    }
+    foreach ($option in @(
+      @{ Value = 'system'; Label = (Get-DreamSkinTrayText -Key 'MotionSystem') },
+      @{ Value = 'off'; Label = (Get-DreamSkinTrayText -Key 'MotionOff') },
+      @{ Value = 'subtle'; Label = (Get-DreamSkinTrayText -Key 'MotionSubtle') },
+      @{ Value = 'full'; Label = (Get-DreamSkinTrayText -Key 'MotionFull') }
+    )) {
+      $optionValue = $option.Value
+      $optionAction = {
+        $null = Invoke-DreamSkinTrayMotionCommand -Arguments @('--set-mode', $optionValue)
+        Rebuild-DreamSkinTrayMenu
+      }.GetNewClosure()
+      $null = Add-DreamSkinTrayItem -Items $motionMenu.DropDownItems -Text $option.Label `
+        -Action $optionAction -Checked ($settings.mode -ceq $optionValue)
+    }
+    [void]$motionMenu.DropDownItems.Add([System.Windows.Forms.ToolStripSeparator]::new())
+    foreach ($effect in @(
+      @{ Value = 'interactions'; Label = (Get-DreamSkinTrayText -Key 'MotionInteractions') },
+      @{ Value = 'status'; Label = (Get-DreamSkinTrayText -Key 'MotionStatus') },
+      @{ Value = 'character'; Label = (Get-DreamSkinTrayText -Key 'MotionCharacter') },
+      @{ Value = 'ambient'; Label = (Get-DreamSkinTrayText -Key 'MotionAmbient') },
+      @{ Value = 'themeTransition'; Label = (Get-DreamSkinTrayText -Key 'MotionThemeTransition') }
+    )) {
+      $effectValue = $effect.Value
+      $effectEnabled = $settings.effects.$effectValue
+      $effectNext = if ($effectEnabled) { 'off' } else { 'on' }
+      $effectAction = {
+        $null = Invoke-DreamSkinTrayMotionCommand -Arguments @('--set-effect', $effectValue, $effectNext)
+        Rebuild-DreamSkinTrayMenu
+      }.GetNewClosure()
+      $null = Add-DreamSkinTrayItem -Items $motionMenu.DropDownItems -Text $effect.Label `
+        -Action $effectAction -Checked $effectEnabled
+    }
+    [void]$motionMenu.DropDownItems.Add([System.Windows.Forms.ToolStripSeparator]::new())
+    $null = Add-DreamSkinTrayItem -Items $motionMenu.DropDownItems `
+      -Text (Get-DreamSkinTrayText -Key 'MotionSystemHint') -Action $null -Enabled $false
+    [void]$menu.Items.Add($motionMenu)
+  }
+
+  function Update-DreamSkinTrayOperationState {
+    # These are only the child processes started by this tray. An exited launch
+    # is no longer busy; its exit alone never claims that a theme applied.
+    for ($index = $script:trayThemeOperations.Count - 1; $index -ge 0; $index--) {
+      $child = $script:trayThemeOperations[$index]
+      $finished = $false
+      try { $finished = $child.HasExited } catch { $finished = $true }
+      if ($finished) {
+        try { $child.Dispose() } catch {}
+        $script:trayThemeOperations.RemoveAt($index)
+      }
+    }
+    $script:trayThemeBusy = $script:trayThemeOperationDepth -gt 0 -or
+      $script:trayThemeOperations.Count -gt 0
+    $notify.Text = if ($script:trayThemeBusy) {
+      'Codex Dream Skin: ' + (Get-DreamSkinTrayText -Key 'ThemeOperationBusy')
+    } else { 'Codex Dream Skin' }
+    if ($null -ne $script:trayBusyItem) { $script:trayBusyItem.Visible = $script:trayThemeBusy }
+    foreach ($item in $script:trayThemeMenuItems) { $item.Enabled = -not $script:trayThemeBusy }
+    if (-not $script:trayThemeBusy -and $null -ne $trayActivityTimer) {
+      $trayActivityTimer.Stop()
+    }
+  }
+
   function Invoke-DreamSkinTrayThemeOperation {
     param([Parameter(Mandatory = $true)][scriptblock]$Action)
-    $themeOperationLock = Enter-DreamSkinOperationLock
+    $themeOperationLock = $null
+    $script:trayThemeOperationDepth += 1
+    Update-DreamSkinTrayOperationState
     try {
+      $themeOperationLock = Enter-DreamSkinOperationLock
       return & $Action
     } finally {
-      Exit-DreamSkinOperationLock -Mutex $themeOperationLock
+      if ($null -ne $themeOperationLock) { Exit-DreamSkinOperationLock -Mutex $themeOperationLock }
+      $script:trayThemeOperationDepth -= 1
+      Update-DreamSkinTrayOperationState
     }
   }
 
@@ -152,6 +284,8 @@ try {
   }
 
   function Rebuild-DreamSkinTrayMenu {
+    $script:trayBusyItem = $null
+    $script:trayThemeMenuItems.Clear()
     $oldItems = @($menu.Items)
     $menu.Items.Clear()
     foreach ($oldItem in $oldItems) { $oldItem.Dispose() }
@@ -170,16 +304,19 @@ try {
     if ($null -ne $active -and $null -ne $active.Theme -and $active.Theme.name) {
       $status += " · $($active.Theme.name)"
     }
+    $script:trayBusyItem = Add-DreamSkinTrayItem -Items $menu.Items `
+      -Text (Get-DreamSkinTrayText -Key 'ThemeOperationBusy') -Action $null -Enabled $false
+    $script:trayBusyItem.Visible = $script:trayThemeBusy
     $null = Add-DreamSkinTrayItem -Items $menu.Items -Text $status -Action $null -Enabled $false
     [void]$menu.Items.Add([System.Windows.Forms.ToolStripSeparator]::new())
 
-    $null = Add-DreamSkinTrayItem -Items $menu.Items -Text (Get-DreamSkinTrayText -Key 'Apply') -Action {
+    $null = Add-DreamSkinTrayItem -Items $menu.Items -Text (Get-DreamSkinTrayText -Key 'Apply') -ThemeOperation -Action {
       $session = Get-DreamSkinLiveSessionContext -StateRoot $StateRoot
       $begin = $null
       if ($null -ne $session) {
         $begin = Show-DreamSkinOperationUi -Session $session -Phase begin -Kind apply -TimeoutMs 3000
       }
-      Start-DreamSkinPowerShell -Script $startScript -Arguments @('-Port', "$Port", '-PromptRestart')
+      Start-DreamSkinPowerShell -Script $startScript -ThemeOperation -Arguments @('-Port', "$Port", '-PromptRestart')
       # start-dream-skin is async; close the in-window loading so it does not stick for 180s.
       if ($null -ne $session -and $null -ne $begin -and $begin.Ok) {
         $null = Show-DreamSkinOperationUi -Session $session -Phase finish -Token $begin.Token `
@@ -190,7 +327,7 @@ try {
     # Match macOS menubar: pause = mark + live remove; resume lets the serialized
     # start path clear pause only after its safety checks and any restart consent.
     if ($paused) {
-      $null = Add-DreamSkinTrayItem -Items $menu.Items -Text (Get-DreamSkinTrayText -Key 'Resume') -Action {
+      $null = Add-DreamSkinTrayItem -Items $menu.Items -Text (Get-DreamSkinTrayText -Key 'Resume') -ThemeOperation -Action {
         # Keep pause set while the start path validates and prompts; show in-window
         # loading when the existing CDP session is still reachable.
         $session = Get-DreamSkinLiveSessionContext -StateRoot $StateRoot
@@ -198,7 +335,7 @@ try {
         if ($null -ne $session) {
           $begin = Show-DreamSkinOperationUi -Session $session -Phase begin -Kind apply -TimeoutMs 3000
         }
-        Start-DreamSkinPowerShell -Script $startScript -Arguments @('-Port', "$Port", '-PromptRestart')
+        Start-DreamSkinPowerShell -Script $startScript -ThemeOperation -Arguments @('-Port', "$Port", '-PromptRestart')
         if ($null -ne $session -and $null -ne $begin -and $begin.Ok) {
           $null = Show-DreamSkinOperationUi -Session $session -Phase finish -Token $begin.Token `
           -UiState success -Message (Get-DreamSkinTrayText -Key 'ResumeStarted') -TimeoutMs 1500
@@ -211,7 +348,7 @@ try {
         )
       }
     } else {
-      $null = Add-DreamSkinTrayItem -Items $menu.Items -Text (Get-DreamSkinTrayText -Key 'Pause') -Action {
+      $null = Add-DreamSkinTrayItem -Items $menu.Items -Text (Get-DreamSkinTrayText -Key 'Pause') -ThemeOperation -Action {
         # Match macOS pause: marker + live remove with in-window loading / result.
         $pauseNoSessionMessage = Get-DreamSkinTrayText -Key 'PauseNoSession'
         $pauseSucceededMessage = Get-DreamSkinTrayText -Key 'PauseSucceeded'
@@ -248,7 +385,7 @@ try {
         }
       }
     }
-    $null = Add-DreamSkinTrayItem -Items $menu.Items -Text (Get-DreamSkinTrayText -Key 'ChangeBackground') -Action {
+    $null = Add-DreamSkinTrayItem -Items $menu.Items -Text (Get-DreamSkinTrayText -Key 'ChangeBackground') -ThemeOperation -Action {
       $dialog = [System.Windows.Forms.OpenFileDialog]::new()
       $dialog.Title = Get-DreamSkinTrayText -Key 'BackgroundTitle'
       $dialog.Filter = Get-DreamSkinTrayText -Key 'ImageFilter'
@@ -266,14 +403,16 @@ try {
         $dialog.Dispose()
       }
     }
-    $null = Add-DreamSkinTrayItem -Items $menu.Items -Text (Get-DreamSkinTrayText -Key 'ImportZip') -Action {
+    $null = Add-DreamSkinTrayItem -Items $menu.Items -Text (Get-DreamSkinTrayText -Key 'ImportZip') -ThemeOperation -Action {
       $dialog = [System.Windows.Forms.OpenFileDialog]::new()
       $dialog.Title = Get-DreamSkinTrayText -Key 'ImportTitle'
       $dialog.Filter = 'Dream Skin theme ZIP|*.zip'
       $dialog.Multiselect = $false
       try {
         if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
-          $imported = Import-DreamSkinThemeZip -ArchivePath $dialog.FileName -StateRoot $StateRoot
+          $imported = Invoke-DreamSkinTrayThemeOperation -Action {
+            Import-DreamSkinThemeZip -ArchivePath $dialog.FileName -StateRoot $StateRoot
+          }
           if ($imported.Status -ceq 'Duplicate') {
             $message = Get-DreamSkinTrayText -Key 'ThemeExists' -FormatArguments @($imported.Name)
           } elseif ($imported.Replaced) {
@@ -306,7 +445,7 @@ try {
         $dialog.Dispose()
       }
     }
-    $null = Add-DreamSkinTrayItem -Items $menu.Items -Text (Get-DreamSkinTrayText -Key 'SaveCurrent') -Action {
+    $null = Add-DreamSkinTrayItem -Items $menu.Items -Text (Get-DreamSkinTrayText -Key 'SaveCurrent') -ThemeOperation -Action {
       $name = [Microsoft.VisualBasic.Interaction]::InputBox(
         (Get-DreamSkinTrayText -Key 'SavePrompt'),
         (Get-DreamSkinTrayText -Key 'SaveTitle'),
@@ -354,7 +493,10 @@ try {
         $null = Add-DreamSkinTrayItem -Items $savedMenu.DropDownItems -Text $savedName -Action $savedAction
       }
     }
+    $savedMenu.Enabled = -not $script:trayThemeBusy
+    $script:trayThemeMenuItems.Add($savedMenu)
     [void]$menu.Items.Add($savedMenu)
+    Add-DreamSkinTrayMotionMenu
 
     $null = Add-DreamSkinTrayItem -Items $menu.Items -Text (Get-DreamSkinTrayText -Key 'OpenThemes') -Action {
       $themeDirectoryToken = ConvertTo-DreamSkinProcessArgument -Value $paths.Saved
@@ -385,7 +527,7 @@ try {
       -Action $autoStartAction -Checked $autoStartEnabled
     Add-DreamSkinTrayLanguageMenu
     [void]$menu.Items.Add([System.Windows.Forms.ToolStripSeparator]::new())
-    $null = Add-DreamSkinTrayItem -Items $menu.Items -Text (Get-DreamSkinTrayText -Key 'Restore') -Action {
+    $null = Add-DreamSkinTrayItem -Items $menu.Items -Text (Get-DreamSkinTrayText -Key 'Restore') -ThemeOperation -Action {
       Start-DreamSkinPowerShell -Script $restoreScript -Arguments @(
         '-Port', "$Port", '-RestoreBaseTheme', '-PromptRestart'
       )
@@ -409,13 +551,25 @@ try {
   })
   $notify.add_DoubleClick({
     try {
-      Start-DreamSkinPowerShell -Script $startScript -Arguments @('-Port', "$Port", '-PromptRestart')
+      Start-DreamSkinPowerShell -Script $startScript -ThemeOperation -Arguments @('-Port', "$Port", '-PromptRestart')
     } catch {
       Show-DreamSkinTrayError -Message $_.Exception.Message
     }
   })
+  $trayActivityTimer = [System.Windows.Forms.Timer]::new()
+  $trayActivityTimer.Interval = 750
+  $trayActivityTimer.add_Tick({ Update-DreamSkinTrayOperationState })
   [System.Windows.Forms.Application]::Run()
 } finally {
+  if ($null -ne $trayActivityTimer) {
+    $trayActivityTimer.Stop()
+    $trayActivityTimer.Dispose()
+  }
+  foreach ($child in $script:trayThemeOperations) {
+    # Disposing a Process handle leaves the authorized operation running.
+    try { $child.Dispose() } catch {}
+  }
+  $script:trayThemeOperations.Clear()
   if ($null -ne $notify) {
     $notify.Visible = $false
     $notify.ContextMenuStrip = $null

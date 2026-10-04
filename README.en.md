@@ -17,6 +17,8 @@
 
 This independent fork builds on [Fei-Away/Codex-Dream-Skin](https://github.com/Fei-Away/Codex-Dream-Skin). Its focus is the INTERNET ANGEL visual system, cross-platform parity, launcher compatibility, and clear security boundaries.
 
+Development motion settings (not included in the v1.5.20 installers): macOS Theme → Motion, the Windows tray Motion menu, and the Linux settings command offer System / Off / Subtle / Full modes and five effect switches. See the [motion system guide](docs/theme-motion.md) for behavior and compatibility limits.
+
 ## Features
 
 - Styles the home screen, sidebar, tasks, composer, settings, terminal, permissions, diffs, subagents, and status surfaces.

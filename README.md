@@ -17,6 +17,8 @@
 
 本项目是基于 [Fei-Away/Codex-Dream-Skin](https://github.com/Fei-Away/Codex-Dream-Skin) 持续开发的独立 fork，主要维护超天酱视觉、跨平台一致性、启动兼容性与安全边界。
 
+开发版动效设置（尚未进入 v1.5.20 安装包）：macOS 菜单栏的「主题 → 动态效果」、Windows 托盘的「动态效果」及 Linux 配置命令提供跟随系统 / 关闭 / 轻量 / 完整四档和五类效果开关。详见[统一动效系统](docs/theme-motion.md)。
+
 ## 功能
 
 - 超天酱主题覆盖首页、侧栏、任务、输入区、设置、终端、权限、差异、子代理与状态提示等界面。

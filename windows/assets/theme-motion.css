@@ -1,0 +1,336 @@
+/* Shared trusted motion layer. Appended after base, extension and Safe CSS.
+   Native content stays visible and owns its layout, focus and scroll behavior.
+   The controller resolves system preferences and owns every transient marker. */
+html:root[data-dream-motion] {
+  --dream-motion-accent: var(--angel-cyan, var(--ds-accent, var(--dream-accent, #63f4ff)));
+  --dream-motion-attention: var(--angel-pink, #ff79c6);
+  --dream-motion-paper: var(--angel-paper, var(--ds-text, var(--dream-text, #fff7ff)));
+  --dream-motion-duration: 140ms;
+  --dream-motion-ease: cubic-bezier(.22, .7, .3, 1);
+}
+
+/* Accessibility-layer importance keeps a theme author's transition token
+   from overriding the user's resolved preference or the old inline default. */
+@layer dreamskin-accessibility {
+  html:root[data-dream-motion="off"] { --ds-theme-motion-level: off !important; }
+  html:root[data-dream-motion="subtle"] { --ds-theme-motion-level: subtle !important; }
+  html:root[data-dream-motion="full"] { --ds-theme-motion-level: full !important; }
+}
+
+/* The old decorative timelines are replaced by the three bounded channels
+   below. These IDs contain skin-owned art only, never native spinners. The
+   precise SVG selector also retires Linux's costly per-subagent glow loop. */
+html:root[data-dream-motion] :is(#codex-dream-skin-chrome, #chatgpt-internet-angel-hud, #chatgpt-internet-angel-sidebar, #codex-dream-sidebar-ornaments),
+html:root[data-dream-motion] :is(#codex-dream-skin-chrome, #chatgpt-internet-angel-hud, #chatgpt-internet-angel-sidebar, #codex-dream-sidebar-ornaments) *,
+html:root[data-dream-motion] :is(#codex-dream-skin-chrome, #chatgpt-internet-angel-hud, #chatgpt-internet-angel-sidebar, #codex-dream-sidebar-ornaments) *::before,
+html:root[data-dream-motion] :is(#codex-dream-skin-chrome, #chatgpt-internet-angel-hud, #chatgpt-internet-angel-sidebar, #codex-dream-sidebar-ornaments) *::after,
+html:root[data-dream-motion] :is(.dream-subagent-row-live, .dream-subagent-scroller > section:first-child > [class~="relative"][class~="z-10"] > button[class~="items-start"]) > svg:first-child {
+  animation: none !important;
+}
+
+/* A stopped eyelid timeline must not leave a closed frame over the wallpaper. */
+html:root[data-dream-motion] #codex-dream-skin-chrome .dream-blink-frame {
+  opacity: 0 !important;
+}
+
+/* Shared parts work in generic/Acrylic payloads; extension markers and legacy
+   dream-* classes cover the richer platform skins without structural guesses. */
+html:root[data-dream-motion]:not([data-dream-motion="off"])[data-dream-motion-paused="false"][data-dream-motion-interactions="on"] :is(
+  [data-ds-part="composer"], [data-angel-component="composer"], .composer-surface-chrome,
+  [data-angel-component="composer-action"], [data-angel-component="message-action"],
+  [data-angel-component="sidebar-control"], [data-angel-component="sidebar-row"],
+  [data-angel-component="sidebar-new-task"], .dream-new-task-button,
+  [data-angel-component="terminal-tab"], .dream-terminal-tab,
+  [data-angel-component="settings-control"], [data-angel-component="settings-segment"],
+  [data-angel-component="settings-row"], .dream-settings-row,
+  [data-angel-component="environment-action"], [data-angel-component="activity-header"],
+  [data-angel-component="composer-palette-item"], .dream-composer-palette-item,
+  [data-ds-part="composer-toolbar"] button, [data-ds-part="sidebar"] button,
+  #codex-dream-skin-presets button, #chatgpt-internet-angel-deck button,
+  .group\/home-suggestions button
+) {
+  transition-property: color, border-color, background-color, outline-color !important;
+  transition-duration: var(--dream-motion-duration) !important;
+  transition-timing-function: var(--dream-motion-ease) !important;
+}
+
+/* Outline is paint only and does not assume a positioned composer shell.
+   Its native ::before/::after, input geometry and hit area remain untouched. */
+html:root[data-dream-motion]:not([data-dream-motion="off"])[data-dream-motion-paused="false"][data-dream-motion-interactions="on"] :is([data-ds-part="composer"], [data-angel-component="composer"], .composer-surface-chrome):focus-within {
+  outline: 1px solid var(--dream-motion-accent) !important;
+  outline-offset: 2px;
+}
+
+/* Press feedback does not imply that sending, copying or applying succeeded. */
+html:root[data-dream-motion]:not([data-dream-motion="off"])[data-dream-motion-paused="false"][data-dream-motion-interactions="on"] :is(
+  [data-angel-component="composer-action"], [data-angel-component="message-action"],
+  [data-angel-component="sidebar-control"], [data-angel-component="sidebar-new-task"],
+  [data-angel-component="environment-action"], [data-ds-part="composer-toolbar"] button,
+  .dream-new-task-button, #codex-dream-skin-presets button,
+  #chatgpt-internet-angel-deck button, .group\/home-suggestions button
+):not(:disabled):not([aria-disabled="true"]):active {
+  border-color: var(--dream-motion-accent) !important;
+  box-shadow: inset 0 2px 0 rgb(0 0 0 / .22) !important;
+}
+
+/* Highlight selection without moving a row, tab, or its scroll container. */
+html:root[data-dream-motion]:not([data-dream-motion="off"])[data-dream-motion-paused="false"][data-dream-motion-interactions="on"] :is(
+  [data-angel-component="sidebar-row"], [data-angel-component="terminal-tab"],
+  [data-angel-component="settings-segment"], .dream-terminal-tab,
+  [data-ds-part="sidebar"] [aria-current], .dream-settings-segment
+):is([aria-selected="true"], [aria-current="page"], [data-state="active"], [data-state="checked"]) {
+  border-color: var(--dream-motion-accent) !important;
+  outline: 1px solid color-mix(in srgb, var(--dream-motion-accent) 42%, transparent);
+  outline-offset: -1px;
+}
+
+/* Existing themed chevrons, never all SVGs: native progress spinners retain
+   their own animation. Standalone rotate composes with native transforms. */
+html:root[data-dream-motion]:not([data-dream-motion="off"])[data-dream-motion-paused="false"][data-dream-motion-interactions="on"] :is(
+  [data-angel-component="activity-header"], [data-angel-component="environment-header"],
+  [data-angel-component="sidebar-section"]
+)[aria-expanded] > :is(svg[data-lucide="chevron-right"], svg.lucide-chevron-right, [data-slot="chevron"]) {
+  transition: rotate 140ms var(--dream-motion-ease) !important;
+}
+
+html:root[data-dream-motion]:not([data-dream-motion="off"])[data-dream-motion-paused="false"][data-dream-motion-interactions="on"] :is(
+  [data-angel-component="activity-header"], [data-angel-component="environment-header"],
+  [data-angel-component="sidebar-section"]
+)[aria-expanded="true"] > :is(svg[data-lucide="chevron-right"], svg.lucide-chevron-right, [data-slot="chevron"]) {
+  rotate: 90deg;
+}
+
+/* Entry markers are short-lived and identity-deduplicated by the controller.
+   It skips hosts with a native animation already in progress. Animate only
+   the edge: no positioning assumptions, hidden cards, or animationend gate. */
+html:root[data-dream-motion]:not([data-dream-motion="off"])[data-dream-motion-paused="false"][data-dream-motion-interactions="on"] :is(
+  [data-dream-motion-enter="home-card"], [data-dream-motion-enter="menu"],
+  [data-dream-motion-enter="edited-card"], [data-dream-motion-enter="permission"],
+  [data-dream-motion-feedback="expanded"]
+) {
+  outline: 1px solid var(--dream-motion-accent);
+  outline-offset: -1px;
+  transition: outline-color 180ms ease-out !important;
+  animation: dream-motion-highlight 220ms ease-out 1;
+}
+
+html:root[data-dream-motion] [data-dream-motion-enter="permission"] {
+  --dream-motion-accent: var(--dream-motion-attention);
+}
+
+html:root[data-dream-motion] [data-dream-motion-owned],
+html:root[data-dream-motion] [data-dream-motion-owned] *,
+html:root[data-dream-motion] [data-dream-motion-owned]::before,
+html:root[data-dream-motion] [data-dream-motion-owned]::after {
+  pointer-events: none !important;
+  user-select: none !important;
+}
+
+html:root[data-dream-motion] [data-dream-motion-owned][data-dream-motion-role="status"] {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 3;
+  width: 14px;
+  height: 14px;
+  color: var(--dream-motion-accent);
+  opacity: .8;
+}
+
+html:root[data-dream-motion] [data-dream-motion-owned][data-dream-motion-role="status"]::before {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+html:root[data-dream-motion] [data-dream-motion-owned][data-dream-motion-role="status"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  opacity: 0;
+}
+
+html:root[data-dream-motion] [data-dream-motion-owned]:is([data-dream-motion-state="unknown"], [data-dream-motion-state="idle"], [data-dream-motion-state="cancelled"]) {
+  --dream-motion-state-color: var(--dream-motion-paper);
+  color: var(--dream-motion-state-color);
+  opacity: .55;
+}
+
+html:root[data-dream-motion] [data-dream-motion-owned]:is([data-dream-motion-state="needs-attention"], [data-dream-motion-state="failed"]) {
+  --dream-motion-state-color: var(--dream-motion-attention);
+  color: var(--dream-motion-state-color);
+}
+
+html:root[data-dream-motion] [data-dream-motion-owned][data-dream-motion-role="status"]:is([data-dream-motion-state="needs-attention"], [data-dream-motion-state="failed"])::before {
+  content: "!";
+  inset: 0;
+  background: none;
+  font: 700 12px/14px system-ui, sans-serif;
+  text-align: center;
+}
+
+html:root[data-dream-motion="full"][data-dream-motion-paused="false"][data-dream-motion-status="on"][data-dream-motion-state="busy"] [data-dream-motion-owned][data-dream-motion-role="status"]::after {
+  animation: dream-motion-signal 2.4s ease-in-out infinite;
+}
+
+html:root[data-dream-motion]:not([data-dream-motion="off"])[data-dream-motion-paused="false"][data-dream-motion-status="on"] [data-dream-motion-owned][data-dream-motion-role="status"]:is([data-dream-motion-feedback="completed"], [data-dream-motion-feedback="failed"])::after {
+  animation: dream-motion-result 420ms ease-out 1;
+}
+
+html:root[data-dream-motion]:not([data-dream-motion="off"])[data-dream-motion-paused="false"][data-dream-motion-status="on"] [data-dream-motion-owned][data-dream-motion-role="status"][data-dream-motion-feedback="cancelled"]::after {
+  animation: dream-motion-edge 200ms ease-out 1;
+}
+
+/* The controller creates the glyph only for the known built-in Angel theme.
+   This is a small independent badge, never an eyelid on a user's photograph. */
+html:root[data-dream-motion] [data-dream-motion-owned][data-dream-motion-role="character"] {
+  position: fixed;
+  right: 38px;
+  bottom: 13px;
+  z-index: 3;
+  width: 28px;
+  height: 24px;
+  color: var(--dream-motion-state-color, var(--dream-motion-accent));
+  border: 1px solid currentColor;
+  border-radius: 5px 8px 5px 8px;
+  background: color-mix(in srgb, var(--dream-surface, var(--ds-panel, #17132d)) 92%, transparent);
+  font: 700 15px/22px system-ui, sans-serif;
+  text-align: center;
+  opacity: .75;
+}
+
+html:root[data-dream-motion="full"][data-dream-motion-paused="false"][data-dream-motion-character="on"][data-dream-motion-route="home"] [data-dream-motion-owned][data-dream-motion-role="character"] {
+  animation: dream-motion-character 8s ease-in-out infinite;
+}
+
+html:root[data-dream-motion]:not([data-dream-motion="off"])[data-dream-motion-paused="false"][data-dream-motion-character="on"] [data-dream-motion-owned][data-dream-motion-role="character"][data-dream-motion-feedback="completed"] {
+  animation: dream-motion-greeting 420ms ease-out 1;
+}
+
+/* Three static stars share ONE low-frequency timeline. Together with the
+   character and status this caps Home at three continuous channels. */
+html:root[data-dream-motion] [data-dream-motion-owned][data-dream-motion-role="ambient"] {
+  position: fixed;
+  top: 22vh;
+  right: 16px;
+  z-index: 0;
+  width: 68px;
+  height: 104px;
+  color: var(--dream-motion-accent);
+  font: 12px/1 system-ui, sans-serif;
+  opacity: .25;
+}
+
+html:root[data-dream-motion] [data-dream-motion-role="ambient"] > span {
+  position: absolute;
+}
+
+html:root[data-dream-motion] [data-dream-motion-role="ambient"] > span:empty::before { content: "✦"; }
+html:root[data-dream-motion] [data-dream-motion-role="ambient"] > [data-dream-motion-index="0"] { top: 4px; left: 6px; }
+html:root[data-dream-motion] [data-dream-motion-role="ambient"] > [data-dream-motion-index="1"] { top: 42px; right: 0; color: var(--dream-motion-attention); }
+html:root[data-dream-motion] [data-dream-motion-role="ambient"] > [data-dream-motion-index="2"] { bottom: 0; left: 20px; font-size: 8px; }
+
+html:root[data-dream-motion="full"][data-dream-motion-paused="false"][data-dream-motion-ambient="on"][data-dream-motion-route="home"] [data-dream-motion-owned][data-dream-motion-role="ambient"] {
+  animation: dream-motion-ambient 10s ease-in-out infinite;
+}
+
+/* The previous decoded background may only sit BELOW native content. If the
+   native body paints over this layer the result is an immediate safe switch;
+   do not raise its z-index or alter content stacking to force a transition. */
+html:root[data-dream-motion] [data-dream-motion-owned][data-dream-motion-role="theme-transition"] {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  width: 100%;
+  height: 100%;
+  opacity: 1;
+}
+
+html:root[data-dream-motion]:not([data-dream-motion="off"])[data-dream-motion-paused="false"][data-dream-motion-theme-transition="on"] [data-dream-motion-owned][data-dream-motion-role="theme-transition"][data-dream-motion-feedback="theme-transition"] {
+  animation: dream-motion-theme-fade 250ms ease-out 1 forwards;
+}
+
+@keyframes dream-motion-highlight { from { outline-color: var(--dream-motion-accent); } to { outline-color: transparent; } }
+@keyframes dream-motion-edge { from { opacity: .8; } to { opacity: 0; } }
+@keyframes dream-motion-signal { 0%, 100% { opacity: .25; scale: .8; } 50% { opacity: .7; scale: 1.1; } }
+@keyframes dream-motion-result { 0% { opacity: .85; scale: .8; } 100% { opacity: 0; scale: 1.5; } }
+@keyframes dream-motion-character { 0%, 100% { translate: 0 0; } 50% { translate: 0 -2px; } }
+@keyframes dream-motion-greeting { 0%, 100% { scale: 1; } 45% { scale: 1.08; } }
+@keyframes dream-motion-ambient { 0%, 100% { opacity: .18; } 50% { opacity: .38; } }
+@keyframes dream-motion-theme-fade { from { opacity: 1; } to { opacity: 0; } }
+
+/* These switches apply to skin effects only. Native loading indicators keep
+   working in off/subtle mode, in the background, and with reduced motion. */
+html:root[data-dream-motion][data-dream-motion-status="off"] [data-dream-motion-owned][data-dream-motion-role="status"],
+html:root[data-dream-motion][data-dream-motion-character="off"] [data-dream-motion-owned][data-dream-motion-role="character"],
+html:root[data-dream-motion]:not([data-dream-motion="full"][data-dream-motion-route="home"][data-dream-motion-ambient="on"]) [data-dream-motion-owned][data-dream-motion-role="ambient"] {
+  display: none !important;
+}
+
+html:root[data-dream-motion]:is([data-dream-motion="off"], [data-dream-motion-paused="true"]) [data-dream-motion-owned],
+html:root[data-dream-motion]:is([data-dream-motion="off"], [data-dream-motion-paused="true"]) [data-dream-motion-owned] *,
+html:root[data-dream-motion]:is([data-dream-motion="off"], [data-dream-motion-paused="true"]) [data-dream-motion-owned]::before,
+html:root[data-dream-motion]:is([data-dream-motion="off"], [data-dream-motion-paused="true"]) [data-dream-motion-owned]::after {
+  animation: none !important;
+  transition: none !important;
+}
+
+html:root[data-dream-motion]:is([data-dream-motion="off"], [data-dream-motion-paused="true"], [data-dream-motion-interactions="off"]) :is(
+  [data-angel-component], [data-ds-part="composer"], [data-ds-part="composer-toolbar"] button,
+  [data-ds-part="sidebar"] button, .composer-surface-chrome,
+  .dream-terminal-tab, .dream-settings-row, .dream-settings-control,
+  .dream-new-task-button, .dream-composer-palette-item, .dream-turn-nav-marker,
+  #codex-dream-skin-presets button, #chatgpt-internet-angel-deck button,
+  .group\/home-suggestions button
+) {
+  transition: none !important;
+}
+
+html:root[data-dream-motion]:is([data-dream-motion="off"], [data-dream-motion-paused="true"], [data-dream-motion-interactions="off"]) :is(
+  [data-dream-motion-enter], [data-dream-motion-feedback="expanded"]
+) {
+  animation: none !important;
+}
+
+html:root[data-dream-motion]:is([data-dream-motion="off"], [data-dream-motion-paused="true"], [data-dream-motion-interactions="off"]) :is(
+  [data-angel-component="sidebar-control"], [data-angel-component="sidebar-row"],
+  [data-angel-component="sidebar-new-task"], [data-angel-component="composer-palette-item"],
+  .dream-new-task-button, .dream-composer-palette-item,
+  #codex-dream-skin-presets button, #chatgpt-internet-angel-deck button,
+  .group\/home-suggestions button
+) {
+  translate: none !important;
+  transform: none !important;
+}
+
+html:root[data-dream-motion]:is([data-dream-motion="off"], [data-dream-motion-paused="true"], [data-dream-motion-theme-transition="off"]) [data-dream-motion-owned][data-dream-motion-role="theme-transition"] {
+  display: none !important;
+}
+
+@media (max-width: 900px), (max-height: 650px) {
+  html:root[data-dream-motion] [data-dream-motion-owned][data-dream-motion-role="ambient"] {
+    display: none !important;
+    animation: none !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:root[data-dream-motion] [data-dream-motion-owned],
+  html:root[data-dream-motion] [data-dream-motion-owned] *,
+  html:root[data-dream-motion] [data-dream-motion-owned]::before,
+  html:root[data-dream-motion] [data-dream-motion-owned]::after,
+  html:root[data-dream-motion] [data-dream-motion-enter],
+  html:root[data-dream-motion] [data-dream-motion-feedback="expanded"] {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  html:root[data-dream-motion] [data-dream-motion-owned][data-dream-motion-role="ambient"],
+  html:root[data-dream-motion] [data-dream-motion-owned][data-dream-motion-role="theme-transition"] {
+    display: none !important;
+  }
+}

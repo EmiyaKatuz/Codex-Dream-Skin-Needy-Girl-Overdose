@@ -18,6 +18,12 @@ function Assert-DreamSkinPatchSource {
   $cssPath = Join-Path $Root 'assets\dream-skin.css'
   $acrylicCssPath = Join-Path $Root 'assets\internet-angel-acrylic.css'
   $extensionCssPath = Join-Path $Root 'assets\internet-angel-extension.css'
+  foreach ($assetName in @('theme-motion.js', 'theme-motion.css', 'motion-settings.mjs', 'motion-payload.mjs')) {
+    $motionPath = Join-Path $Root "assets\$assetName"
+    if (-not (Test-Path -LiteralPath $motionPath -PathType Leaf)) {
+      throw "Patch source is incomplete: $motionPath"
+    }
+  }
   foreach ($requiredPath in @(
     $commonPath, $startPath, $injectorPath, $versionPath, $rendererPath, $cssPath,
     $acrylicCssPath, $extensionCssPath
@@ -192,6 +198,13 @@ $patchIdentityPairs = @(
   @{ Source = $acrylicCssSourcePath; Installed = $installedAcrylicCss },
   @{ Source = $extensionCssSourcePath; Installed = $installedExtensionCss }
 )
+$motionAssetNames = @('theme-motion.js', 'theme-motion.css', 'motion-settings.mjs', 'motion-payload.mjs')
+foreach ($assetName in $motionAssetNames) {
+  $patchIdentityPairs += @{
+    Source = (Join-Path $sourceRoot "assets\$assetName")
+    Installed = (Join-Path $engine.Root "assets\$assetName")
+  }
+}
 $alreadyPatched = $true
 foreach ($pair in $patchIdentityPairs) {
   if (-not (Test-DreamSkinPatchFileMatches -Source $pair.Source -Installed $pair.Installed)) {
@@ -259,6 +272,16 @@ try {
       @{ Relative = 'assets\internet-angel-acrylic.css'; Source = $acrylicCssSourcePath; Staged = $stagedAcrylicCss; Installed = $installedAcrylicCss },
       @{ Relative = 'assets\internet-angel-extension.css'; Source = $extensionCssSourcePath; Staged = $stagedExtensionCss; Installed = $installedExtensionCss }
     )
+    foreach ($assetName in $motionAssetNames) {
+      $relative = "assets\$assetName"
+      $motionSource = Join-Path $sourceRoot $relative
+      $motionStaged = Join-Path $stagingRoot $relative
+      Copy-Item -LiteralPath $motionSource -Destination $motionStaged -Force -ErrorAction Stop
+      $patchPairs += @{
+        Relative = $relative; Source = $motionSource; Staged = $motionStaged
+        Installed = (Join-Path $engine.Root $relative)
+      }
+    }
     foreach ($pair in $patchPairs) {
       $sourceHash = (Get-FileHash -LiteralPath $pair.Source -Algorithm SHA256).Hash
       $stagedHash = (Get-FileHash -LiteralPath $pair.Staged -Algorithm SHA256).Hash
