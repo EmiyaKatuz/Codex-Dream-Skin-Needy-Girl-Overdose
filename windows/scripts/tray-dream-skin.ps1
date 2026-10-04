@@ -197,12 +197,18 @@ try {
       @{ Value = 'full'; Label = (Get-DreamSkinTrayText -Key 'MotionFull') }
     )) {
       $optionValue = $option.Value
-      $optionAction = {
-        $null = Invoke-DreamSkinTrayMotionCommand -Arguments @('--set-mode', $optionValue)
-        Rebuild-DreamSkinTrayMenu
-      }.GetNewClosure()
-      $null = Add-DreamSkinTrayItem -Items $motionMenu.DropDownItems -Text $option.Label `
-        -Action $optionAction -Checked ($settings.mode -ceq $optionValue)
+      $optionItem = Add-DreamSkinTrayItem -Items $motionMenu.DropDownItems -Text $option.Label `
+        -Action $null -Checked ($settings.mode -ceq $optionValue)
+      $optionItem.Tag = [string[]]@('--set-mode', $optionValue)
+      # Retain the script session so private helpers remain available after
+      # this function returns; per-item arguments live on the event sender.
+      $optionItem.add_Click({
+        param($sender, $eventArgs)
+        try {
+          $null = Invoke-DreamSkinTrayMotionCommand -Arguments $sender.Tag
+          Rebuild-DreamSkinTrayMenu
+        } catch { Show-DreamSkinTrayError -Message $_.Exception.Message }
+      })
     }
     [void]$motionMenu.DropDownItems.Add([System.Windows.Forms.ToolStripSeparator]::new())
     foreach ($effect in @(
@@ -215,12 +221,16 @@ try {
       $effectValue = $effect.Value
       $effectEnabled = $settings.effects.$effectValue
       $effectNext = if ($effectEnabled) { 'off' } else { 'on' }
-      $effectAction = {
-        $null = Invoke-DreamSkinTrayMotionCommand -Arguments @('--set-effect', $effectValue, $effectNext)
-        Rebuild-DreamSkinTrayMenu
-      }.GetNewClosure()
-      $null = Add-DreamSkinTrayItem -Items $motionMenu.DropDownItems -Text $effect.Label `
-        -Action $effectAction -Checked $effectEnabled
+      $effectItem = Add-DreamSkinTrayItem -Items $motionMenu.DropDownItems -Text $effect.Label `
+        -Action $null -Checked $effectEnabled
+      $effectItem.Tag = [string[]]@('--set-effect', $effectValue, $effectNext)
+      $effectItem.add_Click({
+        param($sender, $eventArgs)
+        try {
+          $null = Invoke-DreamSkinTrayMotionCommand -Arguments $sender.Tag
+          Rebuild-DreamSkinTrayMenu
+        } catch { Show-DreamSkinTrayError -Message $_.Exception.Message }
+      })
     }
     [void]$motionMenu.DropDownItems.Add([System.Windows.Forms.ToolStripSeparator]::new())
     $null = Add-DreamSkinTrayItem -Items $motionMenu.DropDownItems `
