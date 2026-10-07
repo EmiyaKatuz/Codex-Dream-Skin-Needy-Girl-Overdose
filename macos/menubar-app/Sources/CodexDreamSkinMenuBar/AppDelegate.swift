@@ -42,6 +42,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
     "assets/dream-skin.css",
     "assets/internet-angel-extension.css",
     "assets/internet-angel-extension.js",
+    "assets/css-predicate-cache.mjs",
     "assets/portal-hero.png",
     "assets/renderer-inject.js",
     "assets/safe-css-policy.json",

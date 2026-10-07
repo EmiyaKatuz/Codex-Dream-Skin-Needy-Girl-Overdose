@@ -184,6 +184,31 @@ try {
     Remove-DreamSkinRuntimeTree -Path $runtimeBackup.FullName -StateRoot $runtimeStateRoot
   }
 
+  $missingPredicateRoot = Join-Path $temporaryRoot 'missing-predicate-source'
+  Copy-Item -LiteralPath $runtimeSourceRoot -Destination $missingPredicateRoot -Recurse -Force
+  Remove-Item -LiteralPath (Join-Path $missingPredicateRoot 'assets\css-predicate-cache.mjs') -Force
+  $enginePrefixBeforePredicateCheck = $engine.Root.TrimEnd('\') + '\'
+  $engineHashesBeforePredicateCheck = @(Get-ChildItem -LiteralPath $engine.Root -File -Recurse |
+    Sort-Object FullName | ForEach-Object {
+      "$($_.FullName.Substring($enginePrefixBeforePredicateCheck.Length))=$((Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash)"
+    }) -join "`n"
+  $missingPredicateRejected = $false
+  try {
+    $null = Install-DreamSkinRuntimeEngine -SkillRoot $missingPredicateRoot -StateRoot $runtimeStateRoot
+  } catch {
+    if ($_.Exception.Message -notlike '*runtime source is incomplete*assets\css-predicate-cache.mjs*') { throw }
+    $missingPredicateRejected = $true
+  }
+  $engineHashesAfterPredicateCheck = @(Get-ChildItem -LiteralPath $engine.Root -File -Recurse |
+    Sort-Object FullName | ForEach-Object {
+      "$($_.FullName.Substring($enginePrefixBeforePredicateCheck.Length))=$((Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash)"
+    }) -join "`n"
+  if (-not $missingPredicateRejected -or $engineHashesBeforePredicateCheck -cne $engineHashesAfterPredicateCheck -or
+    @(Get-ChildItem -LiteralPath $runtimeStateRoot -Directory |
+      Where-Object { $_.Name -like '.engine-staging-*' -or $_.Name -like '.engine-backup-*' }).Count -ne 0) {
+    throw 'A source missing the predicate dependency changed the installed engine or left transaction directories.'
+  }
+
   $missingBundledNodeRoot = Join-Path $temporaryRoot 'missing-bundled-node-source'
   Copy-Item -LiteralPath $runtimeSourceRoot -Destination $missingBundledNodeRoot -Recurse -Force
   Remove-Item -LiteralPath (Join-Path $missingBundledNodeRoot 'runtime\node\LICENSE') -Force
@@ -1395,7 +1420,7 @@ args = [
   Copy-Item -LiteralPath (Join-Path $Root 'VERSION') -Destination $releaseFixtureRoot -Force
   foreach ($releaseAsset in @(
     'dream-skin.css', 'internet-angel-acrylic.css', 'internet-angel-extension.css',
-    'internet-angel-extension.js', 'renderer-inject.js', 'safe-css-policy.json', 'safe-css-validator.mjs', 'selectors.json',
+    'internet-angel-extension.js', 'css-predicate-cache.mjs', 'renderer-inject.js', 'safe-css-policy.json', 'safe-css-validator.mjs', 'selectors.json',
     'theme-package-validator.mjs'
   )) {
     Copy-Item -LiteralPath (Join-Path $Root "assets\$releaseAsset") `

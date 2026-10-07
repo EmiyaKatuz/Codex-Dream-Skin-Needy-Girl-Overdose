@@ -376,6 +376,7 @@ try {
     'assets\internet-angel-acrylic.css',
     'assets\internet-angel-extension.css',
     'assets\internet-angel-extension.js',
+    'assets\css-predicate-cache.mjs',
     'assets\internet-angel-tray.ico',
     'assets\internet-angel-tray.png',
     'assets\renderer-inject.js',

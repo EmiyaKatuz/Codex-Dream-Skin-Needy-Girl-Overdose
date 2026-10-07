@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param([Parameter(Mandatory = $true)][string]$Root)
 
 $ErrorActionPreference = 'Stop'
@@ -39,8 +39,10 @@ try {
   $quickFixBuilderSource = [System.IO.File]::ReadAllText($quickFixBuilder)
   foreach ($requiredQuickFixAsset in @(
     'renderer-inject.js',
+    'css-predicate-cache.mjs',
     'dream-skin.css',
     'internet-angel-acrylic.css',
+    'internet-angel-extension.js',
     'internet-angel-extension.css'
   )) {
     if (-not $quickFixBuilderSource.Contains("'$requiredQuickFixAsset'")) {
@@ -60,8 +62,10 @@ try {
   Expand-Archive -LiteralPath $quickFixArchives[0].FullName -DestinationPath $quickFixExtract
   foreach ($requiredQuickFixAsset in @(
     'renderer-inject.js',
+    'css-predicate-cache.mjs',
     'dream-skin.css',
     'internet-angel-acrylic.css',
+    'internet-angel-extension.js',
     'internet-angel-extension.css'
   )) {
     $sourceAsset = Join-Path $Root "assets\$requiredQuickFixAsset"
@@ -96,10 +100,14 @@ try {
   $sourceCss = Join-Path $Root 'assets\dream-skin.css'
   $sourceAcrylicCss = Join-Path $Root 'assets\internet-angel-acrylic.css'
   $sourceExtensionCss = Join-Path $Root 'assets\internet-angel-extension.css'
+  $sourceExtensionScript = Join-Path $Root 'assets\internet-angel-extension.js'
+  $sourcePredicateRuntime = Join-Path $Root 'assets\css-predicate-cache.mjs'
   $installedRenderer = Join-Path $assetsRoot 'renderer-inject.js'
   $installedCss = Join-Path $assetsRoot 'dream-skin.css'
   $installedAcrylicCss = Join-Path $assetsRoot 'internet-angel-acrylic.css'
   $installedExtensionCss = Join-Path $assetsRoot 'internet-angel-extension.css'
+  $installedExtensionScript = Join-Path $assetsRoot 'internet-angel-extension.js'
+  $installedPredicateRuntime = Join-Path $assetsRoot 'css-predicate-cache.mjs'
   if ((Get-FileHash -LiteralPath $installedCommon -Algorithm SHA256).Hash -cne
       (Get-FileHash -LiteralPath $sourceCommon -Algorithm SHA256).Hash -or
     (Get-FileHash -LiteralPath $installedStart -Algorithm SHA256).Hash -cne
@@ -116,6 +124,10 @@ try {
       (Get-FileHash -LiteralPath $sourceAcrylicCss -Algorithm SHA256).Hash -or
     (Get-FileHash -LiteralPath $installedExtensionCss -Algorithm SHA256).Hash -cne
       (Get-FileHash -LiteralPath $sourceExtensionCss -Algorithm SHA256).Hash -or
+    (Get-FileHash -LiteralPath $installedExtensionScript -Algorithm SHA256).Hash -cne
+      (Get-FileHash -LiteralPath $sourceExtensionScript -Algorithm SHA256).Hash -or
+    (Get-FileHash -LiteralPath $installedPredicateRuntime -Algorithm SHA256).Hash -cne
+      (Get-FileHash -LiteralPath $sourcePredicateRuntime -Algorithm SHA256).Hash -or
     [System.IO.File]::ReadAllText($sentinel) -cne 'keep') {
     throw 'Runtime patch did not replace the launcher, injector, renderer/css assets, and patch script while preserving the sentinel file.'
   }
@@ -143,10 +155,36 @@ try {
     throw 'A token-complete but byte-stale runtime was incorrectly treated as already patched.'
   }
 
+  [System.IO.File]::AppendAllText(
+    $installedExtensionScript,
+    "`r`n// stale extension-only scheduler payload`r`n",
+    [System.Text.UTF8Encoding]::new($false)
+  )
+  $beforeExtensionRepairSentinel = (Get-FileHash -LiteralPath $sentinel -Algorithm SHA256).Hash
+  & $patchScript -SourceRoot $Root -StateRoot $stateRoot -DryRun
+  if ((Get-FileHash -LiteralPath $installedExtensionScript -Algorithm SHA256).Hash -ceq
+    (Get-FileHash -LiteralPath $sourceExtensionScript -Algorithm SHA256).Hash) {
+    throw 'Dry run repaired the stale extension instead of leaving the engine intact.'
+  }
+  & $patchScript -SourceRoot $Root -StateRoot $stateRoot
+  if ((Get-FileHash -LiteralPath $installedExtensionScript -Algorithm SHA256).Hash -cne
+    (Get-FileHash -LiteralPath $sourceExtensionScript -Algorithm SHA256).Hash -or
+    (Get-FileHash -LiteralPath $sentinel -Algorithm SHA256).Hash -cne $beforeExtensionRepairSentinel) {
+    throw 'An extension-only stale runtime was not repaired while preserving unrelated files.'
+  }
+
   $patchedFiles = @(
     $installedCommon, $installedStart, $installedInjector, $installedPatch, $installedRenderer,
-    $installedCss, $installedAcrylicCss, $installedExtensionCss
+    $installedCss, $installedAcrylicCss, $installedExtensionCss, $installedExtensionScript, $installedPredicateRuntime
   )
+  [System.IO.File]::AppendAllText(
+    $installedPredicateRuntime, "`r`n// stale predicate dependency`r`n", [System.Text.UTF8Encoding]::new($false)
+  )
+  & $patchScript -SourceRoot $Root -StateRoot $stateRoot
+  if ((Get-FileHash -LiteralPath $installedPredicateRuntime -Algorithm SHA256).Hash -cne
+    (Get-FileHash -LiteralPath $sourcePredicateRuntime -Algorithm SHA256).Hash) {
+    throw 'A stale predicate runtime dependency was not atomically repaired.'
+  }
   $beforeIdempotentHashes = @($patchedFiles | ForEach-Object {
     (Get-FileHash -LiteralPath $_ -Algorithm SHA256).Hash
   })
@@ -285,6 +323,58 @@ try {
   ) -join "`n"
   if ($beforeFailedSwap -cne $afterFailedSwap) {
     throw 'A failed atomic patch swap did not restore the exact previous engine.'
+  }
+
+  [System.IO.File]::AppendAllText(
+    $installedExtensionScript,
+    "`r`n// preserve this exact stale extension on verification rollback`r`n",
+    [System.Text.UTF8Encoding]::new($false)
+  )
+  $beforeFailedVerification = @(
+    Get-ChildItem -LiteralPath $engineRoot -Recurse -File -Force |
+      Sort-Object FullName |
+      ForEach-Object {
+        $relative = $_.FullName.Substring($enginePrefix.Length)
+        "$relative=$((Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash)"
+      }
+  ) -join "`n"
+  $verificationPatchText = [System.IO.File]::ReadAllText($patchScript)
+  $installedHashNeedle = '        $installedHash = (Get-FileHash -LiteralPath $pair.Installed -Algorithm SHA256).Hash'
+  if (-not $verificationPatchText.Contains($installedHashNeedle)) {
+    throw 'Could not install the extension verification failure seam in the patch fixture.'
+  }
+  $verificationPatchText = $verificationPatchText.Replace(
+    $installedHashNeedle,
+    @'
+        if ($pair.Relative -ceq 'assets\internet-angel-extension.js') {
+          [System.IO.File]::AppendAllText($pair.Installed, '// forced extension verification mismatch')
+        }
+        $installedHash = (Get-FileHash -LiteralPath $pair.Installed -Algorithm SHA256).Hash
+'@
+  )
+  [System.IO.File]::WriteAllText($failurePatch, $verificationPatchText, [System.Text.UTF8Encoding]::new($true))
+  $verificationPatchFailed = $false
+  try {
+    & $failurePatch -SourceRoot $failureSourceRoot -StateRoot $stateRoot
+  } catch {
+    if ($_.Exception.Message -notlike '*previous engine was restored*internet-angel-extension.js*') { throw }
+    $verificationPatchFailed = $true
+  }
+  $afterFailedVerification = @(
+    Get-ChildItem -LiteralPath $engineRoot -Recurse -File -Force |
+      Sort-Object FullName |
+      ForEach-Object {
+        $relative = $_.FullName.Substring($enginePrefix.Length)
+        "$relative=$((Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash)"
+      }
+  ) -join "`n"
+  if (-not $verificationPatchFailed -or $beforeFailedVerification -cne $afterFailedVerification) {
+    throw 'An extension hash mismatch did not restore the byte-exact previous engine.'
+  }
+  & $patchScript -SourceRoot $Root -StateRoot $stateRoot
+  if ((Get-FileHash -LiteralPath $installedExtensionScript -Algorithm SHA256).Hash -cne
+    (Get-FileHash -LiteralPath $sourceExtensionScript -Algorithm SHA256).Hash) {
+    throw 'The extension did not repair after verification rollback.'
   }
 
   $transactionDirectories = @(Get-ChildItem -LiteralPath $stateRoot -Directory -Force |

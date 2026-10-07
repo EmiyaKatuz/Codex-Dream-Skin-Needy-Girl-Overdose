@@ -9,6 +9,7 @@ import {
   normalizeThemeText,
 } from "../assets/theme-package-validator.mjs";
 import { decodeAndValidateSafeCss } from "../assets/safe-css-validator.mjs";
+import { cacheableCssPredicateManifest, createCssPredicateCache } from "../assets/css-predicate-cache.mjs";
 
 const scriptPath = fileURLToPath(import.meta.url);
 const here = path.dirname(scriptPath);
@@ -840,6 +841,13 @@ export async function loadPayload(
   // CSS. Acrylic consumes durable renderer classes instead, so omit that legacy
   // layer while retaining validated per-theme Safe CSS in both modes.
   const injectedCss = acrylicOverlay ? acrylicAndSafeCss : themedAndSafeCss;
+  // Cache only trusted built-in structural selectors. Imported Safe CSS keeps
+  // its validated cascade and does not participate in runtime marker creation.
+  const predicateManifest = cacheableCssPredicateManifest(
+    acrylicOverlay ? `${baseCss}\n${acrylicCss}` : themedCss,
+  );
+  const predicateRuntime = createCssPredicateCache.toString();
+  const predicateManifestJson = JSON.stringify(predicateManifest);
   const styleRevision = createHash("sha256").update(injectedCss).digest("hex").slice(0, 20);
   loadedTheme.theme.artKey = createHash("sha256")
     .update(loadedTheme.imageBytes).digest("hex").slice(0, 20);
@@ -848,6 +856,8 @@ export async function loadPayload(
     .update(windowMaterial)
     .update(injectedCss)
     .update(template)
+    .update(predicateRuntime)
+    .update(predicateManifestJson)
     .update(internetAngelTemplate)
     .update(JSON.stringify(loadedTheme.theme))
     .digest("hex")
@@ -859,6 +869,8 @@ export async function loadPayload(
   // stray "$`" produced a SyntaxError, while "$&"/"$$" silently corrupted the
   // theme name.
   const basePayload = template
+    .replace("__DREAM_CSS_PREDICATE_RUNTIME__", () => predicateRuntime)
+    .replace("__DREAM_CSS_PREDICATES_JSON__", () => predicateManifestJson)
     .replace("__DREAM_SKIN_CSS_JSON__", () => JSON.stringify(injectedCss))
     .replace("__DREAM_SKIN_ART_JSON__", () => JSON.stringify(artDataUrl))
     .replace("__DREAM_SKIN_THEME_JSON__", () => JSON.stringify(loadedTheme.theme))
@@ -876,7 +888,8 @@ export async function loadPayload(
   // Defence in depth for every caller, not just --check-payload: a template
   // splice leaves an unreplaced placeholder token behind and usually breaks the
   // syntax outright, so refuse to hand a corrupted script to the renderer.
-  if (/__(?:DREAM(?:_SKIN)?|INTERNET_ANGEL_EXTENSION)_[A-Z0-9_]+_JSON__/.test(payload)) {
+  if (/__(?:DREAM(?:_SKIN)?|INTERNET_ANGEL_EXTENSION)_[A-Z0-9_]+_JSON__/.test(payload)
+      || payload.includes("__DREAM_CSS_PREDICATE_RUNTIME__")) {
     throw new Error("Payload placeholders were not fully replaced");
   }
   try {

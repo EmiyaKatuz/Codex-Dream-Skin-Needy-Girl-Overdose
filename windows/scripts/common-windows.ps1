@@ -474,6 +474,7 @@ function Install-DreamSkinRuntimeEngine {
     'assets\internet-angel-acrylic.css',
     'assets\internet-angel-extension.css',
     'assets\internet-angel-extension.js',
+    'assets\css-predicate-cache.mjs',
     'assets\renderer-inject.js',
     'assets\safe-css-policy.json',
     'assets\safe-css-validator.mjs',

@@ -4,6 +4,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
+import { cacheableCssPredicateManifest } from "./css-predicate-cache.mjs";
 
 const toolsRoot = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(toolsRoot, "..");
@@ -54,7 +55,9 @@ function compileRuntime(source) {
     })),
     stableTestids: Array.isArray(contract.stableTestids) ? [...contract.stableTestids] : [],
   };
-  return source.replace(token, JSON.stringify(runtimeContract));
+  const css = compileSelectorTokens(sourceCss, "runtime/dream-skin.css") + "\n" + sourceInternetAngelExtensionCss;
+  return source.replace(token, JSON.stringify(runtimeContract))
+    .replace("__DREAM_SKIN_CSS_PREDICATES_JSON__", JSON.stringify(cacheableCssPredicateManifest(css)));
 }
 
 function compileSafeCssFileValidator(source) {
@@ -139,6 +142,10 @@ const sourceImageMetadata = await fs.readFile(
   "utf8",
 );
 const outputs = [
+  {
+    content: await fs.readFile(path.join(toolsRoot, "css-predicate-cache.mjs"), "utf8"),
+    paths: ["macos/assets/css-predicate-cache.mjs", "windows/assets/css-predicate-cache.mjs", "linux/assets/css-predicate-cache.mjs"],
+  },
   {
     // The injector runs from a packaged platform tree, so stage the same
     // contract beside the renderer assets while keeping tools/selectors.json
