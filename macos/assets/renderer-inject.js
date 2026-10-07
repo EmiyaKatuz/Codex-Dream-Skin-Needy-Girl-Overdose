@@ -115,6 +115,14 @@
   if (typeof previous?.cleanup === "function") previous.cleanup();
   window[DISABLED_KEY] = false;
 
+  const CSS_PREDICATES = [{"selector":":has([role=\"main\"])","attribute":"data-dream-has-0","branches":[{"selector":"[role=\"main\"]","relation":"descendant"}],"replacement":":is(:where([data-dream-has-0]), :is(* [role=\"main\"]):not(*))","mutationSelector":"[role=\"main\"]"},{"selector":":has(main:is(.main-surface, [data-app-shell-main-surface], [class*=\"_MainContentSurface_\"]))","attribute":"data-dream-has-1","branches":[{"selector":"main:is(.main-surface, [data-app-shell-main-surface], [class*=\"_MainContentSurface_\"])","relation":"descendant"}],"replacement":":is(:where([data-dream-has-1]), :is(* main:is(.main-surface, [data-app-shell-main-surface], [class*=\"_MainContentSurface_\"])):not(*))","mutationSelector":"main:is(.main-surface, [data-app-shell-main-surface], [class*=\"_MainContentSurface_\"])"},{"selector":":has(main:is(.main-surface, [data-app-shell-main-surface], [class*=\"_MainContentSurface_\"]) [role=\"main\"])","attribute":"data-dream-has-2","branches":[{"selector":"main:is(.main-surface, [data-app-shell-main-surface], [class*=\"_MainContentSurface_\"]) [role=\"main\"]","relation":"descendant"}],"replacement":":is(:where([data-dream-has-2]), :is(* main:is(.main-surface, [data-app-shell-main-surface], [class*=\"_MainContentSurface_\"]) [role=\"main\"]):not(*))","mutationSelector":"[role=\"main\"]"},{"selector":":has([data-testid=\"home-icon\"])","attribute":"data-dream-has-3","branches":[{"selector":"[data-testid=\"home-icon\"]","relation":"descendant"}],"replacement":":is(:where([data-dream-has-3]), :is(* [data-testid=\"home-icon\"]):not(*))","mutationSelector":"[data-testid=\"home-icon\"]"}]
+    .filter((item) => cssText.includes(item.selector));
+  for (const { selector, replacement } of CSS_PREDICATES) {
+    cssText = cssText.replaceAll(selector, replacement);
+  }
+  const predicateCache = (__DREAM_CSS_PREDICATE_RUNTIME__)(document, CSS_PREDICATES);
+  predicateCache.refresh();
+
   const existingStyleRegistry = window[STYLE_REGISTRY_KEY];
   const styleRegistry = existingStyleRegistry instanceof Set ? existingStyleRegistry : new Set();
   window[STYLE_REGISTRY_KEY] = styleRegistry;
@@ -1069,7 +1077,11 @@
     if (!root) return;
     metrics.ensureCalls += 1;
     if (rootPass) applyRootState(root);
-    if (partPass) refreshParts();
+    predicateCache.syncLightRules(styleSheet || styleNode?.sheet);
+    if (partPass) {
+      refreshParts();
+      predicateCache.refresh();
+    }
     if (scopePass) refreshScope();
     syncInternetAngelChrome();
   };
@@ -1090,6 +1102,7 @@
       }
     }
     removeParts();
+    predicateCache.cleanup();
     state?.rootObserver?.disconnect();
     state?.partObserver?.disconnect();
     if (bodyReadyHandler && typeof document.removeEventListener === "function") {
@@ -1185,6 +1198,7 @@
     scope: null,
     selectorsSchema: SELECTOR_CONTRACT.schema,
     metrics,
+    predicateMetrics: predicateCache.metrics,
     version: VERSION,
     themeId: THEME.id || "custom",
     revision: PAYLOAD_REVISION,

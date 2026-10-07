@@ -23,6 +23,7 @@
     assistantMessage: '[data-markdown-text-style="assistant-message"]',
     settingsNav: 'nav:has([data-settings-panel-slug])',
     settingsContent: '[class~="scrollbar-stable"][class~="flex-1"][class~="overflow-y-auto"][class~="p-panel"]',
+    systemToast: '[data-sonner-toast], [role="alert"], body > aside, body > div > aside',
   };
   const mutationHintSelector = [
     selectors.composer,
@@ -47,6 +48,7 @@
     '[role="menu"]',
     '[role="listbox"]',
     '[data-sonner-toast]',
+    selectors.systemToast,
     '[data-testid*="permission"] button',
     '[data-testid*="approval"] button',
     '[role="alert"] button',
@@ -99,6 +101,9 @@
   let activeMarks = null;
   let compositionDepth = 0;
   let refreshPendingAfterComposition = false;
+  let lastClassifyAt = -Infinity;
+  const refreshIntervalMs = 120;
+  const now = () => globalThis.performance?.now?.() ?? Date.now();
   const diffRootRetryLimit = 12;
   let diffRootAttempts = new WeakMap();
   const diffThemeAttribute = "data-internet-angel-diff-theme";
@@ -638,7 +643,10 @@
 
     const selectedPattern = /^\d+\s*(?:\u4e2a)?\s*(?:\u5df2\u9009\u6587\u672c\u7247\u6bb5|selected text (?:fragment|snippet)s?)$/i;
     const selectedLabel = [...document.querySelectorAll("button, div, span")]
-      .find((node) => selectedPattern.test(textOf(node)));
+      // Container text includes the entire conversation. Only controls and
+      // leaf labels can carry this short UI caption.
+      .find((node) => (node.tagName === "BUTTON" || !node.childElementCount)
+        && selectedPattern.test(textOf(node)));
     mark(selectedLabel?.closest?.("button") || selectedLabel?.closest?.('[class*="rounded"]') || selectedLabel,
       "selected-fragment");
 
@@ -733,7 +741,7 @@
   const classifySystemToasts = () => {
     const toastPattern = /\u901f\u7387\u9650\u5236\u91cd\u7f6e\u673a\u4f1a|rate limit reset opportunity/i;
     const actionPattern = /\u67e5\u770b\u91cd\u7f6e\u6b21\u6570|view (?:reset|redemption)/i;
-    for (const candidate of document.querySelectorAll("body div, body section, body aside")) {
+    for (const candidate of document.querySelectorAll(selectors.systemToast)) {
       if (!toastPattern.test(textOf(candidate))) continue;
       const action = [...(candidate.querySelectorAll?.("button") || [])]
         .some((button) => actionPattern.test(textOf(button)));
@@ -779,6 +787,7 @@
       metrics.classifyRuns += 1;
       metrics.lastClassifyMs = Math.max(0, finishedAt - startedAt);
       metrics.totalClassifyMs += metrics.lastClassifyMs;
+      lastClassifyAt = now();
     }
   };
 
@@ -793,27 +802,33 @@
     refreshTimer = setTimeout(() => {
       refreshTimer = null;
       classify();
-    }, 120);
+    }, refreshIntervalMs);
   };
 
   const scheduleFrameRefresh = () => {
     metrics.scheduleRequests += 1;
-    if (refreshTimer !== null) clearTimeout(refreshTimer);
-    refreshTimer = null;
     if (compositionDepth > 0) {
       refreshPendingAfterComposition = true;
       metrics.suppressedDuringComposition += 1;
       return;
     }
-    if (refreshFrame !== null) return;
-    if (typeof window.requestAnimationFrame !== "function") {
-      classify();
-      return;
-    }
-    refreshFrame = window.requestAnimationFrame(() => {
-      refreshFrame = null;
-      classify();
-    });
+    if (refreshTimer !== null || refreshFrame !== null) return;
+    const queueFrame = () => {
+      refreshTimer = null;
+      if (typeof window.requestAnimationFrame !== "function") {
+        classify();
+        return;
+      }
+      refreshFrame = window.requestAnimationFrame(() => {
+        refreshFrame = null;
+        classify();
+      });
+    };
+    // Virtualized sidebar rows and session mounts can mutate every frame.
+    // Coalesce those bursts without moving the deadline on each mutation.
+    const delay = Math.max(0, refreshIntervalMs - (now() - lastClassifyAt));
+    if (delay > 0) refreshTimer = setTimeout(queueFrame, delay);
+    else queueFrame();
   };
 
   const compositionStarted = () => {

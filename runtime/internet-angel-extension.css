@@ -536,9 +536,11 @@ html[data-dream-skin="active"][data-dream-theme="internet-angel"] div[class~="bo
 }
 
 /* Turn rail, preview and footer action preserve native target geometry. */
+/* Classification marks the same navigation-row parent. Keep the fallback's
+   specificity without a universal :has() invalidation on editor mutations. */
 html[data-dream-skin="active"][data-dream-theme="internet-angel"] :is(
   [data-angel-component="turn-nav-rail"],
-  :has(> button[class*="navigation-row"])
+  button[class*="navigation-row"]:not(*)
 ) {
   filter: drop-shadow(0 0 4px rgb(32 84 255 / .34));
 }
@@ -1604,6 +1606,10 @@ html[data-dream-skin="active"][data-dream-theme="internet-angel"] diffs-containe
 
 /* Light mode uses adaptive text on light surfaces. Fixed broadcast, code and
    terminal surfaces retain the Angel paper foreground. */
+/* The renderer switches this media rule off in dark windows before descendant
+   matching. The `all` fallback preserves standalone CSS and native cascade
+   order; the private media feature identifies this trusted light-only block. */
+@media (dream-skin-internet-angel-light), all {
 html[data-dream-skin="active"][data-dream-theme="internet-angel"]:is(.dream-theme-light, [data-dream-shell="light"])
   [data-angel-component] {
   color: var(--angel-adaptive-text) !important;
@@ -1912,4 +1918,5 @@ html.codex-dream-skin:is(.dream-theme-light, [data-dream-shell="light"]) .dream-
     var(--angel-cyan),
     var(--angel-adaptive-surface-raised) 48%,
     var(--angel-pink)) !important;
+}
 }

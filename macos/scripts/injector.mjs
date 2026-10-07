@@ -12,6 +12,7 @@ import {
   normalizeThemeText,
 } from "../assets/theme-package-validator.mjs";
 import { decodeAndValidateSafeCss } from "../assets/safe-css-validator.mjs";
+import { createCssPredicateCache } from "../assets/css-predicate-cache.mjs";
 
 const execFileAsync = promisify(execFile);
 const scriptPath = fileURLToPath(import.meta.url);
@@ -905,10 +906,12 @@ export async function loadPayload(themeDir) {
   const mime = extension === ".jpg" || extension === ".jpeg" ? "image/jpeg"
     : extension === ".webp" ? "image/webp" : "image/png";
   const artDataUrl = `data:${mime};base64,${art.toString("base64")}`;
+  const predicateRuntime = createCssPredicateCache.toString();
   const revision = createHash("sha256")
     .update(SKIN_VERSION)
     .update(combinedCss)
     .update(template)
+    .update(predicateRuntime)
     .update(internetAngelTemplate)
     .update(JSON.stringify(theme))
     .digest("hex")
@@ -916,6 +919,7 @@ export async function loadPayload(themeDir) {
   // Supply replacement values as functions so `$` sequences inside user theme
   // data are inserted verbatim instead of being interpreted by String.replace.
   const basePayload = template
+    .replace("__DREAM_CSS_PREDICATE_RUNTIME__", () => predicateRuntime)
     .replace("__DREAM_SKIN_CSS_JSON__", () => JSON.stringify(combinedCss))
     .replace("__DREAM_SKIN_ART_JSON__", () => JSON.stringify(artDataUrl))
     .replace("__DREAM_SKIN_THEME_JSON__", () => JSON.stringify(theme))
@@ -951,7 +955,8 @@ export async function loadPayload(themeDir) {
 // the template, not only the `$` replacement patterns that motivated it.
 // `new Script` compiles without running the payload, so nothing executes here.
 export function assertPayloadIntegrity(payload) {
-  if (/__(?:DREAM_SKIN|INTERNET_ANGEL_EXTENSION)_[A-Z0-9_]+_JSON__/.test(payload)) {
+  if (/__(?:DREAM_SKIN|INTERNET_ANGEL_EXTENSION)_[A-Z0-9_]+_JSON__/.test(payload)
+      || payload.includes("__DREAM_CSS_PREDICATE_RUNTIME__")) {
     throw new Error("Payload placeholders were not fully replaced");
   }
   try {

@@ -15,7 +15,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import vm from "node:vm";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { assertPayloadIntegrity, loadPayload } from "../scripts/injector.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -221,6 +221,10 @@ test("payload byte length does not drift with $ constructs", async () => {
 });
 
 test("assertPayloadIntegrity rejects unresolved placeholders and unparsable payloads", async () => {
+  assert.throws(
+    () => assertPayloadIntegrity("(() => __DREAM_CSS_PREDICATE_RUNTIME__)()"),
+    /placeholders were not fully replaced/,
+  );
   const template = await fs.readFile(templatePath, "utf8");
   assert.throws(
     () => assertPayloadIntegrity(template),
@@ -271,6 +275,41 @@ test("the macOS injector builds payloads with function replacements only", async
     "__DREAM_SKIN_STYLE_REVISION_JSON__",
     "__DREAM_SKIN_PAYLOAD_REVISION_JSON__",
   ], "all six payload placeholders must still be substituted");
+});
+
+test("helper-only renderer changes invalidate the real macOS payload revision", async () => {
+  const { directory } = await makeThemeDir({ name: "Helper revision" });
+  const helper = await fs.readFile(path.join(macosRoot, "assets", "css-predicate-cache.mjs"), "utf8");
+  const changedHelper = helper.replace("const predicates = manifest;",
+    "const predicates = manifest; /* helper-only revision probe */");
+  assert.notEqual(changedHelper, helper, "the fixture must alter the embedded function source");
+  const results = [];
+  for (const [variant, source] of [["baseline", helper], ["changed", changedHelper]]) {
+    const fixtureRoot = path.join(tempRoot, `revision-${variant}`);
+    await fs.mkdir(path.join(fixtureRoot, "scripts"), { recursive: true });
+    await fs.mkdir(path.join(fixtureRoot, "assets"), { recursive: true });
+    // Copy only loadPayload dependencies. Never edit the source or installed
+    // helper: each import gets its own temporary module graph and asset root.
+    for (const name of ["injector.mjs", "image-metadata.mjs"]) {
+      await fs.copyFile(path.join(macosRoot, "scripts", name), path.join(fixtureRoot, "scripts", name));
+    }
+    for (const name of ["selectors.json", "dream-skin.css", "renderer-inject.js",
+      "internet-angel-extension.css", "internet-angel-extension.js",
+      "theme-package-validator.mjs", "safe-css-validator.mjs"]) {
+      await fs.copyFile(path.join(macosRoot, "assets", name), path.join(fixtureRoot, "assets", name));
+    }
+    await fs.writeFile(path.join(fixtureRoot, "assets", "css-predicate-cache.mjs"), source);
+    const injector = await import(pathToFileURL(path.join(fixtureRoot, "scripts", "injector.mjs")).href);
+    const first = await injector.loadPayload(directory);
+    const repeat = await injector.loadPayload(directory);
+    assert.equal(first.revision, repeat.revision, "identical inputs retain a stable revision");
+    results.push(first);
+  }
+  assert.equal(readPayloadArguments(results[0].payload).cssText,
+    readPayloadArguments(results[1].payload).cssText, "CSS stays unchanged");
+  assert.notEqual(results[0].payload, results[1].payload, "the executable helper bytes changed");
+  assert.notEqual(results[0].revision, results[1].revision,
+    "the changed executable helper must not be accepted as an already patched revision");
 });
 
 test.after(async () => {

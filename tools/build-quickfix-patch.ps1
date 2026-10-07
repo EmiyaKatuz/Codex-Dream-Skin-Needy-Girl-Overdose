@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param([string]$OutputDirectory)
 
 $ErrorActionPreference = 'Stop'
@@ -26,8 +26,10 @@ try {
     -Destination $packageRoot -Force
   foreach ($assetName in @(
     'renderer-inject.js',
+    'css-predicate-cache.mjs',
     'dream-skin.css',
     'internet-angel-acrylic.css',
+    'internet-angel-extension.js',
     'internet-angel-extension.css'
   )) {
     Copy-Item -LiteralPath (Join-Path $windowsRoot "assets\$assetName") `
