@@ -6,8 +6,9 @@
   const OWNED = "data-dream-motion-owned";
   const PREFIX = "data-dream-motion-";
   const EFFECTS = ["interactions", "status", "character", "ambient", "themeTransition"];
-  const STATES = new Set(["unknown", "idle", "busy", "needs-attention", "completed", "failed", "cancelled"]);
+  const STATES = new Set(["unknown", "idle", "busy", "streaming", "needs-attention", "completed", "failed", "cancelled"]);
   const TERMINAL = new Set(["completed", "failed", "cancelled"]);
+  const ACTIVE = new Set(["busy", "streaming", "needs-attention"]);
   const MAX_NODES = 256;
   const MAX_SCAN_NODES = 768;
   const MAX_SEEN = 128;
@@ -19,10 +20,14 @@
     thread: '[data-ds-part="thread"], .thread-scroll-container',
     anchor: '[data-ds-part="main"], [data-app-shell-main-surface], main',
     local: '[data-ds-part="composer"], [data-ds-part="thread"], [data-angel-component="composer"], [data-angel-component="activity"], .composer-surface-chrome, .dream-activity, .thread-scroll-container',
+    dialog: '[role="dialog"][aria-modal="true"]',
     permission: '[role="alertdialog"], [data-angel-component="permission"], .dream-permission',
     activity: '[data-angel-component="activity-header"], .dream-activity-header',
     edited: '[data-angel-component="edited-card"], .dream-edited-card',
     menu: '[data-angel-component="composer-palette"], [data-angel-component="settings-menu"], .dream-composer-palette, [role="menu"], [role="listbox"]',
+    projectCard: '[data-app-action-sidebar-project-row][data-app-action-sidebar-project-id]',
+    agent: '[data-app-action-sidebar-thread-row][data-app-action-sidebar-thread-kind="local"][data-app-action-sidebar-thread-id], [data-angel-component="subagent-row"], .dream-subagent-row, [data-dream-motion-agent-id]',
+    item: '[data-local-conversation-item-target-ids]',
     homeCard: '.angel-preset-card, .dream-generated-preset, .dream-codex-preset, [data-testid="home-suggestion"]',
   };
   const TRACK = [...Object.values(SELECTORS), '[aria-busy]'].join(", ");
@@ -76,6 +81,11 @@
   let snapshot = null;
   let generation = 0;
   let homeIndex = 0;
+  let projectIndex = 0;
+  let scrollTimer = null;
+  let scrolling = false;
+  let pointerFrame = null;
+  let pointer = null;
   const owned = new Set();
   const listeners = [];
   const timers = new Set();
@@ -129,7 +139,12 @@
     document.body.appendChild(node);
     return node;
   };
-  const removeOwned = (node) => { if (node) { node.remove(); owned.delete(node); } return null; };
+  const clearNodeFeedback = (node) => {
+    const entries = feedback.get(node);
+    if (entries) for (const [name, timer] of entries) { cancelTimer(timer); node.removeAttribute(name); }
+    feedback.delete(node);
+  };
+  const removeOwned = (node) => { if (node) { clearNodeFeedback(node); node.remove(); owned.delete(node); } return null; };
   const clearFeedback = () => {
     for (const [node, entries] of feedback) {
       for (const [name, timer] of entries) { cancelTimer(timer); node.removeAttribute(name); }
@@ -175,7 +190,7 @@
     metrics.visitedNodes += 1;
     if (!tracked.has(node)) {
       if (tracked.size >= MAX_NODES) { metrics.droppedNodes += 1; return false; }
-      tracked.set(node, { initial, entered: false, expanded: node.getAttribute("aria-expanded"), visible: visible(node) });
+      tracked.set(node, { agentKey: null, itemKey: null, initial, entered: false, expanded: node.getAttribute("aria-expanded"), visible: visible(node) });
       intersection?.observe(node);
     } else {
       tracked.get(node).visible = visible(node);
@@ -218,6 +233,73 @@
     }
     return changed;
   };
+  const pixelCharacter = () => {
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("viewBox", "0 0 24 28");
+    svg.setAttribute("aria-hidden", "true");
+    svg.setAttribute("focusable", "false");
+    const shapes = {
+      hair: "M5 3h14v2h2v17h-5V8H8v14H3V5h2z", face: "M7 6h10v11H7z",
+      fringe: "M6 4h12v5h-3V7h-2v3h-2V7H9v3H6z", ribbon: "M2 6h4v4H2zm16 0h4v4h-4z",
+      body: "M7 18h10v8H7z", collar: "M7 18h10v2h-3l-2 3-2-3H7z",
+      arms: "M5 19h2v6H5zm12 0h2v6h-2z", eyes: "M9 11h2v2H9zm4 0h2v2h-2z",
+      smile: "M10 15h4v1h-4z", focus: "M9 11h2v1H9zm4 0h2v1h-2z",
+      surprise: "M11 14h2v3h-2z", rest: "M8 12h3v1H8zm5 0h3v1h-3z",
+      heart: "M19 17h2v1h1v2h-1v1h-1v-1h-1z",
+    };
+    for (const [part, path] of Object.entries(shapes)) {
+      const node = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      node.setAttribute("data-dream-motion-part", part); node.setAttribute("d", path); svg.appendChild(node);
+    }
+    return svg;
+  };
+  const hideDecorations = () => {
+    for (const node of [statusNode, characterNode, ambientNode]) node?.style.setProperty("visibility", "hidden");
+  };
+  const placeDecorations = () => {
+    hideDecorations();
+    if (paused || scrolling || mode === "off" || !document.elementFromPoint) return;
+    if ([...tracked].some(([node, item]) => item.visible && matches(node, '[role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"]')
+      && node.getAttribute("data-state") !== "closed")) return;
+    let samples = 0;
+    const checked = new Map();
+    const free = (x, y, width, height) => {
+      if (x < 8 || y < 8 || x + width > innerWidth - 8 || y + height > innerHeight - 8) return false;
+      for (let dx = 0; dx <= width; dx += 6) for (let dy = 0; dy <= height; dy += 6) {
+        if (++samples > 1600) return false;
+        const hit = document.elementFromPoint(x + dx, y + dy);
+        if (!hit) return false;
+        if (hit.closest?.(`[${OWNED}]`)) continue;
+        if (!checked.has(hit)) {
+          let text = false;
+          let children = 0;
+          for (const node of hit.childNodes || []) {
+            if (++children > 32 || (node.nodeType === 3 && node.textContent?.trim())) { text = true; break; }
+          }
+          const blocked = hit.closest?.('button, a, input, textarea, select, [contenteditable="true"], [role="button"], [role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"], svg, img, canvas, [data-ds-part="composer"], [data-angel-component="composer"], .composer-surface-chrome, [data-local-conversation-item-target-ids], [data-app-action-timeline-scroll], [data-app-shell-pane-frame], pre, code, diffs-container, [data-angel-component="activity"], .dream-activity, .dream-soul-hud')
+            || text
+            || /auto|scroll/.test(safeCall(() => getComputedStyle(hit).overflowY, ""));
+          checked.set(hit, !blocked);
+        }
+        if (!checked.get(hit)) return false;
+      }
+      return true;
+    };
+    if (statusNode || characterNode) {
+      for (const [x, y] of [[innerWidth - 88, innerHeight - 88], [innerWidth - 88, 72], [innerWidth - 88, Math.floor(innerHeight / 2)], [16, innerHeight - 88]]) {
+        if (!free(x - 4, y - 4, 80, 76)) continue;
+        for (const [node, left, top] of [[statusNode, x, y + 40], [characterNode, x + 24, y]]) {
+          if (node) { node.style.setProperty("left", `${left}px`); node.style.setProperty("top", `${top}px`); node.style.setProperty("right", "auto"); node.style.setProperty("bottom", "auto"); node.style.setProperty("visibility", "visible"); }
+        }
+        break;
+      }
+    }
+    if (ambientNode && free(innerWidth - 172, 92, 76, 112)) {
+      ambientNode.style.setProperty("left", `${innerWidth - 168}px`); ambientNode.style.setProperty("top", "96px");
+      ambientNode.style.setProperty("right", "auto"); ambientNode.style.setProperty("bottom", "auto");
+      ambientNode.style.setProperty("visibility", "visible");
+    }
+  };
   const reconcileOwned = () => {
     if (mode === "off") {
       statusNode = removeOwned(statusNode);
@@ -228,7 +310,9 @@
     if (config.settings.effects.status) statusNode ||= makeOwned("status");
     else statusNode = removeOwned(statusNode);
     const builtin = ["preset-internet-angel", "preset-internet-angel-default"].includes(config.themeId);
-    if (builtin && config.settings.effects.character) characterNode ||= makeOwned("character");
+    if (builtin && config.settings.effects.character) {
+      if (!characterNode) { characterNode = makeOwned("character"); characterNode.appendChild(pixelCharacter()); }
+    }
     else characterNode = removeOwned(characterNode);
     if (mode === "full" && route === "home" && config.settings.effects.ambient
       && innerWidth >= 960 && innerHeight >= 640) {
@@ -245,10 +329,6 @@
       }
     } else ambientNode = removeOwned(ambientNode);
     for (const node of [statusNode, characterNode].filter(Boolean)) attr(node, `${PREFIX}state`, motionState);
-    if (characterNode) {
-      const face = { unknown: "✧", idle: "♥", busy: "✦", "needs-attention": "!", completed: "♥", failed: "!", cancelled: "·" }[motionState];
-      if (characterNode.textContent !== face) characterNode.textContent = face;
-    }
   };
   const refresh = () => {
     if (!active()) return;
@@ -256,26 +336,27 @@
     if (!navigating && currentRouteKey !== routeKey()) resetRoute(false);
     metrics.refreshes += 1;
     mode = effectiveMode();
-    paused = Boolean(document.hidden || composition || navigating || !anchorVisible);
+    paused = Boolean(document.hidden || composition || navigating || !anchorVisible || scrolling);
     if (paused) {
       attr(root, "data-dream-motion", mode);
       attr(root, `${PREFIX}paused`, "true");
       clearFeedback();
       cancelSnapshot();
+      hideDecorations();
       return;
     }
     route = "other";
     let busy = false;
     let attention = false;
     for (const [node, item] of tracked) {
-      if (node.isConnected === false) { tracked.delete(node); intersection?.unobserve(node); continue; }
+      if (node.isConnected === false) { clearNodeFeedback(node); clearBinding(node); tracked.delete(node); intersection?.unobserve(node); continue; }
       if (matches(node, SELECTORS.home)) route = "home";
       else if (route === "other" && matches(node, SELECTORS.thread)) route = "thread";
       if (isCurrentDialog(node)) attention = true;
       if (node.getAttribute("aria-busy") === "true" && node.closest?.(SELECTORS.local)
         && item.visible && !node.closest?.('[hidden], [aria-hidden="true"]')) busy = true;
     }
-    const nextState = attention ? "needs-attention" : busy ? "busy" : task?.state || "unknown";
+    const nextState = attention || task?.state === "needs-attention" ? "needs-attention" : TERMINAL.has(task?.state) ? task.state : task?.state === "streaming" ? "streaming" : busy ? "busy" : task?.state || "unknown";
     if (motionState !== nextState) { motionState = nextState; metrics.stateChanges += 1; }
     attr(root, "data-dream-motion", mode);
     attr(root, `${PREFIX}paused`, String(paused));
@@ -289,19 +370,26 @@
     }
     if (paused || mode === "off") { clearFeedback(); cancelSnapshot(); }
     reconcileOwned();
+    placeDecorations();
     for (const [node, item] of tracked) {
+      bindNodeState(node, item);
       const expanded = node.getAttribute("aria-expanded");
       if (matches(node, SELECTORS.activity) && item.expanded === "false" && expanded === "true") {
         signal(node, "feedback", "expanded", 220, "interactions");
       }
       item.expanded = expanded;
+      const projectId = matches(node, SELECTORS.projectCard) ? node.getAttribute("data-app-action-sidebar-project-id") : null;
+      if (projectId !== item.projectId) { clearNodeFeedback(node); node.removeAttribute(`${PREFIX}index`); item.entered = false; item.projectId = projectId; }
       if (item.entered || !item.visible) continue;
       item.entered = true;
+      if (projectId && projectId.length <= 512 && !/[\x00-\x1f\x7f-\x9f]/.test(projectId) && projectIndex < 4 && remember(`project:${projectId}`)) {
+        attr(node, `${PREFIX}index`, String(projectIndex++)); signal(node, "enter", "project-card", 340, "interactions");
+      }
       if (matches(node, SELECTORS.homeCard) && route === "home" && homeIndex < 4) {
         const index = homeIndex++;
         if (remember(`home:${index}`)) {
           attr(node, `${PREFIX}index`, String(index));
-          signal(node, "enter", "home-card", 260, "interactions");
+          signal(node, "enter", "home-card", 350, "interactions");
         }
       } else if (!item.initial && !seenNodes.has(node)) {
         if (isCurrentDialog(node)) signal(node, "enter", "permission", 500);
@@ -327,6 +415,7 @@
     currentRouteKey = routeKey();
     navigating = wait;
     task = null;
+    for (const node of tracked.keys()) clearBinding(node);
     motionState = "unknown";
     clearFeedback();
     cancelSnapshot();
@@ -370,10 +459,10 @@
     if (changed) schedule();
     else metrics.ignoredMutations += records.length;
   }) : null;
-  const listen = (target, type, callback) => {
+  const listen = (target, type, callback, capture = false) => {
     if (!target?.addEventListener) return;
-    target.addEventListener(type, callback);
-    listeners.push([target, type, callback]);
+    target.addEventListener(type, callback, capture);
+    listeners.push([target, type, callback, capture]);
   };
   const taskShape = (value, report = false) => exactKeys(value,
     ["schemaVersion", "taskId", "runId", "routeEpoch", ...(report ? ["revision", "state"] : [])])
@@ -383,7 +472,10 @@
   const bindTask = (value) => {
     if (!active() || !taskShape(value)) return false;
     if (task?.taskId === value.taskId && task.runId === value.runId) return true;
-    task = { taskId: value.taskId, runId: value.runId, revision: -1, state: "unknown", wasActive: false, terminal: false };
+    clearFeedback();
+    for (const node of tracked.keys()) clearBinding(node);
+    task = { taskId: value.taskId, runId: value.runId, revision: -1, state: "unknown", wasActive: false, terminal: false,
+      phase: "busy", approvalRequests: new Set(), approvalOverflow: false, agents: new Map(), items: new Map() };
     refresh();
     return true;
   };
@@ -393,14 +485,185 @@
     const celebrate = TERMINAL.has(value.state) && task.wasActive;
     task.revision = value.revision;
     task.state = value.state;
-    task.wasActive ||= ["busy", "needs-attention"].includes(value.state);
+    task.wasActive ||= ACTIVE.has(value.state);
     task.terminal = TERMINAL.has(value.state);
     refresh();
-    if (celebrate && remember(`terminal:${task.taskId}:${task.runId}`)) {
+    if (celebrate && !paused && remember(`terminal:${task.taskId}:${task.runId}`)) {
       signal(statusNode, "feedback", value.state);
       signal(characterNode, "feedback", value.state, 500, "character");
+      if (!visible(statusNode) && !visible(characterNode)) {
+        const composer = [...tracked.keys()].find((node) => matches(node, '[data-ds-part="composer"], [data-angel-component="composer"], .composer-surface-chrome'));
+        signal(composer, "feedback", value.state);
+      }
     }
     return true;
+  };
+  // Read only the preload's structured app-server events. No commands, log text,
+  // user messages or inferred button disappearance are used as task outcomes.
+  const nativeAvailable = () => typeof window.electronBridge?.sendMessageFromView === "function"
+    && (location.protocol === "app:" || (location.protocol === "http:"
+      && ["localhost", "127.0.0.1"].includes(location.hostname) && location.port === "5175"));
+  const nativeRoute = () => {
+    const initial = new URLSearchParams(location.search || "").get("initialRoute");
+    const value = initial && ["/", "/index.html"].includes(location.pathname)
+      ? initial : `${location.pathname || ""}${location.search || ""}`;
+    const parsed = safeCall(() => new URL(value, "http://localhost"));
+    const match = parsed?.pathname.match(/^\/local\/([^/]+)$/);
+    const threadId = match && safeCall(() => decodeURIComponent(match[1]));
+    const hostId = parsed?.searchParams.get("hostId") || "local";
+    return id(threadId) && id(hostId) ? { threadId, hostId } : null;
+  };
+  const clearBinding = (node) => {
+    clearNodeFeedback(node);
+    node.removeAttribute(`${PREFIX}agent-state`); node.removeAttribute(`${PREFIX}item-state`);
+    const entry = tracked.get(node);
+    if (entry) { entry.agentKey = null; entry.itemKey = null; }
+  };
+  const agentIdentity = (node) => {
+    if (!task) return null;
+    if (matches(node, '[data-app-action-sidebar-thread-row]')) {
+      const raw = node.getAttribute("data-app-action-sidebar-thread-id");
+      if (node.getAttribute("data-app-action-sidebar-thread-kind") !== "local" || !raw?.startsWith("local:")
+        || node.getAttribute("data-app-action-sidebar-thread-host-id") !== task.nativeHost) return null;
+      return id(raw.slice(6)) ? raw.slice(6) : null;
+    }
+    const explicit = node.getAttribute("data-dream-motion-agent-id");
+    if (id(explicit)) return explicit;
+    const link = matches(node, "a") ? node : query(node, "a[href]");
+    const parsed = safeCall(() => new URL(link?.getAttribute("href"), "http://localhost"));
+    if (!parsed || parsed.origin !== "http://localhost") return null;
+    const match = parsed.pathname.match(/^\/local\/([^/]+)$/);
+    const target = match && safeCall(() => decodeURIComponent(match[1]));
+    return id(target) && (parsed.searchParams.get("hostId") || "local") === task.nativeHost ? target : null;
+  };
+  const bindNodeState = (node, entry) => {
+    const agentId = matches(node, SELECTORS.agent) ? agentIdentity(node) : null;
+    const agent = agentId && task?.agents.get(agentId);
+    const agentKey = agent ? `${task.runId}:${agentId}:${agent.nativeRun || "snapshot"}` : null;
+    if (entry.agentKey !== agentKey) { clearNodeFeedback(node); node.removeAttribute(`${PREFIX}agent-state`); entry.agentKey = agentKey; }
+    if (agent) {
+      attr(node, `${PREFIX}agent-state`, agent.state);
+      if (agent.terminal && agent.wasActive && remember(`agent:${task.taskId}:${agentKey}`)) signal(node, "feedback", agent.state, 420);
+    }
+    const raw = matches(node, SELECTORS.item) ? node.getAttribute("data-local-conversation-item-target-ids") : null;
+    const ids = typeof raw === "string" && raw.length <= 1024 ? raw.split(" ").slice(0, 16)
+      .map((value) => safeCall(() => decodeURIComponent(value))).filter(id) : [];
+    // Native activity groups can represent several command/file items. A
+    // completed first item must not hide another item that is still running.
+    const items = ids.filter((value) => task?.items.has(value));
+    const states = items.map((value) => task.items.get(value));
+    const unfinished = states.filter((value) => !value.terminal);
+    const itemState = unfinished.length
+      ? ["needs-attention", "streaming", "busy", "unknown"].find((value) => unfinished.some((item) => item.state === value))
+      : ["failed", "cancelled", "completed"].find((value) => states.some((item) => item.state === value));
+    const item = itemState ? { state: itemState, terminal: unfinished.length === 0, wasActive: states.some((value) => value.wasActive) } : null;
+    const itemKey = item ? `${task.runId}:${[...new Set(items)].sort().join(",")}` : null;
+    if (entry.itemKey !== itemKey) { clearNodeFeedback(node); node.removeAttribute(`${PREFIX}item-state`); entry.itemKey = itemKey; }
+    if (item) {
+      attr(node, `${PREFIX}item-state`, item.state);
+      if (item.terminal && item.wasActive && remember(`item:${task.taskId}:${itemKey}`)) signal(node, "feedback", item.state, 420);
+    }
+  };
+  const reportAgentState = (value) => {
+    if (!active() || !exactKeys(value, ["schemaVersion", "taskId", "runId", "routeEpoch", "agentId", "revision", "state"])
+      || !taskShape({ schemaVersion: value.schemaVersion, taskId: value.taskId, runId: value.runId,
+        routeEpoch: value.routeEpoch, revision: value.revision, state: value.state }, true)
+      || !id(value.agentId) || !task || task.terminal || task.taskId !== value.taskId || task.runId !== value.runId) return false;
+    const old = task.agents.get(value.agentId);
+    if ((!old && task.agents.size >= 32) || old?.terminal || (old && value.revision <= old.revision)) return false;
+    task.agents.set(value.agentId, { state: value.state, revision: value.revision,
+      nativeRun: old?.nativeRun, wasActive: Boolean(old?.wasActive || ACTIVE.has(value.state)), terminal: TERMINAL.has(value.state) });
+    refresh();
+    return true;
+  };
+  const nativeMessage = (event) => {
+    if (!active() || !nativeAvailable() || navigating || currentRouteKey !== routeKey()) return;
+    // Electron's isolated preload uses a MessageEvent with null source / empty
+    // origin. Same-window events must have exactly the current origin.
+    if (event.source != null && event.source !== window) return;
+    if (event.source === window && event.origin !== location.origin) return;
+    if (event.source == null && event.origin && event.origin !== location.origin) return;
+    const envelope = event.data;
+    if (!record(envelope) || !["mcp-notification", "mcp-request"].includes(envelope.type) || !id(envelope.hostId)) return;
+    const message = envelope.type === "mcp-request" ? envelope.request : envelope;
+    if (!record(message) || typeof message.method !== "string" || !record(message.params)) return;
+    const params = message.params;
+    const current = nativeRoute();
+    if (!current || current.hostId !== envelope.hostId) return;
+    const threadId = params.threadId;
+    const runId = params.turnId || params.turn?.id;
+    const binding = () => ({ schemaVersion: 1, taskId: current.threadId, runId: task.runId, routeEpoch });
+    const emit = (next) => {
+      if (!task || task.terminal) return;
+      if (ACTIVE.has(next) && next !== "needs-attention") task.phase = next;
+      const value = ACTIVE.has(next) && (task.approvalRequests.size || task.approvalOverflow) ? "needs-attention" : next;
+      if (task.state !== value) reportTaskState({ ...binding(), state: value, revision: task.revision + 1 });
+    };
+    const child = task?.nativeHost === envelope.hostId && id(threadId) && task.agents.get(threadId);
+    if (threadId !== current.threadId) {
+      if (!child || !id(runId) || task.terminal || envelope.type !== "mcp-notification") return;
+      if (message.method === "turn/started" && params.turn?.status === "inProgress") {
+        if (child.nativeRun === runId) return;
+        task.agents.set(threadId, { nativeRun: runId, state: "busy", revision: 0, wasActive: true, terminal: false }); refresh();
+      } else if (child.nativeRun === runId && !child.terminal) {
+        let next = message.method === "item/agentMessage/delta" ? "streaming"
+          : message.method === "turn/completed" ? ({ completed: "completed", failed: "failed", interrupted: "cancelled" })[params.turn?.status] : null;
+        if (next && next !== child.state) reportAgentState({ ...binding(), agentId: threadId, state: next, revision: child.revision + 1 });
+      }
+      return;
+    }
+    if (message.method === "turn/started" && envelope.type === "mcp-notification") {
+      if (!id(runId) || params.turn?.status !== "inProgress") return;
+      if (task?.nativeHost === envelope.hostId && task.runId === runId) return;
+      if (!bindTask({ schemaVersion: 1, taskId: threadId, runId, routeEpoch })) return;
+      task.nativeHost = envelope.hostId; emit("busy"); return;
+    }
+    if (!task || task.nativeHost !== envelope.hostId || task.taskId !== threadId || task.terminal) return;
+    if (message.method === "serverRequest/resolved" && envelope.type === "mcp-notification") {
+      const key = typeof params.requestId === "string" || Number.isSafeInteger(params.requestId) ? String(params.requestId) : null;
+      if (key === null || !task.approvalRequests.delete(key)) return;
+      emit(task.phase); return;
+    }
+    if (!id(runId) || runId !== task.runId) return;
+    if (envelope.type === "mcp-request") {
+      if (!["item/commandExecution/requestApproval", "item/fileChange/requestApproval", "item/tool/requestUserInput", "item/permissions/requestApproval"].includes(message.method)) return;
+      const key = typeof message.id === "string" && message.id.length <= 128 || Number.isSafeInteger(message.id) ? String(message.id) : null;
+      if (key === null) return;
+      if (task.approvalRequests.size < 32) task.approvalRequests.add(key); else if (!task.approvalRequests.has(key)) task.approvalOverflow = true;
+      emit("needs-attention"); return;
+    }
+    if (message.method === "item/agentMessage/delta") {
+      const first = task.phase !== "streaming"; emit("streaming");
+      if (first && remember(`streaming:${task.taskId}:${task.runId}`)) signal(characterNode, "feedback", "streaming", 300, "character");
+    } else if (message.method === "turn/completed") {
+      const next = ({ completed: "completed", failed: "failed", interrupted: "cancelled" })[params.turn?.status];
+      if (next) { task.approvalRequests.clear(); task.approvalOverflow = false; emit(next); }
+    } else if (["item/started", "item/completed"].includes(message.method) && record(params.item)) {
+      const item = params.item;
+      if (item.type === "collabAgentToolCall" && record(item.agentsStates)) {
+        let count = 0;
+        for (const agentId in item.agentsStates) {
+          if (!Object.hasOwn(item.agentsStates, agentId)) continue;
+          if (++count > 32) break;
+          const value = item.agentsStates[agentId];
+          const next = ({ pendingInit: "busy", running: "busy", completed: "completed", errored: "failed", shutdown: "cancelled" })[value?.status];
+          if (!id(agentId) || !next) continue;
+          const old = task.agents.get(agentId);
+          reportAgentState({ ...binding(), agentId, state: next, revision: (old?.revision ?? -1) + 1 });
+        }
+      } else if (id(item.id) && ["commandExecution", "fileChange", "mcpToolCall", "dynamicToolCall", "webSearch"].includes(item.type)) {
+        const old = task.items.get(item.id);
+        if ((!old && task.items.size >= 64) || old?.terminal) return;
+        // WebSearch has no status field in the native ThreadItem shape. Its
+        // item/completed notification marks completedItemIds[id] in the host
+        // reducer; unlike command/file tools it cannot carry failed/declined.
+        const next = message.method === "item/started" ? "busy"
+          : item.type === "webSearch" && item.status === undefined ? "completed"
+          : ({ completed: "completed", failed: "failed", declined: "cancelled" })[item.status];
+        if (!next) return;
+        task.items.set(item.id, { state: next, terminal: TERMINAL.has(next), wasActive: Boolean(old?.wasActive || ACTIVE.has(next)) }); refresh();
+      }
+    }
   };
   const artSource = () => {
     const value = globalThis.__CODEX_DREAM_SKIN_STATE__?.artUrl;
@@ -506,25 +769,26 @@
     alive = false;
     clearFeedback();
     if (frame !== null) window.cancelAnimationFrame?.(frame);
+    if (pointerFrame !== null) window.cancelAnimationFrame?.(pointerFrame);
     frame = null;
     for (const timer of timers) clearTimeout(timer);
     timers.clear();
     observer?.disconnect();
     intersection?.disconnect();
-    for (const [target, type, callback] of listeners) target.removeEventListener?.(type, callback);
+    for (const [target, type, callback, capture] of listeners) target.removeEventListener?.(type, callback, capture);
     listeners.length = 0;
     for (const node of owned) node.remove();
     owned.clear();
-    for (const node of tracked.keys()) node.removeAttribute(`${PREFIX}index`);
+    for (const node of tracked.keys()) { node.removeAttribute(`${PREFIX}index`); clearBinding(node); }
     tracked.clear();
     for (const name of ["data-dream-motion", ...["paused", "state", "route", "interactions", "status", "character", "ambient", "theme-transition"].map((name) => PREFIX + name)]) root.removeAttribute(name);
     if (globalThis[KEY] === state) delete globalThis[KEY];
   }
   state = {
-    cleanup, prepareThemeTransition, bindTask, reportTaskState, metrics,
+    cleanup, prepareThemeTransition, bindTask, reportTaskState, reportAgentState, metrics,
     inspect: () => ({ mode, paused, state: motionState, route, routeEpoch, taskBound: Boolean(task),
       trackedNodes: tracked.size, ownedNodes: owned.size, pendingImages: pendingImages.size,
-      timers: timers.size, feedbackNodes: feedback.size, nativeTerminalAdapter: false }),
+      timers: timers.size, feedbackNodes: feedback.size, nativeTerminalAdapter: nativeAvailable(), agentCount: task?.agents.size || 0, itemCount: task?.items.size || 0 }),
     handoff(nextConfig) {
       let transition = null;
       if (snapshot && validConfig(nextConfig) && snapshot.artKey === nextConfig.artKey
@@ -543,10 +807,43 @@
   refresh();
   observer?.observe(root, { attributes: true, attributeFilter: ["data-dream-skin", "data-dream-theme"] });
   observer?.observe(document.body, { subtree: true, childList: true, attributes: true,
-    attributeFilter: ["data-ds-part", "data-angel-component", "aria-busy", "aria-expanded", "aria-modal", "data-state", "hidden", "aria-hidden"] });
+    attributeFilter: ["data-ds-part", "data-angel-component", "aria-busy", "aria-expanded", "aria-modal", "data-state", "hidden", "aria-hidden", "href", "data-dream-motion-agent-id", "data-local-conversation-item-target-ids", "data-app-action-sidebar-project-id", "data-app-action-sidebar-thread-id", "data-app-action-sidebar-thread-host-id", "data-app-action-sidebar-thread-kind"] });
   listen(media, "change", refresh);
   listen(document, "visibilitychange", refresh);
   listen(window, "resize", schedule);
+  listen(window, "message", nativeMessage);
+  listen(document, "scroll", () => {
+    scrolling = true; paused = true; attr(root, `${PREFIX}paused`, "true"); hideDecorations();
+    if (scrollTimer !== null) cancelTimer(scrollTimer);
+    scrollTimer = later(() => { scrollTimer = null; scrolling = false; schedule(); }, 120);
+  }, true);
+  listen(window, "pointermove", (event) => {
+    if (mode !== "full" || paused || scrolling || composition || route !== "home" || !ambientNode || event.pointerType === "touch") return;
+    pointer = { x: Math.max(-3, Math.min(3, (event.clientX / innerWidth - .5) * 6)), y: Math.max(-2, Math.min(2, (event.clientY / innerHeight - .5) * 4)) };
+    if (pointerFrame === null) pointerFrame = window.requestAnimationFrame(() => {
+      pointerFrame = null;
+      if (!active() || paused || scrolling || composition || !ambientNode || !pointer) return;
+      ambientNode.style.setProperty("--dream-motion-parallax-x", `${pointer.x.toFixed(2)}px`);
+      ambientNode.style.setProperty("--dream-motion-parallax-y", `${pointer.y.toFixed(2)}px`);
+    });
+  });
+  listen(document, "pointerdown", (event) => {
+    if (paused || composition || mode === "off" || !config.settings.effects.interactions) return;
+    const button = event.target?.closest?.('button, [role="button"]');
+    if (!button || button.disabled || button.getAttribute("aria-disabled") === "true" || !button.closest?.(SELECTORS.local)
+      || safeCall(() => getComputedStyle(button).animationName, "unknown") !== "none") return;
+    signal(button, "press", "edge", 180, "interactions");
+    const icon = query(button, "svg");
+    if (!icon || !visible(icon)) return;
+    const box = safeCall(() => icon.getBoundingClientRect());
+    const bounds = safeCall(() => button.getBoundingClientRect());
+    const styles = safeCall(() => getComputedStyle(icon));
+    if (box && bounds && styles?.animationName === "none" && (!styles.transform || styles.transform === "none")
+      && box.width <= 32 && box.height <= 32 && box.width > 0 && box.height > 0
+      && box.left >= bounds.left + 2 && box.top >= bounds.top + 2 && box.right <= bounds.right - 2 && box.bottom <= bounds.bottom - 2) {
+      signal(icon, "press", "icon", 180, "interactions");
+    }
+  });
   listen(window, "compositionstart", () => { composition += 1; refresh(); });
   listen(window, "compositionend", () => {
     composition = Math.max(0, composition - 1);

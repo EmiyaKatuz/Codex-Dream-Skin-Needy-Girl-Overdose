@@ -2,7 +2,7 @@
 
 本功能为待发布的开发变更，不包含在已发布的 v1.5.20 安装包中。
 
-此实现对应[动效路线图](theme-animation-roadmap-2026-10-03.md)的首轮客户端范围：统一偏好与生命周期、微交互、有限状态反馈、角色符号与背景过渡。动效来自受信的共享运行时；主题 ZIP 的三文件合同和 Safe CSS 白名单保持不变。
+此实现对应[动效路线图](theme-animation-roadmap-2026-10-03.md)的客户端范围：统一偏好与生命周期、微交互、任务/工具/子代理状态、独立角色姿态与背景过渡。动效来自受信的共享运行时；主题 ZIP 的三文件合同和 Safe CSS 白名单保持不变。
 
 ## 使用方式
 
@@ -58,27 +58,35 @@ bash linux/scripts/motion-settings-linux.sh --get
 
 ## 路线图覆盖
 
-| 路线图编号 | 实现 |
+| 编号 | 实现与边界 |
 | --- | --- |
-| 01–03 | 输入框聚焦边缘、按钮按下反馈、侧栏/终端/设置选项的选中边缘过渡；不移动内容宿主 |
-| 04–05 | 新出现菜单与首页卡的短边缘反馈，首页首批卡数量受限；保留原生菜单定位和进出场 |
-| 06 | 明确打开的模态确认提示给予一次注意反馈；普通历史权限卡不等同于待确认 |
-| 07–09 | 忙碌、待确认的局部语义适配；完整的显式状态接口与终态去重，缺证据的原生终态适配关闭 |
-| 10–11 | 已识别展开箭头和新编辑卡反馈；编辑卡要求稳定的原生条目标识，重挂载不重播 |
-| 12 | 停用旧的逐行子代理持续发光；逐子代理执行状态尚无经过验证的生产者，维持静态 |
-| 13 | 对满足尺寸和图层条件的固定背景做解码后短淡化；无法确认的布局直接切换 |
-| 14–15 | 已知内置 Internet Angel 主题增加随状态变化的独立角色符号；完整模式首页三个星点共用一个低频通道 |
-| 16–17 | 设置微交互、原生四档/五开关；菜单栏和托盘使用皮肤工具自身操作的真实 busy 状态 |
+| 01–03 | 输入框内侧聚焦边缘、按钮压入边框、留有空间的静态图标 1px 回弹，以及侧栏/终端/设置的选中边缘过渡 |
+| 04–05 | 新菜单、首页卡和原生项目行的短边缘反馈；首批最多四项、错峰间隔 25ms，项目按稳定 ID 去重 |
+| 06 | 新模态确认提示的一次注意反馈；原生权限请求按 ID 集合跟踪，全部解决后才恢复执行状态 |
+| 07–09 | 执行、输出、完成、失败、取消驱动局部信号和一次角色反馈；输出不逐 token 重启动画 |
+| 10–11 | 展开箭头、新编辑卡和有稳定 item ID 的工具状态/结果边缘反馈；代码与 diff 保持稳定 |
+| 12 | 有明确身份的子代理行使用静态状态边缘与一次终态反馈，不恢复逐行持续发光；没有稳定身份的原生面板保持静态 |
+| 13 | 符合尺寸和图层条件的固定背景解码后短淡化；无法确认时直接切换，明确解码失败保留旧主题 |
+| 14–15 | 已知内置主题的独立像素矢量角色展示专注、惊讶、平静和完成爱心；首页三个星点共用一个低频通道，视差最多水平 3px、垂直 2px |
+| 16–17 | 设置微交互、三端四档/五开关；菜单栏和托盘只反馈主题工具自身的真实 busy 状态 |
 
-角色符号是独立装饰，不修改壁纸人物表情，不把眼部定位套到用户图片。新表情素材、多图主题包、视频壁纸、任意作者 keyframes 及外部 Studio 协议仍属于路线图明确列出的后续范围。
+角色是独立装饰，不修改壁纸人物表情。壁纸差分素材、多图主题包、视频壁纸、任意作者 keyframes 及外部 Studio 协议仍属于原路线图的后续范围。
+
+现代首页的主题命令卡参与正常布局，避免旧固定偏移压住标题和原生横幅；短窗口使用紧凑卡片，清除与标题留白配套的旧负间距。没有预留空间的旧壁纸坐标装饰在该首页停用。窄窗口的辅助面板放到对话下方，避免左右侧栏同时挤压输入框；各区域保留原生滚动。任务正文、审批卡和子代理摘要使用统一的深紫表面，提高亮色壁纸上的文字对比度。
 
 ## 状态证据与接入
 
-`runtime/theme-motion.js` 默认状态为 `unknown`。内置适配只接收局部 composer/thread/activity 的显式 `aria-busy="true"`，以及可见、`aria-modal="true"`、`data-state="open"` 的 `role="alertdialog"`。这些是有条件的语义适配，不构成“所有 Codex 版本均提供这些属性”的声明。
+默认状态为 `unknown`。DOM 回退只接受局部 composer/thread/activity 的显式 `aria-busy="true"`，以及可见、`aria-modal="true"`、`data-state="open"` 的 `role="alertdialog"`。不根据文案、停顿、停止按钮消失或归档位置推断结果。
 
-目前没有经过官方客户端 DOM/事件验证的完成、失败、取消或逐子代理状态生产者。因此不会根据文案、输出停顿、停止按钮消失、归档列表位置或计时器宣布成功，也不会逐 token 再做打字动画。
+原生桥接依据社区 Linux 包中上游 **26.930.41038** 与 **26.1002.52244** 的只读 preload/前端源码：
 
-受信的未来原生适配器可使用以下接口；主题包不能注入适配代码：
+- 在有 `electronBridge.sendMessageFromView` 的 `app:` 或本机 `localhost/127.0.0.1:5175` 页面监听消息，不发送宿主命令、不读取聊天文本。拒绝其他窗口、来源、host、路由和旧 turn。
+- `turn/started`、`item/agentMessage/delta`、`turn/completed` 提供执行、输出及终态；`interrupted` 对应取消。路由为 `/local/<threadId>`，查询参数 `hostId` 缺省为 `local`；启动用的 `initialRoute` 也按相同规则校验。
+- `mcp-request` 的权限与输入请求按 request ID 跟踪，`serverRequest/resolved` 仅解决对应请求。并行输出不会清除待确认状态。
+- `collabAgentToolCall.agentsStates` 与已知子线程 turn 事件提供子代理状态。原生侧栏行的 `data-app-action-sidebar-thread-id` 使用 `local:<threadId>`，还必须匹配 `data-app-action-sidebar-thread-host-id`。其他行须有明确 agent ID 或真实线程链接；输入框内只有点击闭包、没有稳定 DOM 身份的面板保持静态。状态跟踪限于当前父任务执行期间，父任务结束后停止接收子线程更新。
+- 工具条目使用 `data-local-conversation-item-target-ids`；合并条目在所有已知工具结束前保持执行状态，不把首个工具完成误报为整组完成。无 `status` 字段的 `webSearch` 依据上游协议的 `item/completed` 结算。项目行使用 `data-app-action-sidebar-project-row` 与 `data-app-action-sidebar-project-id`。不用显示名称或列表顺序绑定身份。
+
+受信的其他适配器可使用下列接口；主题包不能注入适配代码：
 
 ```js
 const motion = window.__CODEX_DREAM_SKIN_MOTION_STATE__;
@@ -93,12 +101,13 @@ motion.reportTaskState({ ...identity, revision: 1, state: "busy" });
 motion.reportTaskState({ ...identity, revision: 2, state: "completed" });
 ```
 
-支持 `unknown / idle / busy / needs-attention / completed / failed / cancelled`。身份与当前路由绑定，revision 必须递增。只在同一执行曾进入忙碌/待确认后给一次终态反馈；首次看到历史终态不庆祝，热重注入不重播，导航撤销绑定。`inspect().nativeTerminalAdapter` 为 `false`，避免把接口 fixture 当成已接入官方任务事件。
+支持 `unknown / idle / busy / streaming / needs-attention / completed / failed / cancelled`。身份与当前路由绑定，revision 必须递增。同一执行曾进入活跃状态后才给一次终态反馈；历史终态不庆祝，热重注入不重播，导航撤销绑定。`reportAgentState` 额外要求 `agentId`。`inspect().nativeTerminalAdapter` 表示页面符合桥接条件，不表示真实后端任务已经验证。
 
 ## 生命周期与开销
 
 - 共享控制器、CSS、偏好工具和 payload 组合器经 `tools/sync-runtime-assets.mjs` 同步到三端；Windows Acrylic 不因此重新开启旧的全量分类器。
 - 使用受限结构/属性观察，不订阅 `characterData`；复用现有部件标记。追踪节点、去重记录、一次反馈数量均有上限，不在输出文字变化时重扫全文。
+- 滚动时立即隐藏装饰，停止 120ms 后只定位一次；打开模态窗口或没有空位时保持隐藏。候选空位检查原生控件、文本、图片、代码、滚动区和旧 HUD，并排除整个对话时间线和辅助面板，避免遮住随后出现的长代码。星点避让包含完整高度和视差余量。输入法组合期间原生通知只更新状态数据、不测量布局。
 - 新增装饰带 `data-dream-motion-owned`、`aria-hidden` 和 `pointer-events: none`。不为 main/thread/sticky 加整体 transform，不把内容显示依赖于动画结束。
 - 全部旧装饰循环由统一策略接管。持续效果只使用小装饰上的 opacity/transform，不循环改变 filter、backdrop-filter 或大片阴影。
 - 壁纸交接只复制已确认的固定 body 背景，单张图不超过 400 万像素，快照不超过 200 万像素，准备预算 250ms。预算内的新图会在替换 renderer 前预解码；明确解码失败会拒绝替换并保留旧皮肤。组合伪元素背景、超时、超过预算或无法确认图层时跳过淡化，沿用直接切换。旧图层处于内容下方并有清理超时；不修改原生堆叠顺序来强制淡化。
@@ -106,8 +115,6 @@ motion.reportTaskState({ ...identity, revision: 2, state: "completed" });
 
 ## 验证范围
 
-当前便携 Node 回归共 253 项：250 通过、3 项平台条件跳过；包含 12 项控制器、16 项偏好、14 项 payload 和 6 项 CSS 合同回归。
+策略、状态与生命周期使用 Node 回归；共享资产同步、三端完整 payload 与平台 CI 分别验证。免登录视觉检查使用社区包中未修改的原版前端和隔离测试宿主，在云端 Chromium 渲染真实组件。宿主只提供受控数据，不使用账户、令牌或真实在线后端；不会把此结果称为已登录官方客户端验证，也不代表各平台 GPU 性能测量。
 
-策略、状态与生命周期使用 Node fixtures；各平台完整 payload 在云端 Chromium 合成界面中检查布局、原生 spinner、输入与选择、滚动、减少动态效果、权限语义、重注入和流式输出预算。macOS Swift、Windows PowerShell 5.1/7 与安装包由对应平台 CI 验证。
-
-浏览器 fixture 不等于官方 Codex 客户端实机验证，也不代表各平台 GPU 性能测量。没有操作用户本地客户端；缺少可靠来源的原生终态与子代理适配继续关闭。
+当前环境重建后的完整回归与逐屏截图验收正在进行，结果完成后记录于本节。历史环境截图不作为本次通过证据。此功能仍未发布到 v1.5.20 安装包。

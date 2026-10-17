@@ -48,12 +48,13 @@ function fixture({ home = false, bodyless = false, reduced = false } = {}) {
       this.children = [];
       this.parentElement = null;
       this.textContent = "";
-      this.rect = { width: 600, height: 400 };
+      this.rect = { left: 0, top: 0, width: 600, height: 400, right: 600, bottom: 400 };
       this.computed = {};
       const styles = new Map();
       this.style = { setProperty: (name, value) => styles.set(name, value),
         getPropertyValue: (name) => styles.get(name) || "" };
     }
+    get childNodes() { return this.children; }
     get className() { return this.getAttribute("class") || ""; }
     get firstElementChild() { return this.children[0] || null; }
     get nextElementSibling() {
@@ -92,6 +93,7 @@ function fixture({ home = false, bodyless = false, reduced = false } = {}) {
       return results;
     }
     querySelector(selector) { return this.querySelectorAll(selector)[0] || null; }
+    getBoundingClientRect() { layoutReads += 1; return this.rect; }
     getClientRects() { layoutReads += 1; return this.isConnected && !this.hidden && this.rect.width && this.rect.height ? [this.rect] : []; }
     getContext() { return { drawImage: (...args) => { this.drawn = args; } }; }
   }
@@ -101,6 +103,8 @@ function fixture({ home = false, bodyless = false, reduced = false } = {}) {
   if (!bodyless) document.documentElement.appendChild(body);
   document.hidden = false;
   document.createElement = (tag) => { const node = new Element(tag); if (tag === "canvas") canvases.push(node); return node; };
+  document.createElementNS = (namespace, tag) => document.createElement(tag);
+  document.elementFromPoint = () => main;
   document.querySelector = (selector) => document.documentElement.querySelector(selector);
   document.querySelectorAll = (selector) => document.documentElement.querySelectorAll(selector);
   const main = body.appendChild(new Element("main", { "data-ds-part": "main" }));
@@ -111,9 +115,9 @@ function fixture({ home = false, bodyless = false, reduced = false } = {}) {
   const global = new Target();
   Object.assign(global, {
     document, location: { protocol: "app:", pathname: "/index.html", search: "?initialRoute=%2Ftask%2Fone", hash: "" },
-    URLSearchParams, innerWidth: 1280, innerHeight: 800,
+    URL, URLSearchParams, innerWidth: 1280, innerHeight: 800,
     Date: { now: () => now },
-    getComputedStyle(node) { styleReads += 1; return { display: "block", visibility: "visible", opacity: "1", animationName: "none", ...node.computed }; },
+    getComputedStyle(node) { styleReads += 1; return { display: "block", visibility: node.style.getPropertyValue("visibility") || "visible", opacity: "1", animationName: "none", ...node.computed }; },
     matchMedia: () => media,
     requestAnimationFrame(callback) { const id = ++nextId; frames.set(id, callback); return id; },
     cancelAnimationFrame(id) { frames.delete(id); },
@@ -403,4 +407,295 @@ test("crossfade timeout, unchanged artwork, oversized images and cleanup fail to
   page.state.cleanup();
   assert.equal(await cancelled, false);
   assert.equal(page.document.querySelectorAll(`[${OWNED}]`).length, 0);
+});
+
+function nativeFixture({ host = "local", home = false, route = null } = {}) {
+  const page = fixture({ home });
+  Object.assign(page.global.location, { protocol: "app:", origin: "app://-", hostname: "-", port: "",
+    pathname: "/index.html", search: `?initialRoute=${encodeURIComponent(route || `/local/parent?hostId=${host}`)}` });
+  page.global.electronBridge = { sendMessageFromView() { throw new Error("motion must never send a command"); } };
+  page.notify = (method, params, options = {}) => page.global.dispatch("message", {
+    source: null, origin: "", data: { type: "mcp-notification", hostId: host, method, params }, ...options,
+  });
+  page.request = (requestId, method = "item/commandExecution/requestApproval", extra = {}) => page.global.dispatch("message", {
+    source: null, origin: "", data: { type: "mcp-request", hostId: host,
+      request: { id: requestId, method, params: { threadId: "parent", turnId: "run-1", ...extra } } },
+  });
+  page.start = (run = "run-1", thread = "parent") => page.notify("turn/started", { threadId: thread, turn: { id: run, status: "inProgress" } });
+  page.delta = (run = "run-1", thread = "parent") => page.notify("item/agentMessage/delta", { threadId: thread, turnId: run, itemId: "answer", delta: "fixture" });
+  page.finish = (status = "completed", run = "run-1", thread = "parent") => page.notify("turn/completed", { threadId: thread, turn: { id: run, status } });
+  page.agents = (states) => page.notify("item/started", { threadId: "parent", turnId: "run-1", item: { id: "collab", type: "collabAgentToolCall", agentsStates: states } });
+  page.tool = (status, itemId = "tool-1") => page.notify(status === "inProgress" ? "item/started" : "item/completed", {
+    threadId: "parent", turnId: "run-1", item: { id: itemId, type: "commandExecution", status },
+  });
+  page.install(configuration(home ? "full" : "subtle"));
+  return page;
+}
+const motionRole = (page, role) => page.document.querySelector(`[data-dream-motion-role="${role}"]`);
+const agentRow = (page, id = "child", host = "local") => page.add(page.node("button", {
+  "data-app-action-sidebar-thread-row": "", "data-app-action-sidebar-thread-kind": "local",
+  "data-app-action-sidebar-thread-id": `local:${id}`, "data-app-action-sidebar-thread-host-id": host,
+}));
+
+test("native events require the proven preload bridge, origin, route and host", () => {
+  const page = nativeFixture();
+  page.notify("turn/started", { threadId: "parent", turn: { id: "run-1", status: "inProgress" } }, { source: {}, origin: "https://outside.invalid" });
+  assert.equal(page.state.inspect().taskBound, false);
+  page.notify("turn/started", { threadId: "parent", turn: { id: "run-1", status: "inProgress" } }, { source: page.global, origin: "https://outside.invalid" });
+  assert.equal(page.state.inspect().taskBound, false);
+  page.start("run-1", "other"); assert.equal(page.state.inspect().taskBound, false);
+  page.global.electronBridge = undefined; page.start(); assert.equal(page.state.inspect().taskBound, false);
+  page.global.electronBridge = { sendMessageFromView() {} };
+  page.global.location.protocol = "https:"; page.start(); assert.equal(page.state.inspect().taskBound, false);
+  page.global.location.protocol = "app:"; page.start(); assert.equal(page.state.inspect().state, "busy");
+  page.finish(); assert.equal(page.state.inspect().state, "completed");
+  page.state.cleanup();
+});
+
+test("offline native adapter accepts only localhost port 5175 and the exact host query", () => {
+  const page = nativeFixture({ host: "remote-1" });
+  Object.assign(page.global.location, { protocol: "http:", hostname: "localhost", port: "5174" });
+  page.start(); assert.equal(page.state.inspect().taskBound, false);
+  page.global.location.port = "5175"; page.start(); assert.equal(page.state.inspect().state, "busy");
+  page.notify("turn/completed", { threadId: "parent", turn: { id: "run-1", status: "completed" } }, {
+    data: { type: "mcp-notification", hostId: "local", method: "turn/completed", params: { threadId: "parent", turn: { id: "run-1", status: "completed" } } },
+  });
+  assert.equal(page.state.inspect().state, "busy");
+  page.finish(); assert.equal(page.state.inspect().state, "completed"); page.state.cleanup();
+});
+
+test("streaming feedback is one shot and per-token deltas do not refresh or scan", () => {
+  const page = nativeFixture(); page.start(); page.delta();
+  assert.equal(page.state.inspect().state, "streaming");
+  assert.equal(motionRole(page, "character").getAttribute("data-dream-motion-feedback"), "streaming");
+  const metrics = { ...page.state.metrics };
+  for (let i = 0; i < 500; i++) page.delta();
+  assert.equal(page.state.metrics.refreshes, metrics.refreshes);
+  assert.equal(page.state.metrics.scans, metrics.scans);
+  assert.equal(page.state.metrics.feedbacks, metrics.feedbacks); page.state.cleanup();
+});
+
+test("terminal events correlate run identities, retain exact outcomes and suppress replay", () => {
+  for (const [native, expected] of [["completed", "completed"], ["failed", "failed"], ["interrupted", "cancelled"]]) {
+    const page = nativeFixture(); page.start(); page.finish(native, "wrong-run");
+    assert.equal(page.state.inspect().state, "busy"); page.finish(native);
+    assert.equal(page.state.inspect().state, expected);
+    const feedbacks = page.state.metrics.feedbacks; page.finish(native); assert.equal(page.state.metrics.feedbacks, feedbacks);
+    page.install(configuration()); assert.equal(page.state.inspect().state, expected);
+    assert.equal(motionRole(page, "status").getAttribute("data-dream-motion-feedback"), null);
+    page.state.cleanup();
+  }
+});
+
+test("parallel approvals remain pending until every exact request resolves", () => {
+  const page = nativeFixture(); page.start(); page.request("request-a"); page.request("request-b");
+  page.notify("serverRequest/resolved", { threadId: "parent", requestId: "unknown" });
+  page.notify("serverRequest/resolved", { threadId: "parent", requestId: "request-a" });
+  assert.equal(page.state.inspect().state, "needs-attention");
+  page.notify("serverRequest/resolved", { threadId: "parent", requestId: "request-b" });
+  assert.equal(page.state.inspect().state, "busy"); page.state.cleanup();
+});
+
+test("streaming cannot dismiss a pending approval and resolves to the latest phase", () => {
+  const page = nativeFixture(); page.start(); page.request(7); page.delta();
+  assert.equal(page.state.inspect().state, "needs-attention");
+  page.notify("serverRequest/resolved", { threadId: "parent", requestId: 7 });
+  assert.equal(page.state.inspect().state, "streaming"); page.state.cleanup();
+});
+
+test("approval overflow stays attentive until a correlated terminal event", () => {
+  const page = nativeFixture(); page.start();
+  for (let i = 0; i < 40; i++) page.request(i);
+  for (let i = 0; i < 40; i++) page.notify("serverRequest/resolved", { threadId: "parent", requestId: i });
+  assert.equal(page.state.inspect().state, "needs-attention");
+  page.finish("failed"); assert.equal(page.state.inspect().state, "failed"); page.state.cleanup();
+});
+
+test("native sidebar rows bind exact child ids and exact host ids without list order", () => {
+  const page = nativeFixture({ host: "remote-1" });
+  const correct = agentRow(page, "child", "remote-1");
+  const wrong = agentRow(page, "child", "local");
+  const other = agentRow(page, "other", "remote-1"); page.flush();
+  page.start(); page.agents({ child: { status: "running" } });
+  assert.equal(correct.getAttribute("data-dream-motion-agent-state"), "busy");
+  assert.equal(wrong.getAttribute("data-dream-motion-agent-state"), null);
+  assert.equal(other.getAttribute("data-dream-motion-agent-state"), null);
+  page.start("child-run", "child"); page.finish("completed", "child-run", "child");
+  assert.equal(correct.getAttribute("data-dream-motion-agent-state"), "completed");
+  assert.equal(page.state.inspect().state, "busy", "child completion must never complete the parent"); page.state.cleanup();
+});
+
+test("recycled agent rows clear both stale state and its feedback timer", () => {
+  const page = nativeFixture(); const row = agentRow(page); page.flush(); page.start();
+  page.agents({ child: { status: "running" } }); page.start("child-run", "child"); page.finish("completed", "child-run", "child");
+  assert.equal(row.getAttribute("data-dream-motion-feedback"), "completed");
+  page.attribute(row, "data-app-action-sidebar-thread-id", "local:unknown"); page.flush();
+  assert.equal(row.getAttribute("data-dream-motion-agent-state"), null);
+  assert.equal(row.getAttribute("data-dream-motion-feedback"), null);
+  assert.equal(page.state.inspect().feedbackNodes, 0); page.state.cleanup();
+});
+
+test("sidebar kind and host mutations revoke an existing child binding", () => {
+  const page = nativeFixture(); const row = agentRow(page); page.flush(); page.start(); page.agents({ child: { status: "running" } });
+  page.attribute(row, "data-app-action-sidebar-thread-kind", "cloud"); page.flush(); assert.equal(row.getAttribute("data-dream-motion-agent-state"), null);
+  page.attribute(row, "data-app-action-sidebar-thread-kind", "local"); page.flush(); assert.equal(row.getAttribute("data-dream-motion-agent-state"), "busy");
+  page.attribute(row, "data-app-action-sidebar-thread-host-id", "other"); page.flush(); assert.equal(row.getAttribute("data-dream-motion-agent-state"), null); page.state.cleanup();
+});
+
+test("child snapshots retain their native run and a second run can celebrate once", () => {
+  const page = nativeFixture(); const row = agentRow(page); page.flush(); page.start(); page.agents({ child: { status: "running" } });
+  page.start("child-run-1", "child"); page.agents({ child: { status: "running" } }); page.delta("child-run-1", "child");
+  assert.equal(row.getAttribute("data-dream-motion-agent-state"), "streaming"); page.finish("completed", "child-run-1", "child");
+  assert.equal(row.getAttribute("data-dream-motion-feedback"), "completed"); page.advance(500);
+  page.start("child-run-2", "child"); page.finish("completed", "child-run-1", "child");
+  assert.equal(row.getAttribute("data-dream-motion-agent-state"), "busy");
+  page.finish("completed", "child-run-2", "child"); assert.equal(row.getAttribute("data-dream-motion-feedback"), "completed"); page.state.cleanup();
+});
+
+test("encoded item ids bind exact tool outcomes and recycling clears stale timers", () => {
+  const page = nativeFixture(); const row = page.add(page.node("div", { "data-local-conversation-item-target-ids": "tool%3A1" })); page.flush(); page.start();
+  page.tool("inProgress", "tool:1"); assert.equal(row.getAttribute("data-dream-motion-item-state"), "busy");
+  page.tool("completed", "tool:1"); assert.equal(row.getAttribute("data-dream-motion-feedback"), "completed");
+  page.attribute(row, "data-local-conversation-item-target-ids", "unknown"); page.flush();
+  assert.equal(row.getAttribute("data-dream-motion-item-state"), null); assert.equal(row.getAttribute("data-dream-motion-feedback"), null);
+  assert.equal(page.state.inspect().feedbackNodes, 0); page.state.cleanup();
+});
+
+test("agent and tool state maps have bounded identities", () => {
+  const page = nativeFixture(); page.start();
+  for (let i = 0; i < 100; i++) { page.agents({ [`child-${i}`]: { status: "running" } }); page.tool("inProgress", `tool-${i}`); }
+  assert.equal(page.state.inspect().agentCount, 32); assert.equal(page.state.inspect().itemCount, 64); page.state.cleanup();
+});
+
+test("ambient collision checks still run when both status and character are disabled", () => {
+  const page = fixture({ home: true }); const obstacle = page.add(page.node("button")); page.document.elementFromPoint = () => obstacle;
+  const config = configuration("full"); config.settings.effects.status = false; config.settings.effects.character = false; page.install(config);
+  assert.equal(motionRole(page, "ambient").style.getPropertyValue("visibility"), "hidden"); page.state.cleanup();
+});
+
+test("collision safety hides decorations and terminal feedback falls back inside composer", () => {
+  const page = nativeFixture(); page.document.elementFromPoint = () => page.composer;
+  page.start(); assert.equal(motionRole(page, "status").style.getPropertyValue("visibility"), "hidden");
+  page.finish(); assert.equal(page.composer.getAttribute("data-dream-motion-feedback"), "completed"); page.state.cleanup();
+});
+
+test("scroll hides immediately without layout and performs one idle placement", () => {
+  const page = nativeFixture({ home: true });
+  const reads = page.reads; const refreshes = page.state.metrics.refreshes;
+  for (let i = 0; i < 20; i++) page.document.dispatch("scroll");
+  assert.deepEqual(page.reads, reads); assert.equal(motionRole(page, "status").style.getPropertyValue("visibility"), "hidden");
+  assert.equal(page.timers.size, 1); page.advance(119); page.flush(); assert.equal(page.state.metrics.refreshes, refreshes);
+  page.advance(1); page.flush(); assert.equal(page.state.metrics.refreshes, refreshes + 1); page.state.cleanup();
+});
+
+test("native events, pointer movement and scroll perform no layout during IME", () => {
+  const page = nativeFixture({ home: true }); page.start(); page.global.dispatch("compositionstart");
+  const reads = page.reads; page.delta(); page.request("approval"); page.finish();
+  page.global.dispatch("pointermove", { clientX: 100, clientY: 200, pointerType: "mouse" });
+  page.document.dispatch("pointerdown", { target: page.composer }); page.document.dispatch("scroll"); page.advance(121); page.flush();
+  assert.deepEqual(page.reads, reads); page.global.dispatch("compositionend"); page.state.cleanup();
+});
+
+test("project cards use bounded real path identities and avoid remount replays", () => {
+  const page = fixture(); const attrs = { "data-app-action-sidebar-project-row": "", "data-app-action-sidebar-project-id": "/workspace/中文 项目" };
+  const card = page.add(page.node("div", attrs)); page.install();
+  assert.equal(card.getAttribute("data-dream-motion-enter"), "project-card"); page.advance(351);
+  const repeat = page.add(page.node("div", attrs)); page.flush(); assert.equal(repeat.getAttribute("data-dream-motion-enter"), null);
+  page.attribute(card, "data-app-action-sidebar-project-id", "C:\\Work\\Second Project"); page.flush(); assert.equal(card.getAttribute("data-dream-motion-enter"), "project-card");
+  const invalid = page.add(page.node("div", { ...attrs, "data-app-action-sidebar-project-id": "x".repeat(513) })); page.flush(); assert.equal(invalid.getAttribute("data-dream-motion-enter"), null);
+  page.state.cleanup();
+});
+
+test("standalone pixel character exposes state poses without mutating artwork", () => {
+  const page = nativeFixture(); const character = motionRole(page, "character");
+  assert.ok(character.querySelector("svg")); assert.equal(character.querySelectorAll("[data-dream-motion-part]").length, 13);
+  page.start(); page.delta(); assert.equal(character.getAttribute("data-dream-motion-state"), "streaming");
+  page.finish("failed"); assert.equal(character.getAttribute("data-dream-motion-state"), "failed");
+  assert.equal(page.global.__CODEX_DREAM_SKIN_STATE__.artUrl, "blob:app://old-art"); page.state.cleanup();
+});
+
+test("action icon press stays inside its control and preserves native animations", () => {
+  const page = fixture(); const button = page.add(page.node("button"), page.composer); const icon = button.appendChild(page.node("svg"));
+  button.rect = { left: 0, top: 0, right: 40, bottom: 40, width: 40, height: 40 };
+  icon.rect = { left: 8, top: 8, right: 32, bottom: 32, width: 24, height: 24 }; page.install();
+  page.document.dispatch("pointerdown", { target: icon }); assert.equal(icon.getAttribute("data-dream-motion-press"), "icon"); page.advance(181);
+  icon.computed.animationName = "native-spinner"; page.document.dispatch("pointerdown", { target: icon }); assert.equal(icon.getAttribute("data-dream-motion-press"), null); page.advance(181);
+  icon.computed.animationName = "none"; icon.rect.left = 0; page.document.dispatch("pointerdown", { target: icon }); assert.equal(icon.getAttribute("data-dream-motion-press"), null); page.advance(181);
+  button.computed.animationName = "native-button"; page.document.dispatch("pointerdown", { target: icon }); assert.equal(button.getAttribute("data-dream-motion-press"), null); page.state.cleanup();
+});
+
+test("minimal parallax is bounded, skips touch and cancels queued work on cleanup", () => {
+  const page = nativeFixture({ home: true }); const stars = motionRole(page, "ambient");
+  page.global.dispatch("pointermove", { clientX: 5000, clientY: -200, pointerType: "mouse" }); page.flush();
+  assert.equal(stars.style.getPropertyValue("--dream-motion-parallax-x"), "3.00px"); assert.equal(stars.style.getPropertyValue("--dream-motion-parallax-y"), "-2.00px");
+  page.global.dispatch("pointermove", { clientX: 0, clientY: 0, pointerType: "touch" }); assert.equal(page.frames.size, 0);
+  page.global.dispatch("pointermove", { clientX: 0, clientY: 0, pointerType: "mouse" }); page.state.cleanup(); assert.equal(page.frames.size, 0); assert.equal(page.timers.size, 0);
+});
+
+test("a new parent run clears previous terminal feedback and route navigation revokes events", () => {
+  const page = nativeFixture(); page.start(); page.finish(); assert.equal(motionRole(page, "status").getAttribute("data-dream-motion-feedback"), "completed");
+  page.start("run-2"); assert.equal(motionRole(page, "status").getAttribute("data-dream-motion-feedback"), null);
+  page.global.location.search = "?initialRoute=%2Flocal%2Fother"; page.global.dispatch("popstate"); page.finish("completed", "run-2"); assert.equal(page.state.inspect().state, "unknown"); page.state.cleanup();
+});
+
+test("ambient placement checks its full 104px height plus parallax margins", () => {
+  const page = fixture({ home: true }); const obstacle = page.add(page.node("button"));
+  page.document.elementFromPoint = (x, y) => y >= 180 && x < 1200 ? obstacle : page.main;
+  page.install(configuration("full"));
+  assert.equal(motionRole(page, "ambient").style.getPropertyValue("visibility"), "hidden"); page.state.cleanup();
+});
+
+test("decorations avoid empty native diff panes and timeline regions", () => {
+  for (const attributes of [{ "data-app-shell-pane-frame": "true" }, { "data-app-action-timeline-scroll": "" }]) {
+    const page = fixture({ home: true });
+    const pane = page.add(page.node("div", attributes));
+    const emptySpace = page.add(page.node("div"), pane);
+    page.document.elementFromPoint = () => emptySpace;
+    page.install(configuration("full"));
+    for (const role of ["status", "character", "ambient"]) {
+      assert.equal(motionRole(page, role).style.getPropertyValue("visibility"), "hidden");
+    }
+    page.state.cleanup();
+  }
+});
+
+test("detaching a feedback row releases timers and cleanup removes scroll capture", () => {
+  const page = nativeFixture(); const row = agentRow(page); page.flush(); page.start(); page.agents({ child: { status: "running" } });
+  page.start("child-run", "child"); page.finish("completed", "child-run", "child");
+  row.remove(); page.mutate([{ type: "childList", target: page.surface, addedNodes: [], removedNodes: [row] }]); page.flush();
+  assert.equal(row.getAttribute("data-dream-motion-agent-state"), null); assert.equal(page.state.inspect().feedbackNodes, 0);
+  page.document.dispatch("scroll"); page.state.cleanup(); assert.equal(page.timers.size, 0); assert.equal(page.document.listenerCount(), 0);
+});
+
+test("a native activity group remains busy while any known command or patch is active", () => {
+  const page = nativeFixture(); const row = page.add(page.node("div", { "data-local-conversation-item-target-ids": "command-1 patch-1" })); page.flush(); page.start();
+  page.tool("inProgress", "command-1"); page.tool("inProgress", "patch-1"); page.tool("completed", "command-1");
+  assert.equal(row.getAttribute("data-dream-motion-item-state"), "busy"); assert.equal(row.getAttribute("data-dream-motion-feedback"), null);
+  page.tool("completed", "patch-1"); assert.equal(row.getAttribute("data-dream-motion-item-state"), "completed"); assert.equal(row.getAttribute("data-dream-motion-feedback"), "completed");
+  const feedbacks = page.state.metrics.feedbacks; page.advance(421);
+  page.attribute(row, "data-local-conversation-item-target-ids", "patch-1 command-1"); page.flush();
+  assert.equal(row.getAttribute("data-dream-motion-feedback"), null); assert.equal(page.state.metrics.feedbacks, feedbacks); page.state.cleanup();
+});
+
+test("settled grouped tool feedback prioritizes failures and cancellations", () => {
+  for (const [status, expected] of [["failed", "failed"], ["declined", "cancelled"]]) {
+    const page = nativeFixture(); const row = page.add(page.node("div", { "data-local-conversation-item-target-ids": "command-1 patch-1" })); page.flush(); page.start();
+    page.tool("inProgress", "command-1"); page.tool("inProgress", "patch-1"); page.tool(status, "command-1");
+    assert.equal(row.getAttribute("data-dream-motion-item-state"), "busy"); page.tool("completed", "patch-1");
+    assert.equal(row.getAttribute("data-dream-motion-item-state"), expected); assert.equal(row.getAttribute("data-dream-motion-feedback"), expected); page.state.cleanup();
+  }
+});
+
+test("native web search completes without a status field and only celebrates an observed run", () => {
+  const page = nativeFixture(); const row = page.add(page.node("div", { "data-local-conversation-item-target-ids": "search-1" })); page.flush(); page.start();
+  const params = { threadId: "parent", turnId: "run-1", item: { type: "webSearch", id: "search-1", query: "fixture search", action: { type: "search", query: "fixture search" } } };
+  page.notify("item/started", params); assert.equal(row.getAttribute("data-dream-motion-item-state"), "busy");
+  page.notify("item/completed", { ...params, turnId: "wrong-run" }); assert.equal(row.getAttribute("data-dream-motion-item-state"), "busy");
+  page.notify("item/completed", params); assert.equal(row.getAttribute("data-dream-motion-item-state"), "completed"); assert.equal(row.getAttribute("data-dream-motion-feedback"), "completed");
+  const feedbacks = page.state.metrics.feedbacks; page.advance(421); page.notify("item/completed", params);
+  assert.equal(page.state.metrics.feedbacks, feedbacks); assert.equal(row.getAttribute("data-dream-motion-feedback"), null);
+  page.attribute(row, "data-local-conversation-item-target-ids", "search-history"); page.flush();
+  page.notify("item/completed", { ...params, item: { ...params.item, id: "search-history" } });
+  assert.equal(row.getAttribute("data-dream-motion-item-state"), "completed"); assert.equal(row.getAttribute("data-dream-motion-feedback"), null);
+  assert.equal(page.state.inspect().state, "busy", "a completed search must not complete its parent turn"); page.state.cleanup();
 });

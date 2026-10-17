@@ -222,7 +222,14 @@ async function runBuiltController(platform, payload) {
   };
   const root = node();
   root.setAttribute("data-dream-skin", "active");
-  const document = { ...node(), documentElement: root, body: node(), createElement: node, hidden: false };
+  const document = {
+    ...node(), documentElement: root, body: node(), createElement: node, hidden: false,
+    createElementNS(namespace, tagName) {
+      assert.equal(namespace, "http://www.w3.org/2000/svg");
+      assert.ok(["svg", "path"].includes(tagName));
+      return { ...node(), namespaceURI: namespace, tagName };
+    },
+  };
   const sandbox = {
     document, location: { pathname: "/thread", search: "", hash: "" }, URLSearchParams,
     innerWidth: 1280, innerHeight: 800, setTimeout, clearTimeout,

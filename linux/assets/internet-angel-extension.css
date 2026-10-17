@@ -1910,3 +1910,171 @@ html.codex-dream-skin:is(.dream-theme-light, [data-dream-shell="light"]) .dream-
     var(--angel-adaptive-surface-raised) 48%,
     var(--angel-pink)) !important;
 }
+
+/* Modern Home uses a flex composer layout with optional onboarding banners.
+   Fixed preset offsets overlap its centered heading and narrow-window banners.
+   Keep owned presets in flow without changing native controls or positioning. */
+html[data-dream-skin="active"] :is(.dream-home, [data-ds-part="home"], [role="main"]):has(> [class~="group/home-composer-layout"])
+  > :is(#codex-dream-skin-presets, #chatgpt-internet-angel-deck) {
+  position: relative !important;
+  inset: auto !important;
+  z-index: auto !important;
+  order: -1;
+  flex: 0 0 auto;
+  align-self: center;
+  width: calc(100% - 48px) !important;
+  max-width: 1040px;
+  margin: 28px 24px 16px;
+  transform: none !important;
+}
+html[data-dream-skin="active"] :is(.dream-home, [data-ds-part="home"], [role="main"]):has(> [class~="group/home-composer-layout"])
+  :is(#codex-dream-skin-presets, #chatgpt-internet-angel-deck) :is(.dream-generated-preset, .angel-preset-card) {
+  height: auto !important;
+  min-height: 86px !important;
+  max-height: none !important;
+}
+
+/* Wallpaper-coordinate ornaments have no reserved space in modern Home.
+   Preserve the frame, star field and ticker. The motion controller places its
+   character and status badge only in an inspected empty region. */
+html[data-dream-skin="active"]:has([class~="group/home-composer-layout"])
+  #codex-dream-skin-chrome .dream-angel-stage > :not(.dream-angel-frame, .dream-angel-spark-field, .dream-angel-live-ticker) {
+  display: none !important;
+}
+
+html[data-dream-skin="active"][data-dream-theme="internet-angel"]
+  [data-codex-composer-root][data-composer-placement="home"] aside {
+  color: var(--angel-adaptive-text, var(--angel-paper)) !important;
+  background: var(--angel-adaptive-surface, var(--angel-surface)) !important;
+  border-color: var(--angel-line-soft) !important;
+}
+
+/* 26.1002 paints messages and activity labels directly on the timeline.
+   One local scrim keeps all text readable without changing message geometry. */
+html:root[data-dream-skin="active"][data-dream-theme="internet-angel"]
+  [data-app-action-timeline-scroll] {
+  background: rgb(23 19 45 / .88) !important;
+  color: var(--angel-paper) !important;
+}
+
+html:root[data-dream-skin="active"][data-dream-theme="internet-angel"] :is(
+  [data-codex-approval-surface="true"],
+  [data-summary-panel-variant="summary"]
+) {
+  color: var(--angel-paper) !important;
+  border-color: var(--angel-line-soft) !important;
+  background: linear-gradient(135deg, var(--angel-surface), var(--angel-surface-raised)) !important;
+  box-shadow: inset 0 1px var(--angel-line-soft) !important;
+}
+html:root[data-dream-skin="active"][data-dream-theme="internet-angel"] :is(
+  [data-codex-approval-surface="true"],
+  [data-summary-panel-variant="summary"]
+) :where(button, p, span, label) {
+  color: var(--angel-paper) !important;
+}
+html:root[data-dream-skin="active"][data-dream-theme="internet-angel"]
+  [data-codex-approval-surface="true"] button {
+  border-color: var(--angel-line) !important;
+  background: var(--angel-surface-raised) !important;
+}
+html:root[data-dream-skin="active"][data-dream-theme="internet-angel"]
+  [data-summary-panel-variant="summary"] header,
+html:root[data-dream-skin="active"][data-dream-theme="internet-angel"]
+  [data-summary-panel-variant="summary"] header::before {
+  color: var(--angel-paper) !important;
+  background: var(--angel-surface-raised) !important;
+}
+html:root[data-dream-skin="active"][data-dream-theme="internet-angel"] :is(
+  [data-codex-approval-surface="true"] button,
+  [data-summary-panel-variant="summary"] [data-slot="thread-summary-panel-item-button"]
+):is(:hover, :focus-visible) {
+  background: color-mix(in srgb, var(--angel-surface-raised) 80%, var(--angel-blue)) !important;
+  outline: 1px solid var(--angel-cyan);
+  outline-offset: -2px;
+}
+
+/* Preserve the native Home scroll area, while reserving less empty heading
+   space in short windows so the initial composer remains within reach. */
+@container home-main-content (max-height: 760px) {
+  html[data-dream-skin="active"] .dream-home > #codex-dream-skin-presets {
+    margin-top: 12px !important;
+    margin-bottom: 8px !important;
+  }
+  html[data-dream-skin="active"] .dream-home:has(> [class~="group/home-composer-layout"])
+    #codex-dream-skin-presets .dream-presets-grid {
+    grid-template-rows: none !important;
+    grid-auto-rows: auto !important;
+  }
+  html[data-dream-skin="active"] .dream-home:has(> [class~="group/home-composer-layout"])
+    #codex-dream-skin-presets button.dream-generated-preset {
+    grid-template: auto / 36px minmax(0, 1fr) !important;
+    min-height: 64px !important;
+    padding: 8px !important;
+  }
+  html[data-dream-skin="active"] .dream-home:has(> [class~="group/home-composer-layout"])
+    #codex-dream-skin-presets :is(.dream-preset-channel, small, em) {
+    display: none !important;
+  }
+  html[data-dream-skin="active"] .dream-home:has(> [class~="group/home-composer-layout"])
+    #codex-dream-skin-presets :is(.dream-preset-icon, strong) {
+    grid-row: 1 !important;
+  }
+  html[data-dream-skin="active"] .dream-home:has(> [class~="group/home-composer-layout"])
+    #codex-dream-skin-presets .dream-preset-icon {
+    width: 32px !important;
+    height: 32px !important;
+  }
+  html[data-dream-skin="active"] .dream-home
+    > [class~="group/home-composer-layout"]:not(:has([data-expanded-composer])) {
+    padding-top: 12px;
+  }
+  html[data-dream-skin="active"] .dream-home
+    > [class~="group/home-composer-layout"]:not(:has([data-expanded-composer]))
+    > .contents > div:has([data-feature="game-source"]) {
+    padding-bottom: 16px;
+  }
+  html[data-dream-skin="active"] .dream-home
+    > [class~="group/home-composer-layout"]:not(:has([data-expanded-composer]))
+    > .contents > div:has([data-codex-composer-root]) > [class~="-mt-16"] {
+    margin-top: 0;
+  }
+}
+
+/* The upstream desktop shell keeps both sidebars at their preferred widths.
+   On narrow task windows stack the auxiliary pane beneath the conversation;
+   keep both panes scrollable and leave sidebar navigation available. */
+@media (max-width: 1100px) {
+  html[data-dream-skin="active"] main[data-app-shell-main-surface]
+    > div:has(> [data-app-shell-main-content-layout]):has(> aside[data-app-shell-focus-area="right-panel"]) {
+    flex-direction: column;
+  }
+  html[data-dream-skin="active"] main[data-app-shell-main-surface]
+    > div:has(> aside[data-app-shell-focus-area="right-panel"])
+    > [data-app-shell-main-content-layout] {
+    width: 100% !important;
+    min-height: 0;
+    flex: 1 1 0%;
+  }
+  html[data-dream-skin="active"] main[data-app-shell-main-surface]
+    > div:has(> [data-app-shell-main-content-layout])
+    > aside[data-app-shell-focus-area="right-panel"] {
+    width: 100% !important;
+    height: min(38vh, 280px) !important;
+    flex: 0 0 min(38vh, 280px);
+    margin-inline: 0;
+  }
+  html[data-dream-skin="active"] main[data-app-shell-main-surface]:has(aside[data-app-shell-focus-area="right-panel"])
+    [data-app-shell-thread-edge-divider],
+  html[data-dream-skin="active"] aside[data-app-shell-focus-area="right-panel"]
+    [data-app-shell-pane-frame] {
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+}
+
+@container home-main-content (max-width: 360px) {
+  html[data-dream-skin="active"] .dream-home:has(> [class~="group/home-composer-layout"])
+    #codex-dream-skin-presets .dream-presets-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+}

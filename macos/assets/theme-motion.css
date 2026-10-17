@@ -58,7 +58,7 @@ html:root[data-dream-motion]:not([data-dream-motion="off"])[data-dream-motion-pa
    Its native ::before/::after, input geometry and hit area remain untouched. */
 html:root[data-dream-motion]:not([data-dream-motion="off"])[data-dream-motion-paused="false"][data-dream-motion-interactions="on"] :is([data-ds-part="composer"], [data-angel-component="composer"], .composer-surface-chrome):focus-within {
   outline: 1px solid var(--dream-motion-accent) !important;
-  outline-offset: 2px;
+  outline-offset: -2px;
 }
 
 /* Press feedback does not imply that sending, copying or applying succeeded. */
@@ -71,6 +71,18 @@ html:root[data-dream-motion]:not([data-dream-motion="off"])[data-dream-motion-pa
 ):not(:disabled):not([aria-disabled="true"]):active {
   border-color: var(--dream-motion-accent) !important;
   box-shadow: inset 0 2px 0 rgb(0 0 0 / .22) !important;
+}
+
+/* The controller marks only an idle, bounded icon. The button and its text
+   never move, and native progress SVGs are not candidates for this marker. */
+html:root[data-dream-motion]:not([data-dream-motion="off"])[data-dream-motion-paused="false"][data-dream-motion-interactions="on"] [data-dream-motion-press="edge"] {
+  outline: 1px solid var(--dream-motion-accent);
+  outline-offset: -2px;
+  animation: dream-motion-highlight 140ms ease-out 1 both;
+}
+
+html:root[data-dream-motion]:not([data-dream-motion="off"])[data-dream-motion-paused="false"][data-dream-motion-interactions="on"] svg[data-dream-motion-press="icon"] {
+  animation: dream-motion-icon-press 140ms var(--dream-motion-ease) 1;
 }
 
 /* Highlight selection without moving a row, tab, or its scroll container. */
@@ -105,14 +117,20 @@ html:root[data-dream-motion]:not([data-dream-motion="off"])[data-dream-motion-pa
    the edge: no positioning assumptions, hidden cards, or animationend gate. */
 html:root[data-dream-motion]:not([data-dream-motion="off"])[data-dream-motion-paused="false"][data-dream-motion-interactions="on"] :is(
   [data-dream-motion-enter="home-card"], [data-dream-motion-enter="menu"],
+  [data-dream-motion-enter="project-card"],
   [data-dream-motion-enter="edited-card"], [data-dream-motion-enter="permission"],
   [data-dream-motion-feedback="expanded"]
 ) {
   outline: 1px solid var(--dream-motion-accent);
   outline-offset: -1px;
   transition: outline-color 180ms ease-out !important;
-  animation: dream-motion-highlight 220ms ease-out 1;
+  animation: dream-motion-highlight 220ms ease-out 1 both;
 }
+
+/* Only the first four identity-deduplicated cards receive entry feedback. */
+html:root[data-dream-motion] :is([data-dream-motion-enter="home-card"], [data-dream-motion-enter="project-card"])[data-dream-motion-index="1"] { animation-delay: 25ms; }
+html:root[data-dream-motion] :is([data-dream-motion-enter="home-card"], [data-dream-motion-enter="project-card"])[data-dream-motion-index="2"] { animation-delay: 50ms; }
+html:root[data-dream-motion] :is([data-dream-motion-enter="home-card"], [data-dream-motion-enter="project-card"])[data-dream-motion-index="3"] { animation-delay: 75ms; }
 
 html:root[data-dream-motion] [data-dream-motion-enter="permission"] {
   --dream-motion-accent: var(--dream-motion-attention);
@@ -173,8 +191,13 @@ html:root[data-dream-motion] [data-dream-motion-owned][data-dream-motion-role="s
   text-align: center;
 }
 
-html:root[data-dream-motion="full"][data-dream-motion-paused="false"][data-dream-motion-status="on"][data-dream-motion-state="busy"] [data-dream-motion-owned][data-dream-motion-role="status"]::after {
+html:root[data-dream-motion="full"][data-dream-motion-paused="false"][data-dream-motion-status="on"]:is([data-dream-motion-state="busy"], [data-dream-motion-state="streaming"]) [data-dream-motion-owned][data-dream-motion-role="status"]::after {
   animation: dream-motion-signal 2.4s ease-in-out infinite;
+}
+
+html:root[data-dream-motion] [data-dream-motion-owned][data-dream-motion-role="status"][data-dream-motion-state="streaming"]::before {
+  border-radius: 1px;
+  background: var(--dream-motion-attention);
 }
 
 html:root[data-dream-motion]:not([data-dream-motion="off"])[data-dream-motion-paused="false"][data-dream-motion-status="on"] [data-dream-motion-owned][data-dream-motion-role="status"]:is([data-dream-motion-feedback="completed"], [data-dream-motion-feedback="failed"])::after {
@@ -185,23 +208,42 @@ html:root[data-dream-motion]:not([data-dream-motion="off"])[data-dream-motion-pa
   animation: dream-motion-edge 200ms ease-out 1;
 }
 
-/* The controller creates the glyph only for the known built-in Angel theme.
-   This is a small independent badge, never an eyelid on a user's photograph. */
+/* A self-contained pixel character is created only for the known built-in
+   Angel theme. It never alters the face or eyes of a wallpaper photograph. */
 html:root[data-dream-motion] [data-dream-motion-owned][data-dream-motion-role="character"] {
   position: fixed;
   right: 38px;
   bottom: 13px;
   z-index: 3;
-  width: 28px;
-  height: 24px;
+  width: 48px;
+  height: 56px;
   color: var(--dream-motion-state-color, var(--dream-motion-accent));
-  border: 1px solid currentColor;
-  border-radius: 5px 8px 5px 8px;
-  background: color-mix(in srgb, var(--dream-surface, var(--ds-panel, #17132d)) 92%, transparent);
-  font: 700 15px/22px system-ui, sans-serif;
-  text-align: center;
-  opacity: .75;
+  opacity: .88;
 }
+
+html:root[data-dream-motion] [data-dream-motion-owned][data-dream-motion-role="character"] > svg {
+  display: block;
+  width: 48px;
+  height: 56px;
+  overflow: hidden;
+  shape-rendering: crispEdges;
+}
+
+html:root[data-dream-motion] [data-dream-motion-owned][data-dream-motion-role="character"] :is([data-dream-motion-part="hair"], [data-dream-motion-part="fringe"], [data-dream-motion-part="collar"]) { fill: var(--dream-motion-paper); }
+html:root[data-dream-motion] [data-dream-motion-owned][data-dream-motion-role="character"] :is([data-dream-motion-part="face"], [data-dream-motion-part="arms"]) { fill: #ffd9e8; }
+html:root[data-dream-motion] [data-dream-motion-owned][data-dream-motion-role="character"] :is([data-dream-motion-part="ribbon"], [data-dream-motion-part="heart"]) { fill: var(--dream-motion-attention); }
+html:root[data-dream-motion] [data-dream-motion-owned][data-dream-motion-role="character"] [data-dream-motion-part="body"] { fill: var(--dream-motion-accent); }
+html:root[data-dream-motion] [data-dream-motion-owned][data-dream-motion-role="character"] :is([data-dream-motion-part="eyes"], [data-dream-motion-part="smile"], [data-dream-motion-part="focus"], [data-dream-motion-part="surprise"], [data-dream-motion-part="rest"]) { fill: var(--angel-ink, #392451); }
+html:root[data-dream-motion] [data-dream-motion-owned][data-dream-motion-role="character"] :is([data-dream-motion-part="focus"], [data-dream-motion-part="surprise"], [data-dream-motion-part="rest"], [data-dream-motion-part="heart"]) { display: none; }
+
+html:root[data-dream-motion] [data-dream-motion-owned][data-dream-motion-role="character"]:is([data-dream-motion-state="busy"], [data-dream-motion-state="streaming"]) :is([data-dream-motion-part="eyes"], [data-dream-motion-part="smile"]),
+html:root[data-dream-motion] [data-dream-motion-owned][data-dream-motion-role="character"]:is([data-dream-motion-state="needs-attention"], [data-dream-motion-state="failed"]) [data-dream-motion-part="smile"],
+html:root[data-dream-motion] [data-dream-motion-owned][data-dream-motion-role="character"]:is([data-dream-motion-state="idle"], [data-dream-motion-state="cancelled"]) [data-dream-motion-part="eyes"] { display: none; }
+
+html:root[data-dream-motion] [data-dream-motion-owned][data-dream-motion-role="character"]:is([data-dream-motion-state="busy"], [data-dream-motion-state="streaming"]) [data-dream-motion-part="focus"],
+html:root[data-dream-motion] [data-dream-motion-owned][data-dream-motion-role="character"]:is([data-dream-motion-state="needs-attention"], [data-dream-motion-state="failed"]) [data-dream-motion-part="surprise"],
+html:root[data-dream-motion] [data-dream-motion-owned][data-dream-motion-role="character"]:is([data-dream-motion-state="idle"], [data-dream-motion-state="cancelled"]) [data-dream-motion-part="rest"],
+html:root[data-dream-motion] [data-dream-motion-owned][data-dream-motion-role="character"][data-dream-motion-state="completed"] [data-dream-motion-part="heart"] { display: inline; }
 
 html:root[data-dream-motion="full"][data-dream-motion-paused="false"][data-dream-motion-character="on"][data-dream-motion-route="home"] [data-dream-motion-owned][data-dream-motion-role="character"] {
   animation: dream-motion-character 8s ease-in-out infinite;
@@ -209,6 +251,36 @@ html:root[data-dream-motion="full"][data-dream-motion-paused="false"][data-dream
 
 html:root[data-dream-motion]:not([data-dream-motion="off"])[data-dream-motion-paused="false"][data-dream-motion-character="on"] [data-dream-motion-owned][data-dream-motion-role="character"][data-dream-motion-feedback="completed"] {
   animation: dream-motion-greeting 420ms ease-out 1;
+}
+
+html:root[data-dream-motion]:not([data-dream-motion="off"])[data-dream-motion-paused="false"][data-dream-motion-character="on"] [data-dream-motion-owned][data-dream-motion-role="character"][data-dream-motion-feedback="streaming"] {
+  animation: dream-motion-nod 280ms ease-out 1;
+}
+
+html:root[data-dream-motion]:not([data-dream-motion="off"])[data-dream-motion-paused="false"][data-dream-motion-character="on"] [data-dream-motion-owned][data-dream-motion-role="character"]:is([data-dream-motion-feedback="failed"], [data-dream-motion-feedback="cancelled"]) {
+  animation: dream-motion-nod 280ms ease-out 1;
+}
+
+/* Child runs and tool items paint inward edges only. No per-row timelines,
+   pseudo-elements, or transforms may compete with the native result layout. */
+html:root[data-dream-motion]:not([data-dream-motion="off"])[data-dream-motion-status="on"] :is([data-dream-motion-agent-state], [data-dream-motion-item-state]) {
+  outline: 1px solid color-mix(in srgb, var(--dream-motion-accent) 55%, transparent);
+  outline-offset: -2px;
+}
+
+html:root[data-dream-motion]:not([data-dream-motion="off"])[data-dream-motion-status="on"] :is([data-dream-motion-agent-state="needs-attention"], [data-dream-motion-agent-state="failed"], [data-dream-motion-item-state="needs-attention"], [data-dream-motion-item-state="failed"]) {
+  outline-color: var(--dream-motion-attention);
+  --dream-motion-accent: var(--dream-motion-attention);
+}
+
+html:root[data-dream-motion]:not([data-dream-motion="off"])[data-dream-motion-paused="false"][data-dream-motion-status="on"] :is([data-dream-motion-agent-state], [data-dream-motion-item-state], [data-ds-part="composer"], [data-angel-component="composer"], .composer-surface-chrome):is([data-dream-motion-feedback="completed"], [data-dream-motion-feedback="failed"], [data-dream-motion-feedback="cancelled"]) {
+  outline: 1px solid var(--dream-motion-accent);
+  outline-offset: -2px;
+  animation: dream-motion-highlight 420ms ease-out 1 both;
+}
+
+html:root[data-dream-motion]:not([data-dream-motion="off"])[data-dream-motion-status="on"] :is([data-ds-part="composer"], [data-angel-component="composer"], .composer-surface-chrome)[data-dream-motion-feedback="failed"] {
+  --dream-motion-accent: var(--dream-motion-attention);
 }
 
 /* Three static stars share ONE low-frequency timeline. Together with the
@@ -223,6 +295,7 @@ html:root[data-dream-motion] [data-dream-motion-owned][data-dream-motion-role="a
   color: var(--dream-motion-accent);
   font: 12px/1 system-ui, sans-serif;
   opacity: .25;
+  translate: clamp(-3px, var(--dream-motion-parallax-x, 0px), 3px) clamp(-2px, var(--dream-motion-parallax-y, 0px), 2px);
 }
 
 html:root[data-dream-motion] [data-dream-motion-role="ambient"] > span {
@@ -260,6 +333,8 @@ html:root[data-dream-motion]:not([data-dream-motion="off"])[data-dream-motion-pa
 @keyframes dream-motion-result { 0% { opacity: .85; scale: .8; } 100% { opacity: 0; scale: 1.5; } }
 @keyframes dream-motion-character { 0%, 100% { translate: 0 0; } 50% { translate: 0 -2px; } }
 @keyframes dream-motion-greeting { 0%, 100% { scale: 1; } 45% { scale: 1.08; } }
+@keyframes dream-motion-nod { 0%, 100% { translate: 0 0; } 45% { translate: 0 1px; } }
+@keyframes dream-motion-icon-press { 0%, 100% { translate: 0 0; } 40% { translate: 0 1px; } }
 @keyframes dream-motion-ambient { 0%, 100% { opacity: .18; } 50% { opacity: .38; } }
 @keyframes dream-motion-theme-fade { from { opacity: 1; } to { opacity: 0; } }
 
@@ -291,8 +366,12 @@ html:root[data-dream-motion]:is([data-dream-motion="off"], [data-dream-motion-pa
 }
 
 html:root[data-dream-motion]:is([data-dream-motion="off"], [data-dream-motion-paused="true"], [data-dream-motion-interactions="off"]) :is(
-  [data-dream-motion-enter], [data-dream-motion-feedback="expanded"]
+  [data-dream-motion-enter], [data-dream-motion-feedback="expanded"], [data-dream-motion-press]
 ) {
+  animation: none !important;
+}
+
+html:root[data-dream-motion]:is([data-dream-motion="off"], [data-dream-motion-paused="true"], [data-dream-motion-status="off"]) :is([data-dream-motion-agent-state], [data-dream-motion-item-state], [data-ds-part="composer"], [data-angel-component="composer"], .composer-surface-chrome):is([data-dream-motion-feedback="completed"], [data-dream-motion-feedback="failed"], [data-dream-motion-feedback="cancelled"]) {
   animation: none !important;
 }
 
@@ -324,7 +403,8 @@ html:root[data-dream-motion]:is([data-dream-motion="off"], [data-dream-motion-pa
   html:root[data-dream-motion] [data-dream-motion-owned]::before,
   html:root[data-dream-motion] [data-dream-motion-owned]::after,
   html:root[data-dream-motion] [data-dream-motion-enter],
-  html:root[data-dream-motion] [data-dream-motion-feedback="expanded"] {
+  html:root[data-dream-motion] [data-dream-motion-feedback],
+  html:root[data-dream-motion] [data-dream-motion-press] {
     animation: none !important;
     transition: none !important;
   }
