@@ -189,6 +189,12 @@ html[data-dream-skin="active"][data-dream-theme="internet-angel"] [data-angel-co
   opacity: 1 !important;
 }
 
+html:root[data-dream-skin="active"][data-dream-theme="internet-angel"] [data-angel-component="composer-input"] [data-placeholder]::before {
+  color: rgb(224 216 255 / .85) !important;
+  -webkit-text-fill-color: rgb(224 216 255 / .85) !important;
+  opacity: 1 !important;
+}
+
 html[data-dream-skin="active"][data-dream-theme="internet-angel"] [data-angel-component="composer-action"] {
   min-width: 30px;
   min-height: 30px;
@@ -1953,8 +1959,13 @@ html[data-dream-skin="active"][data-dream-theme="internet-angel"]
    One local scrim keeps all text readable without changing message geometry. */
 html:root[data-dream-skin="active"][data-dream-theme="internet-angel"]
   [data-app-action-timeline-scroll] {
-  background: rgb(23 19 45 / .88) !important;
-  color: var(--angel-paper) !important;
+  background: color-mix(in srgb, var(--angel-adaptive-surface) 96%, transparent) !important;
+  color: var(--angel-adaptive-text) !important;
+}
+html:root[data-dream-skin="active"][data-dream-theme="internet-angel"] :is(
+  [data-app-action-timeline-scroll], [data-thread-scroll-footer="true"]
+) {
+  --color-surface: var(--angel-adaptive-surface);
 }
 
 html:root[data-dream-skin="active"][data-dream-theme="internet-angel"] :is(
@@ -2077,4 +2088,81 @@ html:root[data-dream-skin="active"][data-dream-theme="internet-angel"] :is(
     #codex-dream-skin-presets .dream-presets-grid {
     grid-template-columns: minmax(0, 1fr) !important;
   }
+  html[data-dream-skin="active"] .dream-home [data-codex-composer-root][data-composer-placement="home"] {
+    --home-composer-inline-inset: 0px;
+  }
+  html[data-dream-skin="active"] .dream-home [data-codex-composer-root][data-composer-placement="home"] aside {
+    padding-inline: 10px;
+    overflow-wrap: anywhere;
+  }
+  html[data-dream-skin="active"] .dream-home [data-codex-composer-root][data-composer-placement="home"] aside
+    div:has(> div[class~="size-12"]):has(> div[class~="flex-1"]) {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  html[data-dream-skin="active"] .dream-home [data-codex-composer-root][data-composer-placement="home"] aside
+    div[class~="size-12"] {
+    width: 28px;
+    height: 28px;
+    align-self: flex-start;
+  }
+}
+
+/* Modern titlebars span the window and reserve the sidebar width internally.
+   Preserve that native fixed positioning even with the older platform CSS. */
+html:root[data-dream-skin="active"] header[data-app-shell-titlebar][class~="fixed"] {
+  position: fixed !important;
+  z-index: 30;
+}
+
+/* Utility routes now use the focus-area/inline-header contracts instead of
+   bg-token-main-surface-primary. Match their surfaces without moving controls. */
+html:root[data-dream-skin="active"][data-dream-theme="internet-angel"].dream-route-utility
+  [data-app-shell-focus-area="main"] {
+  color: var(--angel-adaptive-text) !important;
+  background: linear-gradient(135deg, var(--angel-adaptive-surface),
+    color-mix(in srgb, var(--angel-adaptive-surface) 94%, var(--angel-violet))) !important;
+}
+html:root[data-dream-skin="active"][data-dream-theme="internet-angel"].dream-route-utility
+  [data-app-shell-focus-area="main"] [class~="sticky"][class~="bg-surface"] {
+  --color-surface: var(--angel-adaptive-surface);
+  background: var(--angel-adaptive-surface) !important;
+}
+
+/* Fixed purple controls retain paper text in native Light mode; the timeline
+   and owned Home cards use the adaptive light palette. */
+html:root[data-dream-skin="active"][data-dream-theme="internet-angel"]:is(.dream-theme-light, [data-dream-shell="light"])
+  aside[data-angel-component="settings-sidebar"] {
+  background: linear-gradient(145deg, rgb(22 21 71 / .98), rgb(48 31 101 / .96)) !important;
+}
+html:root[data-dream-skin="active"][data-dream-theme="internet-angel"]:is(.dream-theme-light, [data-dream-shell="light"])
+  [data-angel-component="settings-nav"] [data-settings-panel-slug]:is(:hover, :focus-visible, [aria-current="page"]) {
+  color: var(--angel-paper) !important;
+  background: linear-gradient(95deg, rgb(32 84 255 / .54), rgb(130 88 255 / .58), rgb(255 69 200 / .18)) !important;
+}
+html:root[data-dream-skin="active"][data-dream-theme="internet-angel"]:is(.dream-theme-light, [data-dream-shell="light"]) :is(
+  [data-angel-component="settings-input"],
+  [data-angel-component="composer-input"],
+  [data-angel-component="settings-nav"] [data-settings-panel-slug] svg
+) {
+  color: var(--angel-paper) !important;
+}
+html:root[data-dream-skin="active"][data-dream-theme="internet-angel"]:is(.dream-theme-light, [data-dream-shell="light"])
+  :is(#codex-dream-skin-presets, #chatgpt-internet-angel-deck) :is(strong, small, em) {
+  color: var(--angel-adaptive-text) !important;
+  text-shadow: none !important;
+}
+html:root[data-dream-skin="active"][data-dream-theme="internet-angel"]:is(.dream-theme-light, [data-dream-shell="light"])
+  header[data-app-shell-titlebar] {
+  color: var(--angel-adaptive-text) !important;
+  background: var(--angel-adaptive-surface) !important;
+}
+html:root[data-dream-skin="active"][data-dream-theme="internet-angel"]:is(.dream-theme-light, [data-dream-shell="light"])
+  [data-app-action-timeline-scroll] :is([data-markdown-text-style="assistant-message"], [data-markdown-text-style="assistant-message"] *) {
+  text-shadow: none !important;
+}
+html:root[data-dream-skin="active"][data-dream-theme="internet-angel"]:is(.dream-theme-light, [data-dream-shell="light"])
+  [data-app-action-timeline-scroll] [class~="group/turn-diff-header"] {
+  background: linear-gradient(110deg, var(--angel-adaptive-surface-raised),
+    color-mix(in srgb, var(--angel-adaptive-surface-raised) 94%, var(--angel-pink))) !important;
 }

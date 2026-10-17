@@ -529,7 +529,7 @@ html[data-dream-skin="active"]:is([data-dream-task-mode="off"], [data-dream-art-
   content: none;
 }
 
-html[data-dream-skin="active"] main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]):not(:has([role="main"])) > :not(header:is(.app-header-tint, [data-app-shell-header-edge-scroll], [data-app-shell-application-menu-bar], [class*="_Header_"])) {
+html[data-dream-skin="active"] main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]):not(:has([role="main"])) > :not(header:is(.app-header-tint, [data-app-shell-header-edge-scroll], [data-app-shell-application-menu-bar], [class*="_Header_"])):not([data-app-shell-titlebar]) {
   position: relative;
   z-index: 1;
 }
