@@ -5,6 +5,9 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { readImageMetadata } from "./image-metadata.mjs";
 import {
+  buildMotionPayload, getMotionSettingsPath, readMotionPreferences,
+} from "../assets/motion-payload.mjs";
+import {
   normalizeThemeColor,
   normalizeThemeText,
 } from "../assets/theme-package-validator.mjs";
@@ -141,6 +144,15 @@ const OPERATION_UI_CSS = `
   :host([data-state="cancelled"]) .indicator::before { content: "×"; }
   .message { min-width: 0; overflow-wrap: anywhere; }
   @keyframes dream-skin-operation-spin { to { transform: rotate(360deg); } }
+  :host-context([data-dream-motion="off"]),
+  :host-context([data-dream-motion="off"]) *,
+  :host-context([data-dream-motion-status="off"]) * {
+    animation: none !important;
+    transition: none !important;
+  }
+  :host-context([data-dream-motion-paused="true"]) * {
+    animation-play-state: paused !important;
+  }
   @media (prefers-reduced-motion: reduce) {
     :host, .status { transition: none; }
     :host([data-state="loading"]) .indicator {
@@ -808,17 +820,21 @@ export async function loadPayload(
   themeDir = path.join(root, "assets"),
   candidateTheme = null,
   windowMaterial = "system",
+  { motionSettingsPath = getMotionSettingsPath() } = {},
 ) {
   if (!new Set(["system", "acrylic"]).has(windowMaterial)) {
     throw new Error(`Invalid window material: ${windowMaterial}`);
   }
   const loadedTheme = candidateTheme ?? await loadTheme(themeDir);
-  const [baseCss, template, internetAngelCss, internetAngelTemplate, acrylicCss] = await Promise.all([
+  const motionPreferences = await readMotionPreferences(motionSettingsPath);
+  const [baseCss, template, internetAngelCss, internetAngelTemplate, acrylicCss, motionCss, motionTemplate] = await Promise.all([
     fs.readFile(path.join(root, "assets", "dream-skin.css"), "utf8"),
     fs.readFile(path.join(root, "assets", "renderer-inject.js"), "utf8"),
     fs.readFile(path.join(root, "assets", "internet-angel-extension.css"), "utf8"),
     fs.readFile(path.join(root, "assets", "internet-angel-extension.js"), "utf8"),
     fs.readFile(path.join(root, "assets", "internet-angel-acrylic.css"), "utf8"),
+    fs.readFile(path.join(root, "assets", "theme-motion.css"), "utf8"),
+    fs.readFile(path.join(root, "assets", "theme-motion.js"), "utf8"),
   ]);
   const internetAngelExtension = usesInternetAngelExtension(loadedTheme.theme);
   const acrylicOverlay = internetAngelExtension && windowMaterial === "acrylic";
@@ -839,7 +855,7 @@ export async function loadPayload(
   // System material keeps the Internet Angel classifier and its marker-based
   // CSS. Acrylic consumes durable renderer classes instead, so omit that legacy
   // layer while retaining validated per-theme Safe CSS in both modes.
-  const injectedCss = acrylicOverlay ? acrylicAndSafeCss : themedAndSafeCss;
+  const injectedCss = `${acrylicOverlay ? acrylicAndSafeCss : themedAndSafeCss}\n${motionCss}`;
   const styleRevision = createHash("sha256").update(injectedCss).digest("hex").slice(0, 20);
   loadedTheme.theme.artKey = createHash("sha256")
     .update(loadedTheme.imageBytes).digest("hex").slice(0, 20);
@@ -849,6 +865,8 @@ export async function loadPayload(
     .update(injectedCss)
     .update(template)
     .update(internetAngelTemplate)
+    .update(motionTemplate)
+    .update(motionPreferences.signature)
     .update(JSON.stringify(loadedTheme.theme))
     .digest("hex")
     .slice(0, 20);
@@ -860,19 +878,28 @@ export async function loadPayload(
   // theme name.
   const basePayload = template
     .replace("__DREAM_SKIN_CSS_JSON__", () => JSON.stringify(injectedCss))
-    .replace("__DREAM_SKIN_ART_JSON__", () => JSON.stringify(artDataUrl))
+    .replace("__DREAM_SKIN_ART_JSON__", () => "__dreamSkinMotionArt")
     .replace("__DREAM_SKIN_THEME_JSON__", () => JSON.stringify(loadedTheme.theme))
     .replace("__DREAM_SKIN_VERSION_JSON__", () => JSON.stringify(SKIN_VERSION))
     .replace("__DREAM_SKIN_STYLE_REVISION_JSON__", () => JSON.stringify(styleRevision))
     .replace("__DREAM_SKIN_PAYLOAD_REVISION_JSON__", () => JSON.stringify(revision))
     .replace("__DREAM_CSS_JSON__", () => JSON.stringify(injectedCss))
-    .replace("__DREAM_ART_JSON__", () => JSON.stringify(artDataUrl))
+    .replace("__DREAM_ART_JSON__", () => "__dreamSkinMotionArt")
     .replace("__DREAM_THEME_JSON__", () => JSON.stringify(loadedTheme.theme))
     .replace("__DREAM_SIDEBAR_SCROLL_QUIET_ENABLED_JSON__", () => JSON.stringify(acrylicOverlay));
-  const payload = `${basePayload};\n${internetAngelTemplate.replace(
-    "__INTERNET_ANGEL_EXTENSION_ENABLED_JSON__",
-    () => JSON.stringify(internetAngelClassifier),
-  )}`;
+  const payload = buildMotionPayload({
+    basePayload, artDataUrl,
+    extensionPayload: internetAngelTemplate.replace(
+      "__INTERNET_ANGEL_EXTENSION_ENABLED_JSON__", () => JSON.stringify(internetAngelClassifier),
+    ),
+    motionTemplate,
+    config: {
+      settings: motionPreferences.settings, themeId: loadedTheme.theme.id, themeRevision: revision,
+      artKey: loadedTheme.theme.artKey,
+      artMetadata: { width: loadedTheme.theme.artMetadata.width, height: loadedTheme.theme.artMetadata.height },
+      platform: "windows",
+    },
+  });
   // Defence in depth for every caller, not just --check-payload: a template
   // splice leaves an unreplaced placeholder token behind and usually breaks the
   // syntax outright, so refuse to hand a corrupted script to the renderer.
@@ -889,6 +916,9 @@ export async function loadPayload(
   const { imageBytes: _imageBytes, ...themeState } = loadedTheme;
   return {
     ...themeState,
+    motionSignature: motionPreferences.signature,
+    motionSettings: motionPreferences.settings,
+    motionSettingsRejected: motionPreferences.rejected,
     internetAngelExtension,
     internetAngelClassifier,
     acrylicOverlay,
@@ -1340,6 +1370,9 @@ async function presentOperationUi(session, token, state, message, timeoutMs = 10
 
 async function removeFromSession(session) {
   return session.evaluate(`(() => {
+    delete window.__CODEX_DREAM_SKIN_MOTION_INJECTION__;
+    try { window.__CODEX_DREAM_SKIN_MOTION_STATE__?.cleanup?.(); } catch {}
+    delete window.__CODEX_DREAM_SKIN_MOTION_STATE__;
     try { window.__CODEX_INTERNET_ANGEL_EXTENSION_STATE__?.cleanup?.(); } catch {}
     delete window.__CODEX_INTERNET_ANGEL_EXTENSION_STATE__;
     window.__CODEX_DREAM_SKIN_DISABLED__ = true;
@@ -1931,6 +1964,8 @@ async function runWatch(options) {
       if (!nextPaused) {
         try {
           const now = Date.now();
+          const motionPreferences = await readMotionPreferences();
+          const motionChanged = motionPreferences.signature !== loadedPayload?.motionSignature;
           let shouldAudit = !loadedPayload || now - lastStrongThemeAuditAt >= STRONG_THEME_AUDIT_MS;
           if (!shouldAudit) {
             try {
@@ -1939,10 +1974,10 @@ async function runWatch(options) {
               shouldAudit = true;
             }
           }
-          if (shouldAudit) {
+          if (shouldAudit || motionChanged) {
             const candidateTheme = await loadTheme(options.themeDir);
             lastStrongThemeAuditAt = now;
-            if (!loadedPayload || candidateTheme.fingerprint !== loadedPayload.fingerprint) {
+            if (!loadedPayload || motionChanged || candidateTheme.fingerprint !== loadedPayload.fingerprint) {
               nextPayload = await loadPayload(options.themeDir, candidateTheme, options.windowMaterial);
             } else {
               loadedPayload.sourceStamp = candidateTheme.sourceStamp;

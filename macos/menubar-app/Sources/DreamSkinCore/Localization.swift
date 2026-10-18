@@ -60,6 +60,21 @@ public struct DreamSkinCopy: Sendable {
     case version
     case newVersion
     case themeMenu
+    case motionMenu
+    case motionSystem
+    case motionOff
+    case motionSubtle
+    case motionFull
+    case motionInteractions
+    case motionStatus
+    case motionCharacter
+    case motionAmbient
+    case motionThemeTransition
+    case motionLoading
+    case motionUnavailable
+    case motionReduced
+    case motionSaveFailed
+    case motionSaveFailedMessage
     case linksMenu
     case maintenanceMenu
     case languageMenu
@@ -205,6 +220,21 @@ public struct DreamSkinCopy: Sendable {
     case .version: return chinese ? "版本：v%@" : "Version: v%@"
     case .newVersion: return chinese ? "🆕 发现新版本 %@" : "🆕 New version %@ available"
     case .themeMenu: return chinese ? "主题" : "Themes"
+    case .motionMenu: return chinese ? "动态效果" : "Motion"
+    case .motionSystem: return chinese ? "跟随系统" : "Follow System"
+    case .motionOff: return chinese ? "关闭" : "Off"
+    case .motionSubtle: return chinese ? "轻量" : "Subtle"
+    case .motionFull: return chinese ? "完整" : "Full"
+    case .motionInteractions: return chinese ? "交互反馈" : "Interaction feedback"
+    case .motionStatus: return chinese ? "状态反馈" : "Status feedback"
+    case .motionCharacter: return chinese ? "角色动态" : "Character motion"
+    case .motionAmbient: return chinese ? "氛围效果" : "Ambient effects"
+    case .motionThemeTransition: return chinese ? "背景切换渐变" : "Wallpaper crossfade"
+    case .motionLoading: return chinese ? "正在读取动态设置…" : "Reading motion settings…"
+    case .motionUnavailable: return chinese ? "动态设置不可用，请检查引擎" : "Motion settings unavailable; check the engine"
+    case .motionReduced: return chinese ? "系统“减少动态效果”已生效" : "System Reduce Motion is active"
+    case .motionSaveFailed: return chinese ? "无法保存动态设置" : "Could not save motion settings"
+    case .motionSaveFailedMessage: return chinese ? "动态设置未通过读取或保存校验，请检查引擎后重试。" : "Motion settings could not be read or saved safely. Check the engine and try again."
     case .linksMenu: return chinese ? "链接" : "Links"
     case .maintenanceMenu: return chinese ? "维护" : "Maintenance"
     case .languageMenu: return chinese ? "语言" : "Language"

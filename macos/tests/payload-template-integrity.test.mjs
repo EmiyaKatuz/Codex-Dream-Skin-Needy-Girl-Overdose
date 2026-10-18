@@ -96,15 +96,20 @@ async function addSafeCss(directory, source) {
 // recovered here diverge from the theme on disk.
 function readPayloadArguments(payload) {
   const marker = "((cssText, artDataUrl, themeConfig) => {";
-  const overlayBoundary = payload.lastIndexOf(";\n(() => {");
-  assert.notEqual(overlayBoundary, -1, "payload must include the Internet Angel overlay boundary");
-  const rendererPayload = payload.slice(0, overlayBoundary);
+  const start = payload.indexOf("/* dream-skin:renderer:start */");
+  const end = payload.indexOf("/* dream-skin:renderer:end */");
+  assert.ok(start >= 0 && end > start, "payload must delimit its canonical renderer");
+  const rendererPayload = payload.slice(start + "/* dream-skin:renderer:start */".length, end);
   const at = rendererPayload.indexOf(marker);
   assert.notEqual(at, -1, "payload must keep the canonical renderer IIFE signature");
   const probe = `${rendererPayload.slice(0, at + marker.length)}
 return { cssText, artDataUrl, themeConfig };
 ${rendererPayload.slice(at + marker.length)}`;
-  return vm.runInNewContext(probe, Object.create(null), { timeout: 10_000 });
+  const art = payload.match(/const __dreamSkinMotionArt = (.*);/);
+  assert.ok(art, "payload must include its shared art value once");
+  return vm.runInNewContext(probe, {
+    __dreamSkinMotionArt: JSON.parse(art[1]),
+  }, { timeout: 10_000 });
 }
 
 const dollarConstructs = {

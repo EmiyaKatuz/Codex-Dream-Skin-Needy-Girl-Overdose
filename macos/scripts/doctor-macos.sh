@@ -19,6 +19,10 @@ for required in \
   "$PROJECT_ROOT/assets/internet-angel-extension.css" \
   "$PROJECT_ROOT/assets/internet-angel-extension.js" \
   "$PROJECT_ROOT/assets/renderer-inject.js" \
+  "$PROJECT_ROOT/assets/theme-motion.js" \
+  "$PROJECT_ROOT/assets/theme-motion.css" \
+  "$PROJECT_ROOT/assets/motion-settings.mjs" \
+  "$PROJECT_ROOT/assets/motion-payload.mjs" \
   "$PROJECT_ROOT/assets/safe-css-policy.json" \
   "$PROJECT_ROOT/assets/safe-css-validator.mjs" \
   "$PROJECT_ROOT/assets/selectors.json" \

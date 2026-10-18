@@ -75,8 +75,8 @@ assert.match(
 );
 assert.match(
   injectorSource,
-  /`\$\{basePayload\};\\n\$\{internetAngelTemplate/,
-  "The base and overlay IIFEs must be separated before renderer evaluation.",
+  /buildMotionPayload\(\{[\s\S]*?basePayload, artDataUrl,[\s\S]*?extensionPayload: internetAngelTemplate\.replace/,
+  "The trusted composer must separate base, extension and motion lifecycle payloads.",
 );
 
 for (const component of [

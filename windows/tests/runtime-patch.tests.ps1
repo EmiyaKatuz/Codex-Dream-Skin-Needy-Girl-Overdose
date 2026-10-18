@@ -41,7 +41,7 @@ try {
     'renderer-inject.js',
     'dream-skin.css',
     'internet-angel-acrylic.css',
-    'internet-angel-extension.css'
+    'internet-angel-extension.css', 'theme-motion.js', 'theme-motion.css', 'motion-settings.mjs', 'motion-payload.mjs'
   )) {
     if (-not $quickFixBuilderSource.Contains("'$requiredQuickFixAsset'")) {
       throw "The quick-fix archive omits a runtime patch asset: $requiredQuickFixAsset"
@@ -62,7 +62,7 @@ try {
     'renderer-inject.js',
     'dream-skin.css',
     'internet-angel-acrylic.css',
-    'internet-angel-extension.css'
+    'internet-angel-extension.css', 'theme-motion.js', 'theme-motion.css', 'motion-settings.mjs', 'motion-payload.mjs'
   )) {
     $sourceAsset = Join-Path $Root "assets\$requiredQuickFixAsset"
     $archivedAsset = Join-Path $quickFixExtract "assets\$requiredQuickFixAsset"
@@ -147,6 +147,15 @@ try {
     $installedCommon, $installedStart, $installedInjector, $installedPatch, $installedRenderer,
     $installedCss, $installedAcrylicCss, $installedExtensionCss
   )
+  foreach ($assetName in @('theme-motion.js', 'theme-motion.css', 'motion-settings.mjs', 'motion-payload.mjs')) {
+    $installedMotion = Join-Path $assetsRoot $assetName
+    $sourceMotion = Join-Path $Root "assets\$assetName"
+    if ((Get-FileHash -LiteralPath $installedMotion -Algorithm SHA256).Hash -cne
+      (Get-FileHash -LiteralPath $sourceMotion -Algorithm SHA256).Hash) {
+      throw "Motion runtime dependency was not staged exactly: $assetName"
+    }
+    $patchedFiles += $installedMotion
+  }
   $beforeIdempotentHashes = @($patchedFiles | ForEach-Object {
     (Get-FileHash -LiteralPath $_ -Algorithm SHA256).Hash
   })

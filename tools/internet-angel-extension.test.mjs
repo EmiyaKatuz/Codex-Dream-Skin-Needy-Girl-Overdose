@@ -38,16 +38,21 @@ const gitAttributes = await fs.readFile(path.join(projectRoot, ".gitattributes")
 
 function extractRendererCss(payload) {
   const marker = "((cssText, artDataUrl,";
-  const overlayBoundary = payload.lastIndexOf(";\n(() => {");
-  assert.notEqual(overlayBoundary, -1, "payload must include the Internet Angel extension boundary");
-  const rendererPayload = payload.slice(0, overlayBoundary);
+  const start = payload.indexOf("/* dream-skin:renderer:start */");
+  const end = payload.indexOf("/* dream-skin:renderer:end */");
+  assert.ok(start >= 0 && end > start, "payload must delimit its canonical renderer");
+  const rendererPayload = payload.slice(start + "/* dream-skin:renderer:start */".length, end);
   const at = rendererPayload.indexOf(marker);
   assert.notEqual(at, -1, "payload must keep the canonical renderer IIFE signature");
   const bodyAt = rendererPayload.indexOf("=> {", at);
   assert.notEqual(bodyAt, -1, "renderer IIFE must keep a block body");
   const bodyStart = bodyAt + "=> {".length;
   const probe = `${rendererPayload.slice(0, bodyStart)}\nreturn cssText;\n${rendererPayload.slice(bodyStart)}`;
-  return vm.runInNewContext(probe, Object.create(null), { timeout: 10_000 });
+  const art = payload.match(/const __dreamSkinMotionArt = (.*);/);
+  assert.ok(art, "payload must include its shared art value once");
+  return vm.runInNewContext(probe, {
+    __dreamSkinMotionArt: JSON.parse(art[1]),
+  }, { timeout: 10_000 });
 }
 
 function makeLateDiffRootFixture() {

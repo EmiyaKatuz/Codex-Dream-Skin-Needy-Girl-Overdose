@@ -139,6 +139,10 @@ const sourceImageMetadata = await fs.readFile(
   "utf8",
 );
 const outputs = [
+  ...await Promise.all(["theme-motion.css", "theme-motion.js", "motion-settings.mjs", "motion-payload.mjs"].map(async (name) => ({
+    content: await fs.readFile(path.join(projectRoot, "runtime", name), "utf8"),
+    paths: ["macos", "windows", "linux"].map((platform) => `${platform}/assets/${name}`),
+  }))),
   {
     // The injector runs from a packaged platform tree, so stage the same
     // contract beside the renderer assets while keeping tools/selectors.json

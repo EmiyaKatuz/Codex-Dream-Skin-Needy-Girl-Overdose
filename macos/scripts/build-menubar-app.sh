@@ -100,6 +100,7 @@ RUNTIME_SCRIPTS=(
   install-dream-skin-macos.sh
   load-image-theme-macos.sh
   localization-macos.sh
+  motion-settings-macos.sh
   pause-dream-skin-macos.sh
   publish-theme-import.mjs
   recover-theme-imports-macos.sh

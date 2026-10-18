@@ -5,6 +5,11 @@ import ServiceManagement
 import UniformTypeIdentifiers
 import UserNotifications
 
+private final class StatusProgressIndicator: NSProgressIndicator {
+  // Keep the status item's entire hit area available while an operation runs.
+  override func hitTest(_ point: NSPoint) -> NSView? { nil }
+}
+
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUserNotificationCenterDelegate {
   private enum CommunityRollbackRetention {
     case preserved(URL)
@@ -25,6 +30,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
   private var operationInFlight = false
   private var engineInstallInFlight = false
   private var themeRecoveryInFlight = false
+  private var motionSettings = DreamSkinMotionSettings.defaults
+  private var motionSettingsAvailable = false
+  private var motionSettingsRequestInFlight = false
+  private var statusMark: NSImage?
+  private let operationIndicator = StatusProgressIndicator()
+  private var accessibilityObserver: NSObjectProtocol?
   private var pendingCommunityVersionID: String?
   private var communityBaselineThemeID = ""
   private var communityStageMessage = ""
@@ -42,12 +53,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
     "assets/dream-skin.css",
     "assets/internet-angel-extension.css",
     "assets/internet-angel-extension.js",
+    "assets/motion-payload.mjs",
+    "assets/motion-settings.mjs",
     "assets/portal-hero.png",
     "assets/renderer-inject.js",
     "assets/safe-css-policy.json",
     "assets/safe-css-validator.mjs",
     "assets/selectors.json",
     "assets/theme-package-validator.mjs",
+    "assets/theme-motion.css",
+    "assets/theme-motion.js",
     "assets/theme.json",
     "presets/preset-gothic-void-crusade/background.jpg",
     "presets/preset-gothic-void-crusade/theme.json",
@@ -69,6 +84,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
     "scripts/install-dream-skin-macos.sh",
     "scripts/load-image-theme-macos.sh",
     "scripts/localization-macos.sh",
+    "scripts/motion-settings-macos.sh",
     "scripts/pause-dream-skin-macos.sh",
     "scripts/publish-theme-import.mjs",
     "scripts/recover-theme-imports-macos.sh",
@@ -130,11 +146,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
   func applicationDidFinishLaunching(_ notification: Notification) {
     NSApp.setActivationPolicy(.accessory)
     configureStatusItem()
+    accessibilityObserver = NSWorkspace.shared.notificationCenter.addObserver(
+      forName: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification,
+      object: nil,
+      queue: .main
+    ) { [weak self] _ in
+      self?.rebuildMenu()
+    }
     ensureUserDirectories()
     cleanupStalePrivateOperationDirectories()
     migrateLegacySwiftBarIfNeeded()
     installBundledEngineIfNeeded(force: false)
     refreshStatus()
+    refreshMotionSettings()
     refreshTimer = Timer.scheduledTimer(
       timeInterval: 10,
       target: self,
@@ -163,6 +187,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
   func applicationWillTerminate(_ notification: Notification) {
     refreshTimer?.invalidate()
     updateCheckTimer?.invalidate()
+    operationIndicator.stopAnimation(nil)
+    if let accessibilityObserver {
+      NSWorkspace.shared.notificationCenter.removeObserver(accessibilityObserver)
+    }
     communityHTTP.invalidate()
   }
 
@@ -192,6 +220,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
   func menuNeedsUpdate(_ menu: NSMenu) {
     rebuildMenu()
     refreshStatus()
+    refreshMotionSettings()
   }
 
   private func configureStatusItem() {
@@ -222,9 +251,48 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
     }
     mark.isTemplate = true
     mark.accessibilityDescription = "Codex Dream Skin"
+    statusMark = mark
     button.image = mark
     button.toolTip = "Codex Dream Skin"
+    operationIndicator.style = .spinning
+    operationIndicator.controlSize = .small
+    operationIndicator.isDisplayedWhenStopped = false
+    operationIndicator.translatesAutoresizingMaskIntoConstraints = false
+    operationIndicator.setAccessibilityElement(false)
+    button.addSubview(operationIndicator)
+    NSLayoutConstraint.activate([
+      operationIndicator.centerXAnchor.constraint(equalTo: button.centerXAnchor),
+      operationIndicator.centerYAnchor.constraint(equalTo: button.centerYAnchor),
+      operationIndicator.widthAnchor.constraint(equalToConstant: 16),
+      operationIndicator.heightAnchor.constraint(equalToConstant: 16)
+    ])
     rebuildMenu()
+  }
+
+  private var skinOperationIsBusy: Bool {
+    operationInFlight || engineInstallInFlight || themeRecoveryInFlight || snapshot.busy
+  }
+
+  private func updateOperationFeedback() {
+    guard let button = statusItem.button else { return }
+    let busy = skinOperationIsBusy
+    let label = busy ? copy.text(.busyTitle)
+      : copy.statusTitle(session: snapshot.session, operation: snapshot.operation)
+    button.toolTip = "Codex Dream Skin · \(label)"
+    button.setAccessibilityLabel("Codex Dream Skin · \(label)")
+    let animate = motionSettingsAvailable && motionSettings.animatesOperationFeedback(
+      busy: busy,
+      reduceMotion: NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+    )
+    if animate {
+      button.image = nil
+      operationIndicator.startAnimation(nil)
+    } else {
+      operationIndicator.stopAnimation(nil)
+      button.image = busy
+        ? NSImage(systemSymbolName: "hourglass", accessibilityDescription: label) ?? statusMark
+        : statusMark
+    }
   }
 
   private func ensureUserDirectories() {
@@ -282,6 +350,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
   }
 
   private func rebuildMenu() {
+    updateOperationFeedback()
     menu.removeAllItems()
     addDisabledItem(copy.statusTitle(session: snapshot.session, operation: snapshot.operation))
     if !snapshot.appliedThemeName.isEmpty && snapshot.session == "active" {
@@ -309,7 +378,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
       )
       menu.addItem(.separator())
     }
-    let busy = operationInFlight || engineInstallInFlight || themeRecoveryInFlight || snapshot.busy
+    let busy = skinOperationIsBusy
     let needsEngineInstall = engineNeedsInstall()
 
     let applyTitle: String
@@ -345,11 +414,101 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
     addActionItem(copy.text(.changeBackground), action: #selector(chooseBackgroundImage), enabled: enabled, to: submenu)
     addActionItem(copy.text(.importZip), action: #selector(chooseThemeArchive), enabled: enabled, to: submenu)
     addSavedThemesMenu(enabled: enabled, to: submenu)
+    addMotionMenu(enabled: enabled, to: submenu)
     submenu.addItem(.separator())
     addActionItem(copy.text(.openThemes), action: #selector(openThemesFolder), to: submenu)
     addActionItem(copy.text(.openImages), action: #selector(openImagesFolder), to: submenu)
     root.submenu = submenu
     menu.addItem(root)
+  }
+
+  private func addMotionMenu(enabled: Bool, to destination: NSMenu) {
+    let root = NSMenuItem(title: copy.text(.motionMenu), action: nil, keyEquivalent: "")
+    let submenu = NSMenu(title: copy.text(.motionMenu))
+    submenu.autoenablesItems = false
+    let canChange = enabled && motionSettingsAvailable && !motionSettingsRequestInFlight
+    for mode in DreamSkinMotionMode.allCases {
+      let item = addActionItem(
+        copy.text(mode.copyKey), action: #selector(selectMotionMode(_:)),
+        enabled: canChange, to: submenu
+      )
+      item.representedObject = mode.rawValue
+      item.state = motionSettingsAvailable && mode == motionSettings.mode ? .on : .off
+    }
+    submenu.addItem(.separator())
+    for effect in DreamSkinMotionEffect.allCases {
+      let item = addActionItem(
+        copy.text(effect.copyKey), action: #selector(toggleMotionEffect(_:)),
+        enabled: canChange, to: submenu
+      )
+      item.representedObject = effect.rawValue
+      item.state = motionSettingsAvailable && motionSettings.isEnabled(effect) ? .on : .off
+    }
+    if !motionSettingsAvailable || motionSettingsRequestInFlight {
+      submenu.addItem(.separator())
+      addDisabledItem(copy.text(motionSettingsRequestInFlight ? .motionLoading : .motionUnavailable), to: submenu)
+    }
+    if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+      submenu.addItem(.separator())
+      addDisabledItem(copy.text(.motionReduced), to: submenu)
+    }
+    root.submenu = submenu
+    destination.addItem(root)
+  }
+
+  private func refreshMotionSettings() {
+    guard !motionSettingsRequestInFlight, !skinOperationIsBusy,
+          let script = installedScript(named: "motion-settings-macos.sh") else { return }
+    motionSettingsRequestInFlight = true
+    rebuildMenu()
+    ScriptRunner.run(script: script, arguments: ["--get"]) { [weak self] result in
+      guard let self else { return }
+      self.motionSettingsRequestInFlight = false
+      if result.succeeded,
+         let settings = DreamSkinMotionSettings(jsonData: Data(result.output.utf8)) {
+        self.motionSettings = settings
+        self.motionSettingsAvailable = true
+      } else {
+        self.motionSettingsAvailable = false
+      }
+      self.rebuildMenu()
+    }
+  }
+
+  @objc private func selectMotionMode(_ sender: NSMenuItem) {
+    guard let raw = sender.representedObject as? String,
+          let mode = DreamSkinMotionMode(rawValue: raw) else { return }
+    saveMotionSettings(arguments: ["--set-mode", mode.rawValue])
+  }
+
+  @objc private func toggleMotionEffect(_ sender: NSMenuItem) {
+    guard let raw = sender.representedObject as? String,
+          let effect = DreamSkinMotionEffect(rawValue: raw) else { return }
+    saveMotionSettings(arguments: [
+      "--set-effect", effect.rawValue, motionSettings.isEnabled(effect) ? "off" : "on"
+    ])
+  }
+
+  private func saveMotionSettings(arguments: [String]) {
+    guard !skinOperationIsBusy, !motionSettingsRequestInFlight, motionSettingsAvailable,
+          let script = installedScript(named: "motion-settings-macos.sh") else { return }
+    motionSettingsRequestInFlight = true
+    operationInFlight = true
+    rebuildMenu()
+    ScriptRunner.run(script: script, arguments: arguments) { [weak self] result in
+      guard let self else { return }
+      self.motionSettingsRequestInFlight = false
+      self.operationInFlight = false
+      if result.succeeded,
+         let settings = DreamSkinMotionSettings(jsonData: Data(result.output.utf8)) {
+        self.motionSettings = settings
+        self.motionSettingsAvailable = true
+      } else {
+        self.motionSettingsAvailable = false
+        self.showError(title: self.copy.text(.motionSaveFailed), message: self.copy.text(.motionSaveFailedMessage))
+      }
+      self.rebuildMenu()
+    }
   }
 
   private func addLinksMenu() {
@@ -561,7 +720,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
       if result.succeeded,
          let parsed = StatusSnapshot(jsonData: Data(result.output.utf8)) {
         self.snapshot = parsed
-        self.statusItem.button?.toolTip = "Codex Dream Skin · \(self.copy.statusTitle(session: parsed.session, operation: parsed.operation))"
         self.statusItem.button?.appearsDisabled = parsed.session == "unknown" || parsed.session == "stale"
         self.rebuildMenu()
       }
@@ -1438,6 +1596,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
       self.rebuildMenu()
       if result.succeeded {
         self.refreshStatus()
+        self.refreshMotionSettings()
         self.recoverInterruptedThemeImports { [weak self] recovered in
           guard let self else { return }
           if recovered {

@@ -648,9 +648,8 @@ html.codex-dream-skin.dream-art-wide main.main-surface
 }
 
 @media (prefers-reduced-motion: reduce) {
-  html.codex-dream-skin *,
-  html.codex-dream-skin *::before,
-  html.codex-dream-skin *::after {
+  html.codex-dream-skin [data-ds-part],
+  html.codex-dream-skin :is(#codex-dream-skin-presets, #codex-dream-skin-chrome, #codex-dream-sidebar-ornaments) * {
     scroll-behavior: auto !important;
     transition-duration: .01ms !important;
   }
