@@ -1600,11 +1600,11 @@ html[data-dream-skin="active"][data-dream-theme="internet-angel"] diffs-containe
   --angel-adaptive-surface: var(--dream-surface, var(--ds-panel));
   --angel-adaptive-surface-raised: var(--dream-surface-raised, var(--ds-panel-2));
   --angel-adaptive-accent: var(--dream-accent, var(--ds-green));
-  --diffs-bg: color-mix(in oklab, var(--angel-adaptive-surface) 94%, var(--angel-adaptive-accent) 5%) !important;
+  --diffs-bg: var(--angel-user-diff-surface, color-mix(in oklab, var(--angel-adaptive-surface) 94%, var(--angel-adaptive-accent) 5%)) !important;
   --diffs-fg: var(--angel-adaptive-text) !important;
-  --diffs-bg-context: color-mix(in oklab, var(--angel-adaptive-surface-raised) 94%, var(--angel-adaptive-accent) 6%) !important;
+  --diffs-bg-context: var(--angel-user-diff-surface-raised, color-mix(in oklab, var(--angel-adaptive-surface-raised) 94%, var(--angel-adaptive-accent) 6%)) !important;
   color: var(--angel-adaptive-text) !important;
-  background-color: color-mix(in oklab, var(--angel-adaptive-surface) 94%, var(--angel-adaptive-accent) 5%) !important;
+  background-color: var(--angel-user-diff-surface, color-mix(in oklab, var(--angel-adaptive-surface) 94%, var(--angel-adaptive-accent) 5%)) !important;
 }
 
 /* Light mode uses adaptive text on light surfaces. Fixed broadcast, code and
@@ -2173,5 +2173,300 @@ html:root[data-dream-skin="active"][data-dream-theme="internet-angel"]:is(.dream
   [data-app-action-timeline-scroll] [class~="group/turn-diff-header"] {
   background: linear-gradient(110deg, var(--angel-adaptive-surface-raised),
     color-mix(in srgb, var(--angel-adaptive-surface-raised) 94%, var(--angel-pink))) !important;
+}
+}
+
+/* Explicit personal transparency overrides only background paint.
+   Keep the default theme rules and colors byte-for-byte unchanged above. */
+html[data-dream-user-transparency="true"][data-dream-skin="active"][data-dream-theme="internet-angel"] {
+  --angel-surface: rgb(26 23 75 / var(--ds-user-surface-alpha, .94));
+  --angel-surface-raised: rgb(49 37 116 / var(--ds-user-surface-alpha, .94));
+}
+
+html[data-dream-user-transparency="true"][data-dream-skin="active"][data-dream-theme="internet-angel"] [data-angel-component="sidebar"] {
+  background: repeating-linear-gradient(0deg, rgb(99 244 255 / calc(var(--ds-user-surface-alpha, 1) * .025)) 0 1px, transparent 1px 35px),
+    linear-gradient(155deg, rgb(22 21 71 / var(--ds-user-surface-alpha, .98)), rgb(47 31 101 / var(--ds-user-surface-alpha, .97)) 68%, rgb(255 69 200 / var(--ds-user-surface-alpha, .08))) !important;
+}
+
+html[data-dream-user-transparency="true"][data-dream-skin="active"][data-dream-theme="internet-angel"] [data-angel-component="composer"],
+html[data-dream-user-transparency="true"][data-dream-skin="active"][data-dream-theme="internet-angel"][data-dream-art-wide="true"]:not(:has(main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]) [role="main"])) main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]) .composer-surface-chrome[data-angel-component="composer"],
+html[data-dream-user-transparency="true"][data-dream-skin="active"][data-dream-theme="internet-angel"][data-dream-art-wide="true"]:not(:has(main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]) [role="main"])) main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]) [data-composer-surface-variant][data-angel-component="composer"] {
+  background: linear-gradient(135deg, rgb(35 31 91 / var(--ds-user-surface-alpha, .96)), rgb(72 42 122 / var(--ds-user-surface-alpha, .94)) 58%, rgb(70 31 94 / var(--ds-user-surface-alpha, .94))) !important;
+}
+
+html[data-dream-user-transparency="true"][data-dream-skin="active"][data-dream-theme="internet-angel"] [data-angel-component="context-strip"],
+html[data-dream-user-transparency="true"][data-dream-skin="active"][data-dream-theme="internet-angel"] [data-angel-component="active-goal-strip"] {
+  background: linear-gradient(100deg, rgb(32 84 255 / var(--ds-user-surface-alpha, .28)), rgb(78 53 148 / var(--ds-user-surface-alpha, .92)) 58%, rgb(255 69 200 / var(--ds-user-surface-alpha, .18))) !important;
+}
+
+html[data-dream-user-transparency="true"][data-dream-skin="active"][data-dream-theme="internet-angel"] [data-angel-component="environment"] {
+  background: repeating-linear-gradient(0deg, rgb(99 244 255 / calc(var(--ds-user-surface-alpha, 1) * .025)) 0 1px, transparent 1px 5px),
+    linear-gradient(138deg, rgb(32 84 255 / var(--ds-user-surface-alpha, .24)), rgb(43 32 105 / var(--ds-user-surface-alpha, .98)) 46%, rgb(130 88 255 / var(--ds-user-surface-alpha, .42)) 76%, rgb(255 69 200 / var(--ds-user-surface-alpha, .17))) !important;
+}
+
+html[data-dream-user-transparency="true"]:root[data-dream-skin="active"][data-dream-theme="internet-angel"] [data-angel-component="side-workspace"] {
+  background: linear-gradient(90deg, rgb(from var(--angel-cyan) r g b / var(--ds-user-surface-alpha, alpha)) 0 34%, rgb(from var(--angel-blue) r g b / var(--ds-user-surface-alpha, alpha)) 34% 67%, rgb(from var(--angel-pink) r g b / var(--ds-user-surface-alpha, alpha)) 67%) top / 100% 4px no-repeat,
+    linear-gradient(155deg, rgb(25 24 78 / var(--ds-user-surface-alpha, .98)), rgb(49 32 103 / var(--ds-user-surface-alpha, .97)) 64%, rgb(255 69 200 / var(--ds-user-surface-alpha, .09))) !important;
+}
+
+html[data-dream-user-transparency="true"][data-dream-skin="active"][data-dream-theme="internet-angel"] [data-angel-component="composer-palette"],
+html[data-dream-user-transparency="true"][data-dream-skin="active"][data-dream-theme="internet-angel"] div[class~="border-token-border"][class*="bg-token-dropdown-background"][class~="relative"][class~="overflow-hidden"][class~="rounded-2xl"][class~="p-1"]:has(> .vertical-scroll-fade-mask[class~="overflow-y-auto"]) {
+  background: repeating-linear-gradient(0deg, rgb(99 244 255 / calc(var(--ds-user-surface-alpha, 1) * .025)) 0 1px, transparent 1px 5px),
+    linear-gradient(138deg, rgb(32 84 255 / var(--ds-user-surface-alpha, .28)), rgb(43 32 105 / var(--ds-user-surface-alpha, .98)) 54%, rgb(130 88 255 / var(--ds-user-surface-alpha, .44)) 78%, rgb(255 69 200 / var(--ds-user-surface-alpha, .18))) !important;
+}
+
+html[data-dream-user-transparency="true"][data-dream-skin="active"][data-dream-theme="internet-angel"] [data-angel-component="turn-preview"],
+html[data-dream-user-transparency="true"][data-dream-skin="active"][data-dream-theme="internet-angel"] [data-angel-component="turn-preview-surface"] {
+  background: linear-gradient(135deg, rgb(32 84 255 / var(--ds-user-surface-alpha, .24)), rgb(43 32 105 / var(--ds-user-surface-alpha, .98)), rgb(255 69 200 / var(--ds-user-surface-alpha, .15))) !important;
+}
+
+html[data-dream-user-transparency="true"][data-dream-skin="active"][data-dream-theme="internet-angel"] [data-angel-component="settings-sidebar"] {
+  background: repeating-linear-gradient(0deg, rgb(99 244 255 / calc(var(--ds-user-surface-alpha, 1) * .03)) 0 1px, transparent 1px 34px),
+    linear-gradient(145deg, rgb(22 21 71 / var(--ds-user-surface-alpha, .98)), rgb(48 31 101 / var(--ds-user-surface-alpha, .96))) !important;
+}
+
+html[data-dream-user-transparency="true"][data-dream-skin="active"][data-dream-theme="internet-angel"] [data-angel-component="settings-content"] {
+  background: linear-gradient(90deg, rgb(99 244 255 / var(--ds-user-surface-alpha, .04)) 1px, transparent 1px) 0 0 / 42px 42px,
+    linear-gradient(rgb(32 84 255 / var(--ds-user-surface-alpha, .04)) 1px, transparent 1px) 0 0 / 42px 42px,
+    linear-gradient(145deg, rgb(25 23 73 / var(--ds-user-surface-alpha, .98)), rgb(47 31 101 / var(--ds-user-surface-alpha, .95))) !important;
+}
+
+html[data-dream-user-transparency="true"][data-dream-skin="active"][data-dream-theme="internet-angel"] [data-angel-component="settings-surface"] {
+  background: linear-gradient(115deg, rgb(32 84 255 / var(--ds-user-surface-alpha, .18)), rgb(47 35 103 / var(--ds-user-surface-alpha, .94)), rgb(255 69 200 / var(--ds-user-surface-alpha, .08))) !important;
+}
+
+html[data-dream-user-transparency="true"][data-dream-skin="active"][data-dream-theme="internet-angel"] [data-angel-component="settings-content"] [role="switch"] > span[data-state] {
+  background: linear-gradient(90deg, rgb(32 84 255 / var(--ds-user-surface-alpha, .28)), rgb(130 88 255 / var(--ds-user-surface-alpha, .34))) !important;
+}
+
+html[data-dream-user-transparency="true"][data-dream-skin="active"][data-dream-theme="internet-angel"] [data-angel-component="settings-content"] [role="switch"] > span[data-state] > span[data-state] {
+  background: rgb(from var(--angel-paper) r g b / var(--ds-user-surface-alpha, alpha)) !important;
+}
+
+html[data-dream-user-transparency="true"][data-dream-skin="active"][data-dream-theme="internet-angel"] [data-angel-component="settings-menu"] {
+  background: linear-gradient(120deg, rgb(32 84 255 / var(--ds-user-surface-alpha, .24)), rgb(43 32 105 / var(--ds-user-surface-alpha, .98)), rgb(255 69 200 / var(--ds-user-surface-alpha, .14))) !important;
+}
+
+html[data-dream-user-transparency="true"][data-dream-skin="active"][data-dream-theme="internet-angel"] :is(
+  [data-angel-component="terminal-panel"], [data-angel-component="summary-panel"], [data-angel-component="side-chat"]
+) {
+  background: linear-gradient(145deg, rgb(24 23 75 / var(--ds-user-surface-alpha, .98)), rgb(47 31 101 / var(--ds-user-surface-alpha, .96)), rgb(255 69 200 / var(--ds-user-surface-alpha, .08))) !important;
+}
+
+html[data-dream-user-transparency="true"][data-dream-skin="active"][data-dream-theme="internet-angel"] [data-angel-component="summary-panel"] :is(
+  header, [class*="sticky"][class*="top-0"][class*="bg-token-dropdown-background"]
+) {
+  background: linear-gradient(90deg, rgb(32 84 255 / var(--ds-user-surface-alpha, .34)), rgb(130 88 255 / var(--ds-user-surface-alpha, .24)), rgb(255 69 200 / var(--ds-user-surface-alpha, .12))) !important;
+}
+
+html[data-dream-user-transparency="true"][data-dream-skin="active"][data-dream-theme="internet-angel"] [data-angel-component="activity-detail"] {
+  background: linear-gradient(135deg, rgb(17 17 57 / var(--ds-user-surface-alpha, .96)), rgb(38 28 89 / var(--ds-user-surface-alpha, .94)), rgb(255 69 200 / var(--ds-user-surface-alpha, .06))) !important;
+}
+
+html[data-dream-user-transparency="true"][data-dream-skin="active"][data-dream-theme="internet-angel"] [data-angel-component="activity-output"] {
+  background: repeating-linear-gradient(0deg, rgb(99 244 255 / var(--ds-user-surface-alpha, .025)) 0 1px, transparent 1px 22px),
+    rgb(10 9 38 / var(--ds-user-surface-alpha, .74)) !important;
+}
+
+html[data-dream-user-transparency="true"][data-dream-skin="active"][data-dream-theme="internet-angel"] [data-angel-component="selection-actions"] {
+  background: linear-gradient(105deg, rgb(32 84 255 / var(--ds-user-surface-alpha, .28)), rgb(43 32 105 / var(--ds-user-surface-alpha, .96)), rgb(255 69 200 / var(--ds-user-surface-alpha, .14))) !important;
+}
+
+html[data-dream-user-transparency="true"][data-dream-skin="active"][data-dream-theme="internet-angel"] [data-angel-component="edited-card"] {
+  background: linear-gradient(118deg, rgb(32 84 255 / var(--ds-user-surface-alpha, .18)), rgb(47 35 103 / var(--ds-user-surface-alpha, .92)), rgb(255 69 200 / var(--ds-user-surface-alpha, .10))) !important;
+}
+
+html[data-dream-user-transparency="true"][data-dream-skin="active"][data-dream-theme="internet-angel"] [data-angel-component="edited-card-files"] {
+  background: linear-gradient(180deg, rgb(12 11 43 / var(--ds-user-surface-alpha, .58)), rgb(32 24 73 / var(--ds-user-surface-alpha, .64))) !important;
+}
+
+html[data-dream-user-transparency="true"][data-dream-skin="active"][data-dream-theme="internet-angel"] [data-angel-component="system-toast"] {
+  background: linear-gradient(120deg, rgb(31 28 82 / var(--ds-user-surface-alpha, .98)), rgb(82 45 121 / var(--ds-user-surface-alpha, .96)), rgb(255 69 200 / var(--ds-user-surface-alpha, .10))) !important;
+}
+
+html[data-dream-user-transparency="true"][data-dream-skin="active"][data-dream-theme="internet-angel"] [data-angel-component="subagent-frame"] {
+  background: linear-gradient(145deg, rgb(24 23 75 / var(--ds-user-surface-alpha, .98)), rgb(47 31 101 / var(--ds-user-surface-alpha, .96))) !important;
+}
+
+html[data-dream-user-transparency="true"][data-dream-skin="active"][data-dream-theme="internet-angel"] [data-angel-component="subagent-scroller"] {
+  background: linear-gradient(90deg, rgb(99 244 255 / var(--ds-user-surface-alpha, .05)) 1px, transparent 1px) 0 0 / 38px 38px,
+    linear-gradient(rgb(32 84 255 / var(--ds-user-surface-alpha, .05)) 1px, transparent 1px) 0 0 / 38px 38px,
+    linear-gradient(180deg, rgb(25 23 73 / var(--ds-user-surface-alpha, .86)), rgb(47 31 101 / var(--ds-user-surface-alpha, .90))) !important;
+}
+
+html[data-dream-user-transparency="true"][data-dream-skin="active"][data-dream-theme="internet-angel"] :is(
+  [data-angel-component="subagent-section"], [data-angel-component="subagent-section-archive"]
+) {
+  background: linear-gradient(118deg, rgb(32 84 255 / var(--ds-user-surface-alpha, .18)), rgb(47 35 103 / var(--ds-user-surface-alpha, .92)), rgb(255 69 200 / var(--ds-user-surface-alpha, .08))) !important;
+}
+
+html[data-dream-user-transparency="true"][data-dream-skin="active"][data-dream-theme="internet-angel"] :is(
+  [data-message-author-role="user"],
+  [data-user-message-bubble="true"],
+  [data-angel-component="message-user"]
+) {
+  background: linear-gradient(110deg, rgb(62 37 112 / var(--ds-user-surface-alpha, .88)), rgb(36 30 88 / var(--ds-user-surface-alpha, .84))) !important;
+}
+
+html[data-dream-user-transparency="true"][data-dream-skin="active"][data-dream-theme="internet-angel"] :is(
+  [class*="group/turn-diff-header"],
+  [class*="--thread-resource-card-row-padding-x:"],
+  [class*="bg-token-dropdown-background"][class~="rounded-lg"]
+):not([data-angel-component="edited-card"]):not([data-angel-component="edited-card-header"]) {
+  background: linear-gradient(118deg, rgb(32 84 255 / var(--ds-user-surface-alpha, .13)), rgb(47 35 103 / var(--ds-user-surface-alpha, .88)), rgb(255 69 200 / var(--ds-user-surface-alpha, .08))) !important;
+}
+
+html[data-dream-user-transparency="true"][data-dream-skin="active"][data-dream-theme="internet-angel"] [data-angel-component="permission"],
+html[data-dream-user-transparency="true"][data-dream-skin="active"][data-dream-theme="internet-angel"] [data-testid*="permission"],
+html[data-dream-user-transparency="true"][data-dream-skin="active"][data-dream-theme="internet-angel"] [data-testid*="approval"] {
+  background: linear-gradient(100deg, rgb(32 84 255 / var(--ds-user-surface-alpha, .30)), rgb(67 43 127 / var(--ds-user-surface-alpha, .94)), rgb(255 69 200 / var(--ds-user-surface-alpha, .14))) !important;
+}
+
+html[data-dream-user-transparency="true"][data-dream-skin="active"][data-dream-theme="internet-angel"] [role="dialog"],
+html[data-dream-user-transparency="true"][data-dream-skin="active"][data-dream-theme="internet-angel"] [aria-modal="true"],
+html[data-dream-user-transparency="true"][data-dream-skin="active"][data-dream-theme="internet-angel"] [data-radix-dialog-content],
+html[data-dream-user-transparency="true"][data-dream-skin="active"][data-dream-theme="internet-angel"] [role="menu"],
+html[data-dream-user-transparency="true"][data-dream-skin="active"][data-dream-theme="internet-angel"] [role="listbox"] {
+  background: linear-gradient(138deg, rgb(32 84 255 / var(--ds-user-surface-alpha, .20)), rgb(41 31 98 / var(--ds-user-surface-alpha, .98)) 58%, rgb(255 69 200 / var(--ds-user-surface-alpha, .12))) !important;
+}
+
+html[data-dream-user-transparency="true"][data-dream-skin="active"][data-dream-theme="internet-angel"] :is(
+  [aria-modal="true"], [data-radix-dialog-content]
+) [class*="bg-token-main-surface-primary"] {
+  background: rgb(from color-mix(in srgb, var(--angel-surface) 72%, transparent) r g b / var(--ds-user-surface-alpha, alpha)) !important;
+}
+
+html[data-dream-user-transparency="true"][data-dream-skin="active"][data-dream-theme="internet-angel"] [role="tooltip"] {
+  background: rgb(29 24 76 / var(--ds-user-surface-alpha, .98)) !important;
+}
+
+html[data-dream-user-transparency="true"][data-dream-skin="active"][data-dream-theme="internet-angel"]
+  [data-angel-component="side-workspace"] :is(
+    [class*="bg-token-main-surface-primary"],
+    [class*="file-diff"]
+  ) {
+  background: rgb(from color-mix(in oklab, var(--angel-adaptive-surface) 55%, transparent) r g b / var(--ds-user-surface-alpha, alpha)) !important;
+}
+
+html[data-dream-user-transparency="true"][data-dream-skin="active"][data-dream-theme="internet-angel"]
+  [data-angel-component="side-workspace"] [class*="file-diff"] [class*="codeBlock"] {
+  background: rgb(from color-mix(in oklab, var(--angel-adaptive-surface) 72%, var(--angel-ink)) r g b / var(--ds-user-surface-alpha, alpha)) !important;
+}
+
+html[data-dream-user-transparency="true"][data-dream-skin="active"][data-dream-theme="internet-angel"]
+  main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"])
+  [class*="_MainContentFrame_"] [class~="bg-token-main-surface-primary"] {
+  background: linear-gradient(135deg,
+      rgb(from color-mix(in oklab, var(--angel-adaptive-surface) 74%, transparent) r g b / var(--ds-user-surface-alpha, alpha)),
+      rgb(from color-mix(in oklab, var(--angel-adaptive-surface) 64%, var(--angel-adaptive-accent) 7%) r g b / var(--ds-user-surface-alpha, alpha))) !important;
+}
+
+html[data-dream-user-transparency="true"][data-dream-skin="active"][data-dream-theme="internet-angel"]
+  main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"])
+  [class*="_MainContentFrame_"] [class~="sticky"][class~="z-30"] {
+  background: linear-gradient(90deg,
+      rgb(from color-mix(in oklab, var(--angel-adaptive-surface-raised) 88%, var(--angel-blue) 8%) r g b / var(--ds-user-surface-alpha, alpha)),
+      rgb(from color-mix(in oklab, var(--angel-adaptive-surface-raised) 84%, var(--angel-pink) 10%) r g b / var(--ds-user-surface-alpha, alpha))) !important;
+}
+
+html[data-dream-user-transparency="true"][data-dream-skin="active"][data-dream-theme="internet-angel"] diffs-container {
+  --diffs-bg: rgb(from color-mix(in oklab, var(--angel-adaptive-surface) 94%, var(--angel-adaptive-accent) 5%) r g b / var(--ds-user-surface-alpha, alpha)) !important;
+  --diffs-bg-context: rgb(from color-mix(in oklab, var(--angel-adaptive-surface-raised) 94%, var(--angel-adaptive-accent) 6%) r g b / var(--ds-user-surface-alpha, alpha)) !important;
+  background-color: rgb(from color-mix(in oklab, var(--angel-adaptive-surface) 94%, var(--angel-adaptive-accent) 5%) r g b / var(--ds-user-surface-alpha, alpha)) !important;
+}
+
+html[data-dream-user-transparency="true"]:root[data-dream-skin="active"][data-dream-theme="internet-angel"]
+  [data-app-action-timeline-scroll] {
+  background: rgb(from color-mix(in srgb, var(--angel-adaptive-surface) 96%, transparent) r g b / var(--ds-user-surface-alpha, alpha)) !important;
+}
+
+html[data-dream-user-transparency="true"]:root[data-dream-skin="active"][data-dream-theme="internet-angel"] :is(
+  [data-app-action-timeline-scroll], [data-thread-scroll-footer="true"]
+) {
+  --color-surface: rgb(from var(--angel-adaptive-surface) r g b / var(--ds-user-surface-alpha, alpha));
+}
+
+html[data-dream-user-transparency="true"]:root[data-dream-skin="active"][data-dream-theme="internet-angel"] :is(
+  [data-codex-approval-surface="true"],
+  [data-summary-panel-variant="summary"]
+) {
+  background: linear-gradient(135deg, rgb(from var(--angel-surface) r g b / var(--ds-user-surface-alpha, alpha)), rgb(from var(--angel-surface-raised) r g b / var(--ds-user-surface-alpha, alpha))) !important;
+}
+
+html[data-dream-user-transparency="true"]:root[data-dream-skin="active"][data-dream-theme="internet-angel"].dream-route-utility
+  [data-app-shell-focus-area="main"] {
+  background: linear-gradient(135deg, rgb(from var(--angel-adaptive-surface) r g b / var(--ds-user-surface-alpha, alpha)),
+    rgb(from color-mix(in srgb, var(--angel-adaptive-surface) 94%, var(--angel-violet)) r g b / var(--ds-user-surface-alpha, alpha))) !important;
+}
+
+html[data-dream-user-transparency="true"]:root[data-dream-skin="active"][data-dream-theme="internet-angel"].dream-route-utility
+  [data-app-shell-focus-area="main"] [class~="sticky"][class~="bg-surface"] {
+  --color-surface: rgb(from var(--angel-adaptive-surface) r g b / var(--ds-user-surface-alpha, alpha));
+  background: rgb(from var(--angel-adaptive-surface) r g b / var(--ds-user-surface-alpha, alpha)) !important;
+}
+
+html[data-dream-skin="active"][data-dream-theme="internet-angel"][data-dream-user-transparency="true"] {
+  --angel-user-diff-surface: rgb(from color-mix(in oklab, var(--angel-adaptive-surface) 94%, var(--angel-adaptive-accent) 5%) r g b / var(--ds-user-surface-alpha, alpha));
+}
+
+html[data-dream-skin="active"][data-dream-theme="internet-angel"][data-dream-user-transparency="true"] {
+  --angel-user-diff-surface-raised: rgb(from color-mix(in oklab, var(--angel-adaptive-surface-raised) 94%, var(--angel-adaptive-accent) 6%) r g b / var(--ds-user-surface-alpha, alpha));
+}
+
+@media (dream-skin-internet-angel-light), all {
+html[data-dream-user-transparency="true"][data-dream-skin="active"][data-dream-theme="internet-angel"]:is(.dream-theme-light, [data-dream-shell="light"])
+  [data-angel-component="sidebar"] {
+  background: linear-gradient(180deg,
+    rgb(from color-mix(in oklab, var(--angel-adaptive-surface) 88%, transparent) r g b / var(--ds-user-surface-alpha, alpha)),
+    rgb(from color-mix(in oklab, var(--angel-adaptive-surface) 82%, var(--angel-violet) 5%) r g b / var(--ds-user-surface-alpha, alpha))) !important;
+}
+
+html[data-dream-user-transparency="true"][data-dream-skin="active"][data-dream-theme="internet-angel"]:is(.dream-theme-light, [data-dream-shell="light"]) :is(
+  [data-message-author-role="user"],
+  [data-user-message-bubble="true"],
+  [data-angel-component="message-user"]
+) {
+  background: linear-gradient(110deg,
+    rgb(from color-mix(in oklab, var(--angel-adaptive-surface-raised) 94%, var(--angel-pink) 8%) r g b / var(--ds-user-surface-alpha, alpha)),
+    rgb(from color-mix(in oklab, var(--angel-adaptive-surface-raised) 90%, var(--angel-violet) 9%) r g b / var(--ds-user-surface-alpha, alpha))) !important;
+}
+
+html[data-dream-user-transparency="true"][data-dream-skin="active"][data-dream-theme="internet-angel"]:is(.dream-theme-light, [data-dream-shell="light"])
+  [data-angel-component="environment"] {
+  background: rgb(from color-mix(in oklab, var(--angel-adaptive-surface-raised) 92%, transparent) r g b / var(--ds-user-surface-alpha, alpha)) !important;
+}
+
+html[data-dream-user-transparency="true"][data-dream-skin="active"][data-dream-theme="internet-angel"]:is(.dream-theme-light, [data-dream-shell="light"])
+  [data-radix-popper-content-wrapper] > div:not([data-angel-component="settings-menu"]),
+html[data-dream-user-transparency="true"][data-dream-skin="active"][data-dream-theme="internet-angel"]:is(.dream-theme-light, [data-dream-shell="light"])
+  [data-radix-menu-content]:not([data-angel-component="settings-menu"]),
+html[data-dream-user-transparency="true"][data-dream-skin="active"][data-dream-theme="internet-angel"]:is(.dream-theme-light, [data-dream-shell="light"])
+  [data-radix-popover-content]:not([data-angel-component="settings-menu"]) {
+  background: rgb(from color-mix(in oklab, var(--angel-adaptive-surface-raised) 96%, transparent) r g b / var(--ds-user-surface-alpha, alpha)) !important;
+}
+
+html[data-dream-user-transparency="true"][data-dream-skin="active"][data-dream-theme="internet-angel"]:is(.dream-theme-light, [data-dream-shell="light"])
+  [role="tooltip"]:not([data-angel-component="turn-preview"]),
+html[data-dream-user-transparency="true"][data-dream-skin="active"][data-dream-theme="internet-angel"]:is(.dream-theme-light, [data-dream-shell="light"])
+  [data-radix-tooltip-content]:not([data-angel-component="turn-preview"]),
+html[data-dream-user-transparency="true"][data-dream-skin="active"][data-dream-theme="internet-angel"]:is(.dream-theme-light, [data-dream-shell="light"])
+  [data-slot="tooltip-content"]:not([data-angel-component="turn-preview"]) {
+  background: rgb(from color-mix(in oklab, var(--angel-adaptive-surface-raised) 94%, transparent) r g b / var(--ds-user-surface-alpha, alpha)) !important;
+}
+
+html[data-dream-user-transparency="true"]:root[data-dream-skin="active"][data-dream-theme="internet-angel"]:is(.dream-theme-light, [data-dream-shell="light"])
+  aside[data-angel-component="settings-sidebar"] {
+  background: linear-gradient(145deg, rgb(22 21 71 / var(--ds-user-surface-alpha, .98)), rgb(48 31 101 / var(--ds-user-surface-alpha, .96))) !important;
+}
+
+html[data-dream-user-transparency="true"]:root[data-dream-skin="active"][data-dream-theme="internet-angel"]:is(.dream-theme-light, [data-dream-shell="light"])
+  header[data-app-shell-titlebar] {
+  background: rgb(from var(--angel-adaptive-surface) r g b / var(--ds-user-surface-alpha, alpha)) !important;
+}
+
+html[data-dream-user-transparency="true"]:root[data-dream-skin="active"][data-dream-theme="internet-angel"]:is(.dream-theme-light, [data-dream-shell="light"])
+  [data-app-action-timeline-scroll] [class~="group/turn-diff-header"] {
+  background: linear-gradient(110deg, rgb(from var(--angel-adaptive-surface-raised) r g b / var(--ds-user-surface-alpha, alpha)),
+    rgb(from color-mix(in srgb, var(--angel-adaptive-surface-raised) 94%, var(--angel-pink)) r g b / var(--ds-user-surface-alpha, alpha))) !important;
 }
 }

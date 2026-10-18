@@ -111,8 +111,8 @@
   const ownedDiffStyles = new Set();
   const diffRootObservers = new Map();
   let restoreAttachShadow = null;
-  const diffSurface = "color-mix(in oklab, var(--angel-adaptive-surface) 94%, var(--angel-adaptive-accent) 5%)";
-  const diffSurfaceRaised = "color-mix(in oklab, var(--angel-adaptive-surface-raised) 94%, var(--angel-adaptive-accent) 6%)";
+  const diffSurface = "var(--angel-user-diff-surface, color-mix(in oklab, var(--angel-adaptive-surface) 94%, var(--angel-adaptive-accent) 5%))";
+  const diffSurfaceRaised = "var(--angel-user-diff-surface-raised, color-mix(in oklab, var(--angel-adaptive-surface-raised) 94%, var(--angel-adaptive-accent) 6%))";
   const diffThemeCss = `
 :host {
   --diffs-bg: ${diffSurface} !important;

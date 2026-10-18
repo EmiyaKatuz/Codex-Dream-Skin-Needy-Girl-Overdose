@@ -28,7 +28,7 @@ for(let start=baseline.indexOf(gateMarker);start!==-1;start=baseline.indexOf(gat
 }
 test('light-only descendant rules are guarded by private media rules without rewriting selectors',()=>{
  assert.ok(gateAt>css.indexOf('/* Light mode uses adaptive text'));
- assert.equal(gateBlocks.length,2,'the base palette and modern-layout light overrides are both gated');
+ assert.equal(gateBlocks.length,3,'the base, modern-layout and personal-transparency light rules are gated');
  for(const block of gateBlocks){
   assert.ok(block.trim().startsWith('html'));
   for(const match of block.replace(/\/\*[\s\S]*?\*\//g,'').matchAll(/(?:^|})\s*([^{}]+)\{/g)){

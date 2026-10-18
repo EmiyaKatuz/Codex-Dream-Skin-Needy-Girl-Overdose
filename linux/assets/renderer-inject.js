@@ -171,6 +171,7 @@
   const ENSURE_ERROR_LOG_INTERVAL_MS = 30000;
   let samplingNativeShell = false;
   let observer = null;
+  let activePageObserver = null;
   let resizeObserver = null;
   let resizeTargets = new Set();
   const resizeTargetSizes = new WeakMap();
@@ -269,6 +270,7 @@
   const previous = window[STATE_KEY];
   previous?.predicateCache?.cleanup();
   if (previous?.observer) previous.observer.disconnect();
+  previous?.activePageObserver?.disconnect();
   if (previous?.resizeObserver) previous.resizeObserver.disconnect();
   if (previous?.timer) clearInterval(previous.timer);
   if (previous?.scheduler?.timeout) clearTimeout(previous.scheduler.timeout);
@@ -489,6 +491,7 @@
     root?.removeAttribute("data-dream-skin");
     root?.removeAttribute("data-dream-theme");
     root?.removeAttribute("data-dream-upload-alpha");
+    root?.removeAttribute("data-dream-user-transparency");
     root?.classList.remove(...ROOT_CLASSES);
     root?.classList.remove("dream-preview-blink", "dream-preview-blink-half");
     root?.classList.remove(...HOME_PANEL_STATE_CLASSES);
@@ -584,6 +587,8 @@
     const panelAlpha = userAlpha ?? explicitAlpha("panel") ?? 0.70;
     if (userAlpha !== null) root.style.setProperty("--ds-user-surface-alpha", String(userAlpha));
     else root.style.removeProperty("--ds-user-surface-alpha");
+    if (userAlpha !== null) root.setAttribute("data-dream-user-transparency", "true");
+    else root.removeAttribute("data-dream-user-transparency");
     root.style.setProperty("--ds-upload-panel-alpha", String(panelAlpha));
     root.style.setProperty("--ds-upload-bg-alpha", String(userAlpha ?? explicitAlpha("background") ?? panelAlpha));
     root.style.setProperty("--ds-upload-panel-alt-alpha", String(userAlpha ?? explicitAlpha("panelAlt") ?? panelAlpha));
@@ -882,9 +887,11 @@
       'div.main-surface:has(> [class~="scrollbar-stable"][class~="flex-1"][class~="overflow-y-auto"][class~="p-panel"])',
     );
     const semanticHome = firstActive('[role="main"]:has([data-testid="home-icon"])');
-    const homeMarker = shellMain.querySelector?.('[data-testid="home-icon"]') || null;
+    const homeMarker = [...(shellMain.querySelectorAll?.('[data-testid="home-icon"]') || [])]
+      .find((node) => !node.closest?.('[data-app-shell-active-page="false"]')) || null;
     const homeHeading = [...(shellMain.querySelectorAll?.('h1, h2, [role="heading"]') || [])]
-      .find((candidate) => /^(我们该构建什么|what should we build)\s*[？?]?$/i.test((candidate.textContent || "").trim()));
+      .find((candidate) => !candidate.closest?.('[data-app-shell-active-page="false"]') &&
+        /^(我们该构建什么|what should we build)\s*[？?]?$/i.test((candidate.textContent || "").trim()));
     const home = semanticHome
       || homeMarker?.closest?.('[role="main"]')
       || (homeMarker ? shellMain : null)
@@ -1600,10 +1607,19 @@
     };
     if (root) observer.observe(root, attributeOptions);
     if (body) observer.observe(body, { ...attributeOptions, childList: true });
-    if (body) observer.observe(body, {
-      attributes: true, subtree: true, attributeOldValue: true,
-      attributeFilter: ["data-app-shell-active-page"],
-    });
+    if (body) {
+      // observe() replaces the options for an already observed target. Keep
+      // this narrow subtree subscription separate from native body boundaries.
+      if (!activePageObserver) activePageObserver = new MutationObserver((records) => {
+        if (records.some((record) => record.oldValue !==
+          record.target?.getAttribute?.("data-app-shell-active-page"))) scheduleEnsure(64);
+      });
+      activePageObserver.disconnect();
+      activePageObserver.observe(body, {
+        attributes: true, subtree: true, attributeOldValue: true,
+        attributeFilter: ["data-app-shell-active-page"],
+      });
+    }
     if (shellMain) observer.observe(shellMain, { childList: true });
   };
   const runEnsureSafely = () => {
@@ -1636,6 +1652,7 @@
     clearSkinDom();
     predicateCache.cleanup();
     state?.observer?.disconnect();
+    state?.activePageObserver?.disconnect();
     state?.resizeObserver?.disconnect();
     if (state?.timer) clearInterval(state.timer);
     if (state?.scheduler?.timeout) clearTimeout(state.scheduler.timeout);
@@ -1915,7 +1932,7 @@
   }
   const timer = setInterval(runEnsureSafely, lowPerformance ? 30000 : FALLBACK_REFRESH_MS);
   const runtimeState = {
-    ensure: runEnsureSafely, cleanup, observer, resizeObserver, timer, scheduler, geometryScheduler, resizeHandler, navigationHandler, motionQuery, motionHandler,
+    ensure: runEnsureSafely, cleanup, observer, activePageObserver, resizeObserver, timer, scheduler, geometryScheduler, resizeHandler, navigationHandler, motionQuery, motionHandler,
     predicateCache, predicateMetrics: predicateCache.metrics,
     artUrl, profile, config, installToken, version: SKIN_VERSION,
     themeId: config.themeId,

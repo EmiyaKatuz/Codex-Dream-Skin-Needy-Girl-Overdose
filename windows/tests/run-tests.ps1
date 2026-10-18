@@ -1423,7 +1423,7 @@ args = [
   foreach ($releaseAsset in @(
     'dream-skin.css', 'internet-angel-acrylic.css', 'internet-angel-extension.css',
     'internet-angel-extension.js', 'css-predicate-cache.mjs', 'renderer-inject.js', 'safe-css-policy.json', 'safe-css-validator.mjs', 'selectors.json',
-    'theme-package-validator.mjs', 'theme-motion.js', 'theme-motion.css', 'motion-settings.mjs', 'motion-payload.mjs'
+    'theme-package-validator.mjs', 'theme-preferences.mjs', 'theme-motion.js', 'theme-motion.css', 'motion-settings.mjs', 'motion-payload.mjs'
   )) {
     Copy-Item -LiteralPath (Join-Path $Root "assets\$releaseAsset") `
       -Destination $releaseFixtureAssets -Force

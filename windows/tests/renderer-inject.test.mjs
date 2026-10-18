@@ -1950,6 +1950,54 @@ for (const [platform, rendererTemplate] of [
   ["windows", template],
   ["linux", linuxTemplate],
 ]) {
+  // The fixture replaces existing target registrations like a real
+  // MutationObserver, so a second observe(body) cannot hide lost options.
+  const cachedRoute = createFixture({ shellPresent: true, homePresent: true,
+    homeHeadingPresent: true, fakeClock: true });
+  let cachedHomeInactive = true;
+  const inactiveSelector = '[data-app-shell-active-page="false"]';
+  const homeIcon = cachedRoute.shellMain.querySelector('[data-testid="home-icon"]');
+  const homeHeading = cachedRoute.shellMain.querySelectorAll('h1, h2, [role="heading"]')[0];
+  cachedRoute.routeMain.closest = (selector) =>
+    selector === inactiveSelector && cachedHomeInactive ? cachedRoute.routeMain : null;
+  cachedRoute.routeMain.getAttribute = (name) => name === 'data-app-shell-active-page'
+    ? String(!cachedHomeInactive) : null;
+  for (const node of [homeIcon, homeHeading]) node.closest = (selector) =>
+    selector === '[role="main"]' ? cachedRoute.routeMain
+      : cachedRoute.routeMain.closest(selector);
+  const routePayload = buildPayloadFrom(rendererTemplate, { performanceMode: "full" });
+  vm.runInNewContext(routePayload, cachedRoute.context);
+  const cachedState = cachedRoute.context.window.__CODEX_DREAM_SKIN_STATE__;
+  assert.equal(cachedRoute.shellMain.classList.contains("dream-route-home"), false,
+    `${platform}: a cached Home icon/heading must not reactivate the hidden Home.`);
+  const structuralObserver = cachedState.observer;
+  const observedBody = structuralObserver.observations.find(({ target }) => target === cachedRoute.body);
+  assert.equal(observedBody.options.childList, true,
+    `${platform}: route observation must preserve native body insertions.`);
+  assert.ok(observedBody.options.attributeFilter.includes("class"),
+    `${platform}: route observation must preserve native body appearance changes.`);
+  assert.equal(Boolean(observedBody.options.subtree), false);
+  const activePageObserver = cachedState.activePageObserver;
+  assert.notEqual(activePageObserver, structuralObserver);
+  assert.deepEqual([...activePageObserver.observations[0].options.attributeFilter],
+    ['data-app-shell-active-page']);
+  assert.equal(Boolean(activePageObserver.observations[0].options.childList), false);
+  assert.equal(Boolean(activePageObserver.observations[0].options.characterData), false);
+  cachedHomeInactive = false;
+  activePageObserver.callback([{ type: 'attributes', target: cachedRoute.routeMain,
+    attributeName: 'data-app-shell-active-page', oldValue: 'false' }]);
+  cachedRoute.advanceTime(100);
+  cachedRoute.runAnimationFrames();
+  assert.equal(cachedRoute.shellMain.classList.contains("dream-route-home"), true,
+    `${platform}: activating the cached page must refresh the Home route.`);
+  vm.runInNewContext(routePayload, cachedRoute.context);
+  assert.equal(activePageObserver.observations.length, 0,
+    `${platform}: replacing the payload must disconnect its old route observer.`);
+  const replacementRouteObserver = cachedRoute.context.window.__CODEX_DREAM_SKIN_STATE__.activePageObserver;
+  cachedRoute.context.window.__CODEX_DREAM_SKIN_STATE__.cleanup();
+  assert.equal(replacementRouteObserver.observations.length, 0,
+    `${platform}: cleanup must disconnect the replacement route observer.`);
+
   for (const themeId of ["preset-internet-angel", "preset-internet-angel-default"]) {
     const angel = createFixture({ shellPresent: true });
     vm.runInNewContext(buildPayloadFrom(rendererTemplate, { id: themeId }), angel.context);
@@ -1970,7 +2018,16 @@ for (const [platform, rendererTemplate] of [
 }
 assert.equal(main.observers[0].observations.length, 3,
   "The renderer must observe only root, body, and main shell boundaries.");
-const activePageObservations = main.observers[0].observations.filter(({ options }) => options.subtree);
+assert.equal(main.observers[0].observations.some(({ options }) => options.subtree), false,
+  "The structural observer must keep shallow native boundary subscriptions.");
+const bodyObservation = main.observers[0].observations.find(({ target }) => target === main.body);
+assert.equal(bodyObservation.options.childList, true,
+  "Adding the route observer must not replace the native body child-list subscription.");
+assert.ok(bodyObservation.options.attributeFilter.includes("class"),
+  "Body appearance changes must remain observable after route observation starts.");
+const mainActivePageObserver = main.context.window.__CODEX_DREAM_SKIN_STATE__.activePageObserver;
+assert.notEqual(mainActivePageObserver, main.observers[0]);
+const activePageObservations = mainActivePageObserver.observations;
 assert.equal(activePageObservations.length, 1,
   "Only active-page attribute changes need descendant observation.");
 assert.deepEqual(activePageObservations.map(({ options }) => ({
@@ -2018,6 +2075,8 @@ assert.equal(main.documentListeners.get("scroll")?.size, 0,
   "Cleanup must release the sidebar scroll listener.");
 assert.equal(main.resizeObservers[0].targets.size, 0,
   "Cleanup must release every geometry target.");
+assert.equal(mainActivePageObserver.observations.length, 0,
+  "Cleanup must release the separate active-page observer.");
 
 for (const [label, fixtureOptions] of [
   ["collapsed sidebar", { shellPresent: true, sidebarPresent: false }],

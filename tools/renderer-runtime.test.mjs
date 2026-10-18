@@ -1474,10 +1474,12 @@ export async function runRendererRuntimeTest(assetRoot) {
     } }), custom.context);
     for (const name of alphaNames) assert.equal(Number(custom.rootStyle.values.get(name)), (100 - transparency) / 100);
     assert.equal(custom.rootStyle.values.get("--ds-user-surface-alpha"), String((100 - transparency) / 100));
+    assert.equal(custom.attrs.get("data-dream-user-transparency"), "true");
     assert.equal(custom.rootStyle.values.get("--ds-theme-surface-opacity"), "1");
     assert.equal(custom.rootStyle.values.get("--ds-theme-color-text"), "#fafafa");
     vm.runInNewContext(custom.payloadFor({ colors: { panel: "#1e1e1e55" } }), custom.context);
     assert.equal(Number(custom.rootStyle.values.get("--ds-upload-panel-alpha")), 85 / 255);
+    assert.equal(custom.attrs.has("data-dream-user-transparency"), false);
     assert.equal(custom.rootStyle.values.has("--ds-user-surface-alpha"), false,
       "Reset/switch must remove a previous user override");
   }

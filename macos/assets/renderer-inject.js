@@ -20,7 +20,7 @@
     variable: `--ds-community-composer-${property}`,
   })).filter(({ variable }) => cssText.includes(`${variable}:`));
   const ROOT_ATTRS = [
-    "data-dream-skin", SHELL_ATTR, "data-dream-theme", "data-dream-upload-alpha",
+    "data-dream-skin", SHELL_ATTR, "data-dream-theme", "data-dream-upload-alpha", "data-dream-user-transparency",
     "data-dream-art-wide", "data-dream-art-safe", "data-dream-task-mode",
     "data-dream-art-safe-area", "data-dream-art-task-mode", "data-dream-art-aspect",
     "data-dream-art-ready",
@@ -378,6 +378,8 @@
     const panelAltAlpha = userAlpha ?? explicitAlpha("panelAlt") ?? panelAlpha;
     if (userAlpha !== null) setStyleProperty(root, "--ds-user-surface-alpha", String(userAlpha));
     else root.style.removeProperty("--ds-user-surface-alpha");
+    if (userAlpha !== null) root.setAttribute("data-dream-user-transparency", "true");
+    else root.removeAttribute("data-dream-user-transparency");
     const uploadAlphas = {
       "--ds-upload-panel-alpha": panelAlpha,
       "--ds-upload-bg-alpha": backgroundAlpha,

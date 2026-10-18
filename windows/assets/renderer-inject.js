@@ -219,6 +219,7 @@
   const NATIVE_PRESET_MIN_COUNT = 2;
   let samplingNativeShell = false;
   let observer = null;
+  let activePageObserver = null;
   let resizeObserver = null;
   let resizeTargets = new Set();
   let activeHomeSurface = null;
@@ -364,6 +365,7 @@
   const previous = window[STATE_KEY];
   previous?.predicateCache?.cleanup();
   if (previous?.observer) previous.observer.disconnect();
+  previous?.activePageObserver?.disconnect();
   if (previous?.resizeObserver) previous.resizeObserver.disconnect();
   if (previous?.timer) clearInterval(previous.timer);
   if (previous?.scheduler?.timeout) clearTimeout(previous.scheduler.timeout);
@@ -615,6 +617,7 @@
     root?.removeAttribute("data-dream-theme");
     root?.removeAttribute("data-dream-route");
     root?.removeAttribute("data-dream-upload-alpha");
+    root?.removeAttribute("data-dream-user-transparency");
     root?.classList.remove(...ROOT_CLASSES);
     root?.classList.remove("dream-preview-blink", "dream-preview-blink-half");
     root?.classList.remove(...HOME_PANEL_STATE_CLASSES);
@@ -727,6 +730,8 @@
     const panelAlpha = userAlpha ?? explicitAlpha("panel") ?? 0.70;
     if (userAlpha !== null) root.style.setProperty("--ds-user-surface-alpha", String(userAlpha));
     else root.style.removeProperty("--ds-user-surface-alpha");
+    if (userAlpha !== null) root.setAttribute("data-dream-user-transparency", "true");
+    else root.removeAttribute("data-dream-user-transparency");
     root.style.setProperty("--ds-upload-panel-alpha", String(panelAlpha));
     root.style.setProperty("--ds-upload-bg-alpha", String(userAlpha ?? explicitAlpha("background") ?? panelAlpha));
     root.style.setProperty("--ds-upload-panel-alt-alpha", String(userAlpha ?? explicitAlpha("panelAlt") ?? panelAlpha));
@@ -2148,10 +2153,19 @@
     if (root) observer.observe(root, attributeOptions);
     if (body) observer.observe(body, { ...attributeOptions, childList: true });
     // Cached routes can become active without mounting a new shell subtree.
-    if (body) observer.observe(body, {
-      attributes: true, subtree: true, attributeOldValue: true,
-      attributeFilter: ["data-app-shell-active-page"],
-    });
+    if (body) {
+      // observe() replaces the options for an already observed target. Keep
+      // this narrow subtree subscription separate from native body boundaries.
+      if (!activePageObserver) activePageObserver = new MutationObserver((records) => {
+        if (records.some((record) => record.oldValue !==
+          record.target?.getAttribute?.("data-app-shell-active-page"))) scheduleEnsure(64);
+      });
+      activePageObserver.disconnect();
+      activePageObserver.observe(body, {
+        attributes: true, subtree: true, attributeOldValue: true,
+        attributeFilter: ["data-app-shell-active-page"],
+      });
+    }
     if (shellMain) observer.observe(shellMain, { childList: true });
     const suggestionRoot = activeHomeSuggestionRoot?.isConnected === false
       ? null
@@ -2222,6 +2236,7 @@
     clearSkinDom();
     predicateCache.cleanup();
     state?.observer?.disconnect();
+    state?.activePageObserver?.disconnect();
     state?.resizeObserver?.disconnect();
     if (state?.timer) clearInterval(state.timer);
     if (state?.scheduler?.timeout) clearTimeout(state.scheduler.timeout);
@@ -2645,7 +2660,7 @@
     missingL1,
   };
   const runtimeState = {
-    ensure: runEnsureSafely, cleanup, observer, resizeObserver, timer, scheduler, geometryScheduler,
+    ensure: runEnsureSafely, cleanup, observer, activePageObserver, resizeObserver, timer, scheduler, geometryScheduler,
     resizeHandler, navigationHandler, interactionHandler, sidebarScrollHandler, sidebarScrollQuiet,
     motionQuery, motionHandler,
     artUrl, profile, config, installToken, version: SKIN_VERSION,
