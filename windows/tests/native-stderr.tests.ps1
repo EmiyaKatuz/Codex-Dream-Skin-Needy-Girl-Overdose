@@ -89,6 +89,12 @@ try {
     throw 'Valid ZIP import failed under native stderr warnings.'
   }
 
+  $null = Use-DreamSkinSavedTheme -ThemeDirectory $import.Path -StateRoot $stateRoot
+  $selected = Read-DreamSkinTheme -ThemeDirectory $paths.Active
+  if ($selected.Theme.id -cne $theme.id) {
+    throw 'Saved theme selection failed under native stderr warnings.'
+  }
+
   $badImage = Join-Path $testRoot 'invalid.jpg'
   [IO.File]::WriteAllText($badImage, 'not an image', [Text.UTF8Encoding]::new($false))
   Assert-StderrTestRejected -Label 'Image metadata' -Action { Get-DreamSkinValidatedImageMetadata -Path $badImage } -MessagePattern 'Image metadata'

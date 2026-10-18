@@ -2384,8 +2384,9 @@ function Use-DreamSkinSavedTheme {
     if (-not (Test-Path -LiteralPath $injector -PathType Leaf)) {
       throw 'Saved theme payload validator is missing from the runtime engine.'
     }
-    $payloadCheck = @(& $node.Path $injector '--check-payload' '--theme-dir' $directory 2>&1)
-    if ($LASTEXITCODE -ne 0) {
+    $payloadCheck = Invoke-DreamSkinNative -FilePath $node.Path -ArgumentList @(
+      $injector, '--check-payload', '--theme-dir', $directory)
+    if ($payloadCheck.ExitCode -ne 0) {
       throw 'Saved theme failed the schema, image, or runtime payload contract.'
     }
     $theme = $saved.Theme | ConvertTo-Json -Depth 8 | ConvertFrom-Json
