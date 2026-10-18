@@ -6,13 +6,35 @@ import {createCssPredicateCache} from './css-predicate-cache.mjs';
 const css=await readFile(new URL("../runtime/internet-angel-extension.css",import.meta.url),"utf8");
 const gateMarker="@media (dream-skin-internet-angel-light), all {";
 const gateAt=css.indexOf(gateMarker);
-const baseline=css.slice(0,gateAt)+css.slice(gateAt+gateMarker.length).replace(/\}\s*$/,"");
-test('light-only descendant rules are guarded by a private media rule without rewriting selectors',()=>{
+const gateBlocks=[];
+let baseline=css;
+for(let start=baseline.indexOf(gateMarker);start!==-1;start=baseline.indexOf(gateMarker)){
+ let depth=1,quote=null,comment=false,end=start+gateMarker.length;
+ const innerStart=end;
+ for(;end<baseline.length&&depth;end++){
+  const char=baseline[end];
+  if(comment){if(baseline.startsWith('*/',end)){comment=false;end++;}continue;}
+  if(char==='\\'){end++;continue;}
+  if(quote){if(char===quote)quote=null;continue;}
+  if(baseline.startsWith('/*',end)){comment=true;end++;continue;}
+  if(char==='"'||char==="'"){quote=char;continue;}
+  if(char==='{')depth++;
+  if(char==='}')depth--;
+ }
+ assert.equal(depth,0,'private media block must close');
+ const inner=baseline.slice(innerStart,end-1);
+ gateBlocks.push(inner);
+ baseline=baseline.slice(0,start)+inner+baseline.slice(end);
+}
+test('light-only descendant rules are guarded by private media rules without rewriting selectors',()=>{
  assert.ok(gateAt>css.indexOf('/* Light mode uses adaptive text'));
- assert.equal(css.split(gateMarker).length,2);
- const tail=css.slice(gateAt+gateMarker.length).trim();
- assert.ok(tail.startsWith('html[data-dream-skin="active"][data-dream-theme="internet-angel"]:is(.dream-theme-light, [data-dream-shell="light"])'));
- assert.match(tail,/\}\s*\}$/);
+ assert.equal(gateBlocks.length,2,'the base palette and modern-layout light overrides are both gated');
+ for(const block of gateBlocks){
+  assert.ok(block.trim().startsWith('html'));
+  for(const match of block.replace(/\/\*[\s\S]*?\*\//g,'').matchAll(/(?:^|})\s*([^{}]+)\{/g)){
+   assert.match(match[1],/dream-theme-light|data-dream-shell="light"/,'gates must contain only light rules');
+  }
+ }
  assert.ok(baseline.includes('[data-angel-component] :where(button, a, p, span, div, li, h1, h2, h3, h4, h5, h6, label, td, th)'));
 });
 

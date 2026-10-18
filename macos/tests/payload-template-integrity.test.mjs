@@ -182,6 +182,8 @@ test("payload injects only the compiled Safe CSS cascade, on both clients", asyn
 }
 [data-ds-part="home-hero"] {
   font-weight: 700;
+  font-size: 18px;
+  color: #f5e7d0;
 }
 [data-ds-part="composer"] {
   border-radius: 17px;
@@ -205,6 +207,7 @@ test("payload injects only the compiled Safe CSS cascade, on both clients", asyn
   ]) assert.ok(captured.cssText.includes(declaration), declaration);
   assert.ok(captured.cssText.includes("background-image: none !important;"));
   assert.match(captured.cssText, /composer-toolbar[^\n]+:where\(button:not/);
+  assert.ok(captured.cssText.includes('[data-ds-part="home-hero"]::after {\n    font-size: 18px !important;'));
   assert.ok(!captured.cssText.includes("background-color: #123456;\n"),
     "The original unprioritized author source must not be appended to the payload.");
 });
@@ -300,7 +303,8 @@ test("helper-only renderer changes invalidate the real macOS payload revision", 
     }
     for (const name of ["selectors.json", "dream-skin.css", "renderer-inject.js",
       "internet-angel-extension.css", "internet-angel-extension.js",
-      "theme-package-validator.mjs", "safe-css-validator.mjs"]) {
+      "theme-package-validator.mjs", "safe-css-validator.mjs", "theme-preferences.mjs",
+      "motion-settings.mjs", "motion-payload.mjs", "theme-motion.js", "theme-motion.css"]) {
       await fs.copyFile(path.join(macosRoot, "assets", name), path.join(fixtureRoot, "assets", name));
     }
     await fs.writeFile(path.join(fixtureRoot, "assets", "css-predicate-cache.mjs"), source);

@@ -2138,6 +2138,7 @@ html:root[data-dream-skin="active"][data-dream-theme="internet-angel"].dream-rou
 
 /* Fixed purple controls retain paper text in native Light mode; the timeline
    and owned Home cards use the adaptive light palette. */
+@media (dream-skin-internet-angel-light), all {
 html:root[data-dream-skin="active"][data-dream-theme="internet-angel"]:is(.dream-theme-light, [data-dream-shell="light"])
   aside[data-angel-component="settings-sidebar"] {
   background: linear-gradient(145deg, rgb(22 21 71 / .98), rgb(48 31 101 / .96)) !important;
@@ -2172,4 +2173,5 @@ html:root[data-dream-skin="active"][data-dream-theme="internet-angel"]:is(.dream
   [data-app-action-timeline-scroll] [class~="group/turn-diff-header"] {
   background: linear-gradient(110deg, var(--angel-adaptive-surface-raised),
     color-mix(in srgb, var(--angel-adaptive-surface-raised) 94%, var(--angel-pink))) !important;
+}
 }

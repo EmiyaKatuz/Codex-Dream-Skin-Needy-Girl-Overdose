@@ -1970,8 +1970,15 @@ for (const [platform, rendererTemplate] of [
 }
 assert.equal(main.observers[0].observations.length, 3,
   "The renderer must observe only root, body, and main shell boundaries.");
-assert.equal(main.observers[0].observations.some(({ options }) => options.subtree), false,
-  "The renderer must never subscribe to streamed descendant mutations.");
+const activePageObservations = main.observers[0].observations.filter(({ options }) => options.subtree);
+assert.equal(activePageObservations.length, 1,
+  "Only active-page attribute changes need descendant observation.");
+assert.deepEqual(activePageObservations.map(({ options }) => ({
+  attributes: options.attributes, childList: Boolean(options.childList),
+  characterData: Boolean(options.characterData), attributeFilter: [...options.attributeFilter],
+})), [{ attributes: true, childList: false, characterData: false,
+  attributeFilter: ["data-app-shell-active-page"] }],
+  "Active-page observation must never subscribe to streamed content mutations.");
 assert.deepEqual(main.intervalDelays, [60000],
   "The full DOM scan must remain a low-frequency safety fallback.");
 assert.equal(main.windowListeners.get("popstate")?.size, 1,

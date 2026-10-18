@@ -20,7 +20,7 @@
     variable: `--ds-community-composer-${property}`,
   })).filter(({ variable }) => cssText.includes(`${variable}:`));
   const ROOT_ATTRS = [
-    "data-dream-skin", SHELL_ATTR, "data-dream-theme",
+    "data-dream-skin", SHELL_ATTR, "data-dream-theme", "data-dream-upload-alpha",
     "data-dream-art-wide", "data-dream-art-safe", "data-dream-task-mode",
     "data-dream-art-safe-area", "data-dream-art-task-mode", "data-dream-art-aspect",
     "data-dream-art-ready",
@@ -47,11 +47,32 @@
     "preset-internet-angel-default",
   ]);
   const isInternetAngelTheme = INTERNET_ANGEL_THEME_IDS.has(String(THEME.id || "").trim());
+  // Only adapt declarations in the already validated community layer. Keep
+  // foregrounds, borders and element opacity intact. Relative colors preserve
+  // authored RGB/alpha (including percentages); local preferences replace alpha
+  // rather than multiplying it. Opaque legacy literals use the same 30% default
+  // as public background tokens. Explicit `transparent` remains an empty layer.
+  const communityStart = cssText.indexOf("@layer dreamskin-community {");
+  if (communityStart >= 0) {
+    const communityCss = cssText.slice(communityStart).replace(
+      /(^[ \t]*background-color:\s*)([^;]+?)(\s*!important;)/gm,
+      (declaration, prefix, color, suffix) => {
+        const value = color.trim();
+        if (value.toLowerCase() === "transparent") return declaration;
+        const hasAlpha = /^#(?:[0-9a-f]{4}|[0-9a-f]{8})$/i.test(value)
+          || /^rgba\(/i.test(value) || /^var\(/i.test(value);
+        return `${prefix}rgb(from ${value} r g b / var(--ds-user-surface-alpha, ${hasAlpha ? "alpha" : "0.70"}))${suffix}`;
+      },
+    );
+    cssText = cssText.slice(0, communityStart) + communityCss;
+  }
   const ART = THEME.art && typeof THEME.art === "object" ? THEME.art : {};
   const ART_METADATA = THEME.artMetadata && typeof THEME.artMetadata === "object"
     ? THEME.artMetadata : null;
   const ANALYSIS_CACHE_KEY = "__CODEX_DREAM_SKIN_ANALYSIS_CACHE__";
   const THEME_VARIABLES = [
+    "--ds-upload-panel-alpha", "--ds-upload-bg-alpha", "--ds-upload-panel-alt-alpha",
+    "--ds-user-surface-alpha",
     "--ds-bg", "--ds-panel", "--ds-panel-2", "--ds-green", "--ds-lime", "--ds-on-accent",
     "--ds-cyan", "--ds-purple", "--ds-text", "--ds-muted", "--ds-line",
     "--ds-bg-rgb", "--ds-panel-rgb", "--ds-panel-2-rgb", "--ds-accent-rgb",
@@ -115,13 +136,18 @@
   if (typeof previous?.cleanup === "function") previous.cleanup();
   window[DISABLED_KEY] = false;
 
-  const CSS_PREDICATES = [{"selector":":has([role=\"main\"])","attribute":"data-dream-has-0","branches":[{"selector":"[role=\"main\"]","relation":"descendant"}],"replacement":":is(:where([data-dream-has-0]), :is(* [role=\"main\"]):not(*))","mutationSelector":"[role=\"main\"]"},{"selector":":has(main:is(.main-surface, [data-app-shell-main-surface], [class*=\"_MainContentSurface_\"]))","attribute":"data-dream-has-1","branches":[{"selector":"main:is(.main-surface, [data-app-shell-main-surface], [class*=\"_MainContentSurface_\"])","relation":"descendant"}],"replacement":":is(:where([data-dream-has-1]), :is(* main:is(.main-surface, [data-app-shell-main-surface], [class*=\"_MainContentSurface_\"])):not(*))","mutationSelector":"main:is(.main-surface, [data-app-shell-main-surface], [class*=\"_MainContentSurface_\"])"},{"selector":":has(main:is(.main-surface, [data-app-shell-main-surface], [class*=\"_MainContentSurface_\"]) [role=\"main\"])","attribute":"data-dream-has-2","branches":[{"selector":"main:is(.main-surface, [data-app-shell-main-surface], [class*=\"_MainContentSurface_\"]) [role=\"main\"]","relation":"descendant"}],"replacement":":is(:where([data-dream-has-2]), :is(* main:is(.main-surface, [data-app-shell-main-surface], [class*=\"_MainContentSurface_\"]) [role=\"main\"]):not(*))","mutationSelector":"[role=\"main\"]"},{"selector":":has([data-testid=\"home-icon\"])","attribute":"data-dream-has-3","branches":[{"selector":"[data-testid=\"home-icon\"]","relation":"descendant"}],"replacement":":is(:where([data-dream-has-3]), :is(* [data-testid=\"home-icon\"]):not(*))","mutationSelector":"[data-testid=\"home-icon\"]"}]
+  const CSS_PREDICATES = [{"selector":":has([role=\"main\"])","attribute":"data-dream-has-0","branches":[{"selector":"[role=\"main\"]","relation":"descendant"}],"replacement":":is(:where([data-dream-has-0]), :is(* [role=\"main\"]):not(*))","mutationSelector":"[role=\"main\"]"},{"selector":":has(main:is(.main-surface, [data-app-shell-main-surface], [class*=\"_MainContentSurface_\"]))","attribute":"data-dream-has-1","branches":[{"selector":"main:is(.main-surface, [data-app-shell-main-surface], [class*=\"_MainContentSurface_\"])","relation":"descendant"}],"replacement":":is(:where([data-dream-has-1]), :is(* main:is(.main-surface, [data-app-shell-main-surface], [class*=\"_MainContentSurface_\"])):not(*))","mutationSelector":"main:is(.main-surface, [data-app-shell-main-surface], [class*=\"_MainContentSurface_\"])"},{"selector":":has([data-testid=\"home-icon\"])","attribute":"data-dream-has-3","branches":[{"selector":"[data-testid=\"home-icon\"]","relation":"descendant"}],"replacement":":is(:where([data-dream-has-3]), :is(* [data-testid=\"home-icon\"]):not(*))","mutationSelector":"[data-testid=\"home-icon\"]"},{"selector":":has(main:is(.main-surface, [data-app-shell-main-surface], [class*=\"_MainContentSurface_\"]) [role=\"main\"])","attribute":"data-dream-has-22","branches":[{"selector":"main:is(.main-surface, [data-app-shell-main-surface], [class*=\"_MainContentSurface_\"]) [role=\"main\"]","relation":"descendant"}],"replacement":":is(:where([data-dream-has-22]), :is(* main:is(.main-surface, [data-app-shell-main-surface], [class*=\"_MainContentSurface_\"]) [role=\"main\"]):not(*))","mutationSelector":"[role=\"main\"]"}]
     .filter((item) => cssText.includes(item.selector));
   for (const { selector, replacement } of CSS_PREDICATES) {
     cssText = cssText.replaceAll(selector, replacement);
   }
   const predicateCache = (__DREAM_CSS_PREDICATE_RUNTIME__)(document, CSS_PREDICATES);
   predicateCache.refresh();
+  Object.defineProperties(metrics, {
+    predicatePasses: { get: () => predicateCache.metrics.passes },
+    predicateWrites: { get: () => predicateCache.metrics.writes },
+    predicateMs: { get: () => predicateCache.metrics.totalMs },
+  });
 
   const existingStyleRegistry = window[STYLE_REGISTRY_KEY];
   const styleRegistry = existingStyleRegistry instanceof Set ? existingStyleRegistry : new Set();
@@ -217,15 +243,14 @@
     };
   };
 
-  const readableAccentInk = (accent, panel) => {
-    // The send button sits on the composer surface, which renders panel RGB
-    // at 94% regardless of the panel color's declared alpha. Compare against
-    // both possible backdrop extremes so artwork cannot flip the decision.
+  const readableAccentInk = (accent, panel, panelAlpha = 0.94) => {
+    // Match the composer background alpha and compare both possible backdrop
+    // extremes so artwork cannot flip the decision.
     const luminances = [0, 255].map((backdrop) => {
       const surface = compositeColor(
         panel,
         { r: backdrop, g: backdrop, b: backdrop },
-        0.94,
+        panelAlpha,
       );
       return relativeLuminance(compositeColor(accent, surface));
     });
@@ -271,6 +296,8 @@
 
   const detectShellAppearance = () => {
     const root = document.documentElement;
+    const nativeTheme = root?.getAttribute("data-theme");
+    if (nativeTheme === "dark" || nativeTheme === "light") return nativeTheme;
     if (root?.classList?.contains("electron-dark")) return "dark";
     if (root?.classList?.contains("electron-light")) return "light";
     try { return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"; } catch {}
@@ -332,6 +359,38 @@
       for (const key of Object.keys(declaredColors)) explicit.add(key);
     }
     if (typeof legacyPalette.accent === "string") explicit.add("accent");
+    const explicitAlpha = (name) => {
+      const value = declaredColors[name];
+      if (!explicit.has(name) || typeof value !== "string") return null;
+      const source = value.trim();
+      const supplied = /^#(?:[0-9a-f]{4}|[0-9a-f]{8})$/i.test(source)
+        || /^rgba?\(\s*[\d.]+\s*,\s*[\d.]+\s*,\s*[\d.]+\s*,\s*[\d.]+\s*\)$/i.test(source);
+      return supplied ? parseRgb(source)?.alpha ?? null : null;
+    };
+    // Preferences are supplied by the local injector, never by the theme ZIP.
+    // Transparency is the visible wallpaper percentage (30 => alpha .70).
+    const userAlpha = typeof THEME.userTransparency === "number"
+      && Number.isFinite(THEME.userTransparency)
+      && THEME.userTransparency >= 0 && THEME.userTransparency <= 100
+      ? (100 - THEME.userTransparency) / 100 : null;
+    const panelAlpha = userAlpha ?? explicitAlpha("panel") ?? 0.70;
+    const backgroundAlpha = userAlpha ?? explicitAlpha("background") ?? panelAlpha;
+    const panelAltAlpha = userAlpha ?? explicitAlpha("panelAlt") ?? panelAlpha;
+    if (userAlpha !== null) setStyleProperty(root, "--ds-user-surface-alpha", String(userAlpha));
+    else root.style.removeProperty("--ds-user-surface-alpha");
+    const uploadAlphas = {
+      "--ds-upload-panel-alpha": panelAlpha,
+      "--ds-upload-bg-alpha": backgroundAlpha,
+      "--ds-upload-panel-alt-alpha": panelAltAlpha,
+    };
+    for (const [name, alpha] of Object.entries(uploadAlphas)) {
+      if (alpha !== null) setStyleProperty(root, name, String(alpha));
+      else root.style.removeProperty(name);
+    }
+    if (Object.values(uploadAlphas).some((alpha) => alpha !== null)) {
+      setAttribute(root, "data-dream-upload-alpha", "true");
+    } else root.removeAttribute("data-dream-upload-alpha");
+
     const adaptive = makeAdaptivePalette(artAnalysis?.accentRgb, shell);
     const legacyLight = (THEME.appearance === undefined || THEME.appearance === "auto")
       && THEME.colorMode !== "explicit" && shell === "light";
@@ -362,13 +421,14 @@
       const accentInk = readableAccentInk(
         accent,
         variables["--ds-panel"],
+        panelAlpha ?? 0.94,
       );
       if (accentInk) setStyleProperty(root, "--ds-on-accent", accentInk);
     }
     const publicColors = {
-      "--ds-theme-color-background": variables["--ds-bg"],
-      "--ds-theme-color-panel": variables["--ds-panel"],
-      "--ds-theme-color-panel-alt": variables["--ds-panel-2"],
+      "--ds-theme-color-background": `rgb(${rgbString(variables["--ds-bg"])} / ${backgroundAlpha})`,
+      "--ds-theme-color-panel": `rgb(${rgbString(variables["--ds-panel"])} / ${panelAlpha})`,
+      "--ds-theme-color-panel-alt": `rgb(${rgbString(variables["--ds-panel-2"])} / ${panelAltAlpha})`,
       "--ds-theme-color-accent": variables["--ds-green"],
       "--ds-theme-color-accent-alt": variables["--ds-lime"],
       "--ds-theme-color-secondary": variables["--ds-cyan"],
@@ -656,24 +716,20 @@
     return shell;
   };
 
-  const selectorHit = (key) => {
-    const selector = selectorByKey.get(key)?.selector;
-    if (!selector) return false;
-    try { return Boolean(document.querySelector(selector)); } catch { return false; }
+  // Codex 26.930 retains previous routes in the DOM. Their anchors must not
+  // select the active scope or receive public theme-part markers.
+  const queryAll = (selector) => {
+    if (!selector) return [];
+    try {
+      return [...document.querySelectorAll(selector)]
+        .filter((node) => !node.closest?.('[data-app-shell-active-page="false"]'));
+    } catch { return []; }
   };
-
-  const stableTestidHit = (testid) => {
-    const selector = stableTestidSelector(testid);
-    if (!selector) return false;
-    try { return Boolean(document.querySelector(selector)); } catch { return false; }
-  };
+  const selectorHit = (key) => queryAll(selectorByKey.get(key)?.selector).length > 0;
+  const stableTestidHit = (testid) => queryAll(stableTestidSelector(testid)).length > 0;
 
   const partNodes = new Set();
   const composerBorderRestores = new Map();
-  const queryAll = (selector) => {
-    if (!selector) return [];
-    try { return [...document.querySelectorAll(selector)]; } catch { return []; }
-  };
   const selectorNodes = (key) => queryAll(selectorByKey.get(key)?.selector);
   const genericNodes = (selector) => queryAll(selector)
     .filter((node) => node && typeof node.setAttribute === "function");
@@ -841,7 +897,7 @@
     for (const node of [...composerBorderRestores.keys()]) restoreComposerBorders(node);
     for (const node of partNodes) node.removeAttribute?.(PART_ATTR);
     partNodes.clear();
-    for (const node of queryAll(`[${PART_ATTR}]`)) node.removeAttribute?.(PART_ATTR);
+    for (const node of document.querySelectorAll(`[${PART_ATTR}]`)) node.removeAttribute?.(PART_ATTR);
   };
 
   const scopeMatches = (scope, baseState, overlay) => {
@@ -859,7 +915,7 @@
     if (selectorHit("settings-panel") || selectorHit("appearance-radio") ||
       stableTestidHit("theme-preview")) baseState = "settings";
     else if (selectorHit("home-icon") || selectorHit("home-route")) baseState = "home";
-    else if (!selectorHit("shell-main") && !document.querySelector('main, [role="main"]')) baseState = "settings";
+    else if (!selectorHit("shell-main") && !queryAll('main, [role="main"]').length) baseState = "settings";
     const missingL1 = SELECTOR_CONTRACT.selectors
       .filter((entry) => entry.tier === "L1" && entry.required &&
         scopeMatches(entry.scope, baseState, overlay) && !selectorHit(entry.key))
@@ -1158,7 +1214,19 @@
     // SPA route changes are observable as DOM mutations even when Chromium's
     // Navigation API emits no event. Keep verification scope and public parts
     // derived from the same post-mutation tree.
-    partObserver = new MutationObserver(() => scheduleEnsure({ scope: true, parts: true }, 80));
+    const predicateClass = /main-surface|_MainContentSurface_|home-banners|_homeUtilityBar_|_ComposerHomeUtilityBar_|horizontal-scroll-fade-mask|group\/project-selector/;
+    partObserver = new MutationObserver((records) => {
+      const changed = records.some((record) => {
+        if (record.type !== "attributes") return true;
+        const current = record.target.getAttribute(record.attributeName);
+        if (record.oldValue === current) return false;
+        if (record.attributeName !== "class") return true;
+        const structuralClasses = (value) => String(value || "").split(/\s+/)
+          .filter((token) => predicateClass.test(token)).sort().join(" ");
+        return structuralClasses(record.oldValue) !== structuralClasses(current);
+      });
+      if (changed) scheduleEnsure({ scope: true, parts: true }, 80);
+    });
   }
 
   let mediaQuery = null;
@@ -1218,7 +1286,15 @@
   };
   const observePartTree = (node) => {
     if (!partObserver || !node) return;
-    partObserver.observe(node, { childList: true, subtree: true });
+    partObserver.observe(node, {
+      childList: true, subtree: true,
+      attributes: true, attributeOldValue: true,
+      attributeFilter: [
+        "class", "role", "data-testid", "data-app-shell-main-surface",
+        "data-app-shell-active-page", "data-codex-composer-root", "type",
+        "data-mention-list-scroll-area",
+      ],
+    });
   };
   observeAttributes(document.documentElement);
   const observeBody = () => {

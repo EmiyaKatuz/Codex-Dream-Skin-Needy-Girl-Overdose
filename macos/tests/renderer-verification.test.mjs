@@ -288,12 +288,39 @@ test("visibility scans past stale candidates and accepts opacity above the share
   assert.equal(result.composer.visible, true);
 });
 
+test("inactive cached pages cannot provide visible anchors or Home identity", async () => {
+  const inactivePage = {};
+  const inactive = makeElement({
+    closest: (selector) => selector === '[data-app-shell-active-page="false"]' ? inactivePage : null,
+  });
+  const active = makeElement({ rect: makeRect(720, 540) });
+  const result = await verify({
+    dom: makeDomFixture({
+      shellCandidates: [inactive, active],
+      sidebarCandidates: [inactive, active],
+      composerCandidates: [inactive, active],
+      homeCandidates: [inactive],
+      homeIconCandidates: [inactive],
+    }),
+  });
+  assert.equal(result.pass, true);
+  assert.equal(result.shell.width, 720);
+  assert.equal(result.sidebar.width, 720);
+  assert.equal(result.composer.width, 720);
+  assert.equal(result.homePresent, false);
+  assert.equal(result.homeRoute, false);
+
+  const staleOnly = await verify({ dom: makeDomFixture({ shellCandidates: [inactive] }) });
+  assert.equal(staleOnly.checks.structurePass, false);
+  assert.equal(staleOnly.pass, false);
+});
+
 test("visible Home with a hidden signal cannot bypass the Internet Angel deck gate", async () => {
   const hero = makeElement({ rect: makeRect(900, 620, 200, 80) });
   let home;
   const hiddenHomeIcon = makeElement({
     style: { display: "none" },
-    closest: () => home,
+    closest: (selector) => selector === '[role="main"]' ? home : null,
   });
   home = makeElement({
     rect: makeRect(1000, 700, 160, 40),

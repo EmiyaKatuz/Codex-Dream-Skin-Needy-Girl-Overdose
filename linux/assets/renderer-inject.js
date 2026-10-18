@@ -6,6 +6,20 @@
     "preset-internet-angel-default",
   ]);
   const isInternetAngelTheme = INTERNET_ANGEL_THEME_IDS.has(String(rawConfig?.id || "").trim());
+  const communityStart = cssText.indexOf("@layer dreamskin-community {");
+  if (communityStart >= 0) {
+    const communityCss = cssText.slice(communityStart).replace(
+      /(^[ \t]*background-color:\s*)([^;]+?)(\s*!important;)/gm,
+      (declaration, prefix, color, suffix) => {
+        const value = color.trim();
+        if (value.toLowerCase() === "transparent") return declaration;
+        const hasAlpha = /^#(?:[0-9a-f]{4}|[0-9a-f]{8})$/i.test(value)
+          || /^rgba\(/i.test(value) || /^var\(/i.test(value);
+        return `${prefix}rgb(from ${value} r g b / var(--ds-user-surface-alpha, ${hasAlpha ? "alpha" : "0.70"}))${suffix}`;
+      },
+    );
+    cssText = cssText.slice(0, communityStart) + communityCss;
+  }
   const STYLE_REVISION = "9";
   const SKIN_VERSION = __DREAM_SKIN_VERSION_JSON__;
   const PAYLOAD_REVISION = __DREAM_SKIN_PAYLOAD_REVISION_JSON__;
@@ -61,6 +75,8 @@
     "--dream-accent",
     "--dream-accent-ink",
     "--dream-image-luma",
+    "--ds-user-surface-alpha", "--ds-upload-panel-alpha", "--ds-upload-bg-alpha",
+    "--ds-upload-panel-alt-alpha",
   ];
   const HOME_UTILITY_CLASS = "dream-home-utility";
   const SYSTEM_TOAST_CLASS = "dream-system-toast";
@@ -169,6 +185,39 @@
     });
     return .2126 * linear[0] + .7152 * linear[1] + .0722 * linear[2];
   };
+  const parseRgbColor = (value) => {
+    if (!value || value === "transparent") return null;
+    const hex = String(value).trim().match(/^#([0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i);
+    if (hex) {
+      const digits = hex[1];
+      const rgbHex = digits.length <= 4
+        ? digits.slice(0, 3).split("").map((digit) => `${digit}${digit}`).join("")
+        : digits.slice(0, 6);
+      const alphaHex = digits.length === 4
+        ? `${digits[3]}${digits[3]}`
+        : digits.length === 8 ? digits.slice(6, 8) : "ff";
+      const number = Number.parseInt(rgbHex, 16);
+      return {
+        r: number >> 16,
+        g: (number >> 8) & 255,
+        b: number & 255,
+        alpha: Number.parseInt(alphaHex, 16) / 255,
+      };
+    }
+    const match = String(value).trim().match(
+      /^rgba?\(\s*([\d.]+)(?:\s*,\s*|\s+)([\d.]+)(?:\s*,\s*|\s+)([\d.]+)(?:(?:\s*,\s*|\s*\/\s*)([\d.]+%?))?\s*\)$/i,
+    );
+    if (!match) return null;
+    const alpha = match[4] === undefined
+      ? 1
+      : String(match[4]).endsWith("%") ? Number.parseFloat(match[4]) / 100 : Number(match[4]);
+    return {
+      r: Number(match[1]),
+      g: Number(match[2]),
+      b: Number(match[3]),
+      alpha: clamp(alpha),
+    };
+  };
   const defaultProfile = {
     appearance: "dark",
     accent: [108, 131, 142],
@@ -218,6 +267,7 @@
   };
 
   const previous = window[STATE_KEY];
+  previous?.predicateCache?.cleanup();
   if (previous?.observer) previous.observer.disconnect();
   if (previous?.resizeObserver) previous.resizeObserver.disconnect();
   if (previous?.timer) clearInterval(previous.timer);
@@ -232,6 +282,13 @@
   if (previous?.resizeHandler) window.removeEventListener("resize", previous.resizeHandler);
   previous?.motionQuery?.removeEventListener?.("change", previous.motionHandler);
   if (previous?.artUrl) URL.revokeObjectURL(previous.artUrl);
+  const CSS_PREDICATES = __DREAM_CSS_PREDICATES_JSON__
+    .filter((item) => cssText.includes(item.selector));
+  for (const { selector, replacement } of CSS_PREDICATES) {
+    cssText = cssText.replaceAll(selector, replacement);
+  }
+  const predicateCache = (__DREAM_CSS_PREDICATE_RUNTIME__)(document, CSS_PREDICATES);
+  predicateCache.refresh();
   document.documentElement?.classList?.remove?.("dream-preview-blink", "dream-preview-blink-half");
   const artUrl = (() => {
     const comma = artDataUrl.indexOf(",");
@@ -431,6 +488,7 @@
     resizeTargets.clear();
     root?.removeAttribute("data-dream-skin");
     root?.removeAttribute("data-dream-theme");
+    root?.removeAttribute("data-dream-upload-alpha");
     root?.classList.remove(...ROOT_CLASSES);
     root?.classList.remove("dream-preview-blink", "dream-preview-blink-half");
     root?.classList.remove(...HOME_PANEL_STATE_CLASSES);
@@ -512,6 +570,25 @@
     root.style.setProperty("--dream-accent", accent);
     root.style.setProperty("--dream-accent-ink", accentInk);
     root.style.setProperty("--dream-image-luma", profile.luma.toFixed(3));
+    const userAlpha = typeof rawConfig?.userTransparency === "number"
+      && Number.isFinite(rawConfig.userTransparency)
+      && rawConfig.userTransparency >= 0 && rawConfig.userTransparency <= 100
+      ? (100 - rawConfig.userTransparency) / 100 : null;
+    const explicitKeys = new Set(rawConfig?.explicitColorKeys || []);
+    const explicitAlpha = (name) => {
+      const value = rawConfig?.colors?.[name];
+      if ((!explicitKeys.has(name) && rawConfig?.colorMode !== "explicit") || typeof value !== "string") return null;
+      return /^(?:#(?:[0-9a-f]{4}|[0-9a-f]{8})|rgba?\([^)]*,[^)]*,[^)]*,[^)]*\))$/i.test(value.trim())
+        ? parseRgbColor(value)?.alpha ?? null : null;
+    };
+    const panelAlpha = userAlpha ?? explicitAlpha("panel") ?? 0.70;
+    if (userAlpha !== null) root.style.setProperty("--ds-user-surface-alpha", String(userAlpha));
+    else root.style.removeProperty("--ds-user-surface-alpha");
+    root.style.setProperty("--ds-upload-panel-alpha", String(panelAlpha));
+    root.style.setProperty("--ds-upload-bg-alpha", String(userAlpha ?? explicitAlpha("background") ?? panelAlpha));
+    root.style.setProperty("--ds-upload-panel-alt-alpha", String(userAlpha ?? explicitAlpha("panelAlt") ?? panelAlpha));
+    root.setAttribute("data-dream-upload-alpha", "true");
+    predicateCache.syncLightRules(document.getElementById(STYLE_ID)?.sheet);
   };
 
   /* The Choten preset keeps the raster artwork untouched and composites a
@@ -751,6 +828,13 @@
     chrome.classList.toggle("dream-home-shell", Boolean(home));
   };
 
+  const activeNodes = (selector) => [...document.querySelectorAll(selector)]
+    .filter((node) => !node.closest?.('[data-app-shell-active-page="false"]'));
+  const firstActive = (selector) => {
+    const node = activeNodes(selector)[0] ?? document.querySelector(selector);
+    return node?.closest?.('[data-app-shell-active-page="false"]') ? null : node;
+  };
+
   const ensure = () => {
     if (window.__CODEX_DREAM_SKIN_DISABLED__) return;
     const root = document.documentElement;
@@ -761,10 +845,10 @@
     // it, and clearing the skin there flashes native colors over the active theme.
     // True auxiliary windows (pets, blank targets) still have no main surface, so
     // they continue to clear residual skin state.
-    const shellMain = document.querySelector("main.main-surface") ||
-      document.querySelector("main") ||
-      document.querySelector('[role="main"]');
-    const shellSidebar = document.querySelector("aside.app-shell-left-panel");
+    const shellMain = firstActive("main.main-surface") ||
+      firstActive("main") ||
+      firstActive('[role="main"]');
+    const shellSidebar = firstActive("aside.app-shell-left-panel");
     if (!shellMain) {
       clearSkinDom();
       return;
@@ -774,6 +858,7 @@
     root.setAttribute("data-dream-theme", isInternetAngelTheme ? "internet-angel" : "standard");
     root.classList.add("codex-dream-skin");
     applyProfile(root);
+    predicateCache.refresh();
 
     let style = document.getElementById(STYLE_ID);
     if (!style) {
@@ -785,17 +870,18 @@
       style.textContent = cssText;
       style.dataset.dreamVersion = STYLE_REVISION;
     }
+    predicateCache.syncLightRules(style.sheet);
     const activeState = window[STATE_KEY];
     if (activeState?.installToken === installToken) activeState.styleNode = style;
 
-    const routeMains = [...document.querySelectorAll('[role="main"]')];
+    const routeMains = activeNodes('[role="main"]');
     if (!routeMains.length) routeMains.push(shellMain);
-    const settingsNav = document.querySelector('nav:has([data-settings-panel-slug])');
+    const settingsNav = firstActive('nav:has([data-settings-panel-slug])');
     const settingsSidebar = settingsNav?.closest?.('aside.app-shell-left-panel') || null;
     const settingsContent = document.querySelector(
       'div.main-surface:has(> [class~="scrollbar-stable"][class~="flex-1"][class~="overflow-y-auto"][class~="p-panel"])',
     );
-    const semanticHome = document.querySelector('[role="main"]:has([data-testid="home-icon"])');
+    const semanticHome = firstActive('[role="main"]:has([data-testid="home-icon"])');
     const homeMarker = shellMain.querySelector?.('[data-testid="home-icon"]') || null;
     const homeHeading = [...(shellMain.querySelectorAll?.('h1, h2, [role="heading"]') || [])]
       .find((candidate) => /^(我们该构建什么|what should we build)\s*[？?]?$/i.test((candidate.textContent || "").trim()));
@@ -1506,7 +1592,7 @@
     observer.disconnect();
     const root = document.documentElement;
     const body = document.body;
-    const shellMain = document.querySelector("main.main-surface") || document.querySelector("main");
+    const shellMain = firstActive("main.main-surface") || firstActive("main");
     const attributeOptions = {
       attributes: true,
       attributeOldValue: true,
@@ -1514,6 +1600,10 @@
     };
     if (root) observer.observe(root, attributeOptions);
     if (body) observer.observe(body, { ...attributeOptions, childList: true });
+    if (body) observer.observe(body, {
+      attributes: true, subtree: true, attributeOldValue: true,
+      attributeFilter: ["data-app-shell-active-page"],
+    });
     if (shellMain) observer.observe(shellMain, { childList: true });
   };
   const runEnsureSafely = () => {
@@ -1544,6 +1634,7 @@
     if (state?.installToken !== installToken) return false;
     window.__CODEX_DREAM_SKIN_DISABLED__ = true;
     clearSkinDom();
+    predicateCache.cleanup();
     state?.observer?.disconnect();
     state?.resizeObserver?.disconnect();
     if (state?.timer) clearInterval(state.timer);
@@ -1751,7 +1842,7 @@
     if (geometryScheduler.frame) return;
     const sync = () => {
       geometryScheduler.frame = null;
-      const shellMain = document.querySelector("main.main-surface") || document.querySelector("main");
+      const shellMain = firstActive("main.main-surface") || firstActive("main");
       const home = shellMain?.classList?.contains?.("dream-home-shell")
         ? document.querySelector('[role="main"].dream-home') || shellMain
         : null;
@@ -1806,7 +1897,7 @@
       if (samplingNativeShell) return;
       classifyRuntimeSurfaces(records);
       const removedSystemToast = records.some((record) =>
-        [...record.removedNodes].some((node) => node?.nodeType === 1
+        [...(record.removedNodes || [])].some((node) => node?.nodeType === 1
           && (node.matches?.(`.${SYSTEM_TOAST_CLASS}`)
             || node.querySelector?.(`.${SYSTEM_TOAST_CLASS}`))));
       if (removedSystemToast && !document.querySelector(`.${SYSTEM_TOAST_CLASS}`)) {
@@ -1825,6 +1916,7 @@
   const timer = setInterval(runEnsureSafely, lowPerformance ? 30000 : FALLBACK_REFRESH_MS);
   const runtimeState = {
     ensure: runEnsureSafely, cleanup, observer, resizeObserver, timer, scheduler, geometryScheduler, resizeHandler, navigationHandler, motionQuery, motionHandler,
+    predicateCache, predicateMetrics: predicateCache.metrics,
     artUrl, profile, config, installToken, version: SKIN_VERSION,
     themeId: config.themeId,
     revision: PAYLOAD_REVISION,

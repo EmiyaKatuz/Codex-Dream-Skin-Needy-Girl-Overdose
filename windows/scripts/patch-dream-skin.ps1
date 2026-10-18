@@ -18,7 +18,7 @@ function Assert-DreamSkinPatchSource {
   $cssPath = Join-Path $Root 'assets\dream-skin.css'
   $acrylicCssPath = Join-Path $Root 'assets\internet-angel-acrylic.css'
   $extensionCssPath = Join-Path $Root 'assets\internet-angel-extension.css'
-  foreach ($assetName in @('theme-motion.js', 'theme-motion.css', 'motion-settings.mjs', 'motion-payload.mjs')) {
+  foreach ($assetName in @('theme-motion.js', 'theme-motion.css', 'motion-settings.mjs', 'motion-payload.mjs', 'theme-preferences.mjs')) {
     $motionPath = Join-Path $Root "assets\$assetName"
     if (-not (Test-Path -LiteralPath $motionPath -PathType Leaf)) {
       throw "Patch source is incomplete: $motionPath"
@@ -209,7 +209,7 @@ $patchIdentityPairs = @(
   @{ Source = $extensionScriptSourcePath; Installed = $installedExtensionScript },
   @{ Source = $predicateRuntimeSourcePath; Installed = $installedPredicateRuntime }
 )
-$motionAssetNames = @('theme-motion.js', 'theme-motion.css', 'motion-settings.mjs', 'motion-payload.mjs')
+$motionAssetNames = @('theme-motion.js', 'theme-motion.css', 'motion-settings.mjs', 'motion-payload.mjs', 'theme-preferences.mjs')
 foreach ($assetName in $motionAssetNames) {
   $patchIdentityPairs += @{
     Source = (Join-Path $sourceRoot "assets\$assetName")

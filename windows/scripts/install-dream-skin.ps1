@@ -38,10 +38,11 @@ try {
   if (Test-DreamSkinTrayActive) {
     throw 'Exit the Codex Dream Skin tray before reinstalling so every shortcut can move to the new runtime safely.'
   }
+  $configPaths = Resolve-DreamSkinConfigPaths -StateRoot $StateRoot -BindBackup
   $engine = Install-DreamSkinRuntimeEngine -SkillRoot $SkillRoot -StateRoot $StateRoot
   $null = Initialize-DreamSkinThemeStore -SkillRoot $engine.Root -StateRoot $StateRoot
-  $ConfigPath = Join-Path $HOME '.codex\config.toml'
-  $BackupPath = Join-Path $StateRoot 'config.before-dream-skin.toml'
+  $ConfigPath = $configPaths.ConfigPath
+  $BackupPath = $configPaths.BackupPath
   $windowMaterial = (Read-DreamSkinWindowEffects -StateRoot $StateRoot).WindowMaterial
   Install-DreamSkinBaseTheme -ConfigPath $ConfigPath -BackupPath $BackupPath `
     -AppearanceTheme (Get-DreamSkinActiveThemeAppearance -ThemeDirectory $themePaths.Active) `
@@ -64,9 +65,9 @@ try {
     foreach ($folder in @($desktop, $startMenu)) {
       $shortcut = $shell.CreateShortcut((Join-Path $folder 'Codex Dream Skin.lnk'))
       $shortcut.TargetPath = $powershell
-      $shortcut.Arguments = "-NoProfile -ExecutionPolicy RemoteSigned -File `"$startScript`"$portArgument -PromptRestart"
+      $shortcut.Arguments = "-NoProfile -STA -WindowStyle Hidden -ExecutionPolicy RemoteSigned -File `"$trayScript`"$portArgument -ShowWindow"
       $shortcut.WorkingDirectory = $engine.Root
-      $shortcut.Description = 'Launch the official Codex app with Codex Dream Skin'
+      $shortcut.Description = 'Open Codex Dream Skin themes and apply a verified theme'
       $shortcut.IconLocation = "$shortcutIcon,0"
       $shortcut.Save()
     }

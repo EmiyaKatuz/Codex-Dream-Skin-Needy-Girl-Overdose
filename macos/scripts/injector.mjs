@@ -1,4 +1,5 @@
 import fs from "node:fs/promises";
+import { readThemeTransparency, themePreferencesPath } from "../assets/theme-preferences.mjs";
 import { constants as fsConstants, watch as watchFs } from "node:fs";
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -47,7 +48,7 @@ const stableTestidLiteral = (testid) => {
   }
   return JSON.stringify(`[data-testid="${testid}"]`);
 };
-const SKIN_VERSION = "1.6.0";
+const SKIN_VERSION = "1.7.0";
 // .github/workflows/ci.yml's version-consistency check greps this file for a
 // literal `const SKIN_VERSION = "...";` line, so the export stays a separate
 // statement rather than an inline `export const`.
@@ -726,7 +727,7 @@ async function loadSafeCss(assetsRoot) {
   }
 }
 
-export async function loadTheme(themeDir) {
+export async function loadTheme(themeDir, preferenceOptions = {}) {
   const requestedRoot = themeDir ?? path.join(root, "assets");
   const configPath = path.join(requestedRoot, "theme.json");
   let assetsRoot;
@@ -817,6 +818,8 @@ export async function loadTheme(themeDir) {
       line: normalizeThemeColor(rawColors?.line, "rgba(124, 255, 70, .28)"),
     },
   };
+  const userTransparency = await readThemeTransparency(theme.id, { preferencesPath: themePreferencesPath("darwin"), ...preferenceOptions });
+  if (userTransparency !== undefined) theme.userTransparency = userTransparency;
   if (appearance !== undefined) theme.appearance = appearance;
   if (Object.values(art).some((value) => value !== undefined)) {
     theme.art = Object.fromEntries(Object.entries(art).filter(([, value]) => value !== undefined));
@@ -898,11 +901,11 @@ function invalidateStaticPayloadAssets() {
   staticPayloadAssets = null;
 }
 
-export async function loadPayload(themeDir, { motionSettingsPath = getMotionSettingsPath() } = {}) {
+export async function loadPayload(themeDir, { motionSettingsPath = getMotionSettingsPath(), ...preferenceOptions } = {}) {
   const startedAt = performance.now();
   const [staticAssets, loaded, motionPreferences] = await Promise.all([
     loadStaticPayloadAssets(),
-    loadTheme(themeDir),
+    loadTheme(themeDir, preferenceOptions),
     readMotionPreferences(motionSettingsPath),
   ]);
   const { css: baseCss, template, internetAngelCss, internetAngelTemplate, motionCss, motionTemplate } = staticAssets;
@@ -1260,14 +1263,20 @@ export async function verifySession(session, expectedThemeId = null, expectedRev
       };
     };
     const queryAll = (selector, root = document) => {
-      try { return [...root.querySelectorAll(selector)]; } catch { return []; }
+      try {
+        return [...root.querySelectorAll(selector)]
+          .filter((node) => !node.closest?.('[data-app-shell-active-page="false"]'));
+      } catch { return []; }
     };
     const firstVisible = (nodes) => nodes.find((node) => box(node)?.visible) ?? null;
-    const homeSignal = firstVisible([
+    const homeSignals = [
       ...queryAll(${selectorLiteral("home-icon")}),
       ...queryAll(${selectorLiteral("game-source")}),
       ...queryAll(${selectorLiteral("home-suggestions")}),
-    ]);
+    ];
+    // Home icons may be intentionally hidden by the theme. Active ancestry is
+    // still a signal, while measured layout landmarks must remain visible.
+    const homeSignal = firstVisible(homeSignals) ?? homeSignals[0] ?? null;
     const homeRoute = homeSignal?.closest('[role="main"]') ?? null;
     // Codex 26.721.x can render the home content before home-icon. Reuse the
     // already-resolved semantic home container so a healthy home session is
@@ -1930,6 +1939,7 @@ function watchPayloadSources(themeDir, onDirty) {
           "theme-motion.js",
         ].includes(name));
         if (kind === "static" && !staticChanged) return;
+        if (kind === "preferences" && name && name !== "theme-preferences.json") return;
         onDirty({ staticChanged });
       });
       watcher.on("error", (error) => {
@@ -1941,6 +1951,7 @@ function watchPayloadSources(themeDir, onDirty) {
     }
   };
   add(themeRoot, "theme");
+  add(path.dirname(themePreferencesPath("darwin")), "preferences");
   if (themeRoot !== assetsRoot) add(assetsRoot, "static");
   return () => watchers.forEach((watcher) => watcher.close());
 }

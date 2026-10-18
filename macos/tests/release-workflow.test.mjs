@@ -34,7 +34,13 @@ assert.match(
   "A manual retry must resume an incomplete release from its immutable existing tag commit.",
 );
 
-assert.match(workflow, /cat "docs\/releases\/v\$\{VERSION\}\.md" >> release-notes\.md/,
+assert.match(workflow, /cat "docs\/releases\/v\$\{VERSION\}\.md" > release-notes\.md/,
   "Version-specific changes and contributor credits must reach the public release notes.");
+
+assert.match(
+  workflow,
+  /if \[\[ "\$previous_version" == "\$version" \]\]; then\s+version_unchanged="true"\s+should_release="false"/,
+  "A main push with no version change must never rebuild or retry a release.",
+);
 
 console.log("PASS: Release workflow binds assets and tag to the exact event commit.");

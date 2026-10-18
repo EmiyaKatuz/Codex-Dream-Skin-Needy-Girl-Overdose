@@ -6,6 +6,8 @@ $Root = Split-Path -Parent $PSScriptRoot
 . (Join-Path $Root 'scripts\common-windows.ps1')
 . (Join-Path $Root 'scripts\theme-windows.ps1')
 . (Join-Path $Root 'scripts\localization-windows.ps1')
+& (Join-Path $PSScriptRoot 'theme-manager-maintenance.tests.ps1')
+& (Join-Path $PSScriptRoot 'codex-home.tests.ps1')
 
 if ((Resolve-DreamSkinLanguage -Language 'zh-CN') -cne 'zh-CN' -or
   (Resolve-DreamSkinLanguage -Language 'en-US') -cne 'en-US') {
@@ -1442,6 +1444,7 @@ args = [
   Copy-Item -LiteralPath (Join-Path $Root 'scripts\restore-dream-skin.ps1') -Destination $releaseFixtureScripts -Force
   Copy-Item -LiteralPath (Join-Path $Root 'scripts\start-dream-skin.ps1') -Destination $releaseFixtureScripts -Force
   Copy-Item -LiteralPath (Join-Path $Root 'scripts\theme-windows.ps1') -Destination $releaseFixtureScripts -Force
+  Copy-Item -LiteralPath (Join-Path $Root 'assets\theme-manager') -Destination $releaseFixtureAssets -Recurse -Force
   Copy-Item -LiteralPath (Join-Path $Root 'scripts\tray-dream-skin.ps1') -Destination $releaseFixtureScripts -Force
   Copy-Item -LiteralPath (Join-Path $Root 'scripts\validate-safe-css-file.mjs') -Destination $releaseFixtureScripts -Force
   Copy-Item -LiteralPath (Join-Path $Root 'scripts\verify-dream-skin.ps1') -Destination $releaseFixtureScripts -Force
@@ -1644,7 +1647,7 @@ args = [
       throw "Windows injector operation UI is missing: $requiredOperationUi"
     }
   }
-  if ([regex]::Matches($traySource, '-ExecutionPolicy RemoteSigned').Count -ne 2 -or
+  if ([regex]::Matches($traySource, '-ExecutionPolicy RemoteSigned').Count -ne 3 -or
     $traySource.Contains('-ExecutionPolicy Bypass')) {
     throw 'Tray actions still bypass the PowerShell execution policy.'
   }
@@ -1821,9 +1824,11 @@ args = [
   $node = Get-DreamSkinNodeRuntime
   & (Join-Path $PSScriptRoot 'tray-motion.tests.ps1') -Root $Root
   & (Join-Path $PSScriptRoot 'community-theme-link.tests.ps1') -Root $Root
+  & (Join-Path $PSScriptRoot 'native-stderr.tests.ps1') -Root $Root
   & (Join-Path $PSScriptRoot 'theme-zip-import.tests.ps1') -Root $Root
   & (Join-Path $PSScriptRoot 'config-startup-rollback.tests.ps1') -Root $Root
   & (Join-Path $PSScriptRoot 'start-result-contract.tests.ps1') -Root $Root
+  & (Join-Path $PSScriptRoot 'tray-apply-result.tests.ps1')
   & (Join-Path $PSScriptRoot 'start-cdp-failure-appearance-recovery.tests.ps1') -Root $Root
   & (Join-Path $PSScriptRoot 'start-post-launch-appearance-recovery.tests.ps1') -Root $Root
   & (Join-Path $PSScriptRoot 'start-renderer-readiness.tests.ps1') -Root $Root

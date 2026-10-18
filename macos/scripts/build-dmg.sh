@@ -89,7 +89,8 @@ done
 MOUNTED_ENGINE="$MOUNTED_APP/Contents/Resources/engine"
 [ -f "$MOUNTED_ENGINE/assets/selectors.json" ] \
   || { printf 'Mounted app is missing the selector contract.\n' >&2; exit 1; }
-for motion_asset in theme-motion.js theme-motion.css motion-settings.mjs motion-payload.mjs; do
+for motion_asset in theme-motion.js theme-motion.css motion-settings.mjs motion-payload.mjs \
+  theme-preferences.mjs css-predicate-cache.mjs; do
   [ -s "$MOUNTED_ENGINE/assets/$motion_asset" ] \
     || { printf 'Mounted app is missing a motion asset: %s\n' "$motion_asset" >&2; exit 1; }
   /usr/bin/cmp -s "$ROOT/assets/$motion_asset" "$MOUNTED_ENGINE/assets/$motion_asset" \

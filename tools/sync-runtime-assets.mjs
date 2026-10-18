@@ -56,8 +56,8 @@ function compileRuntime(source) {
     stableTestids: Array.isArray(contract.stableTestids) ? [...contract.stableTestids] : [],
   };
   const css = compileSelectorTokens(sourceCss, "runtime/dream-skin.css") + "\n" + sourceInternetAngelExtensionCss;
-  return source.replace(token, JSON.stringify(runtimeContract))
-    .replace("__DREAM_SKIN_CSS_PREDICATES_JSON__", JSON.stringify(cacheableCssPredicateManifest(css)));
+  return source.replace(token, () => JSON.stringify(runtimeContract))
+    .replace("__DREAM_SKIN_CSS_PREDICATES_JSON__", () => JSON.stringify(cacheableCssPredicateManifest(css)));
 }
 
 function compileSafeCssFileValidator(source) {
@@ -142,6 +142,10 @@ const sourceImageMetadata = await fs.readFile(
   "utf8",
 );
 const outputs = [
+  {
+    content: await fs.readFile(path.join(projectRoot, "runtime", "theme-preferences.mjs"), "utf8"),
+    paths: ["macos/assets/theme-preferences.mjs", "windows/assets/theme-preferences.mjs", "linux/assets/theme-preferences.mjs"],
+  },
   ...await Promise.all(["theme-motion.css", "theme-motion.js", "motion-settings.mjs", "motion-payload.mjs"].map(async (name) => ({
     content: await fs.readFile(path.join(projectRoot, "runtime", name), "utf8"),
     paths: ["macos", "windows", "linux"].map((platform) => `${platform}/assets/${name}`),

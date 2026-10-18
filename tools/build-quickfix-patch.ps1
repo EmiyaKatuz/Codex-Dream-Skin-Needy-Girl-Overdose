@@ -27,6 +27,7 @@ try {
   foreach ($assetName in @(
     'renderer-inject.js',
     'css-predicate-cache.mjs',
+    'theme-preferences.mjs',
     'dream-skin.css',
     'internet-angel-acrylic.css',
     'internet-angel-extension.js',

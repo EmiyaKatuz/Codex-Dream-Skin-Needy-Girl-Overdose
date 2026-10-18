@@ -42,7 +42,7 @@ try {
     'css-predicate-cache.mjs',
     'dream-skin.css',
     'internet-angel-acrylic.css',
-    'internet-angel-extension.js', 'internet-angel-extension.css', 'theme-motion.js', 'theme-motion.css', 'motion-settings.mjs', 'motion-payload.mjs'
+    'internet-angel-extension.js', 'internet-angel-extension.css', 'theme-motion.js', 'theme-motion.css', 'motion-settings.mjs', 'motion-payload.mjs', 'theme-preferences.mjs'
   )) {
     if (-not $quickFixBuilderSource.Contains("'$requiredQuickFixAsset'")) {
       throw "The quick-fix archive omits a runtime patch asset: $requiredQuickFixAsset"
@@ -64,7 +64,7 @@ try {
     'css-predicate-cache.mjs',
     'dream-skin.css',
     'internet-angel-acrylic.css',
-    'internet-angel-extension.js', 'internet-angel-extension.css', 'theme-motion.js', 'theme-motion.css', 'motion-settings.mjs', 'motion-payload.mjs'
+    'internet-angel-extension.js', 'internet-angel-extension.css', 'theme-motion.js', 'theme-motion.css', 'motion-settings.mjs', 'motion-payload.mjs', 'theme-preferences.mjs'
   )) {
     $sourceAsset = Join-Path $Root "assets\$requiredQuickFixAsset"
     $archivedAsset = Join-Path $quickFixExtract "assets\$requiredQuickFixAsset"
@@ -175,12 +175,12 @@ try {
     $installedCommon, $installedStart, $installedInjector, $installedPatch, $installedRenderer,
     $installedCss, $installedAcrylicCss, $installedExtensionCss, $installedExtensionScript, $installedPredicateRuntime
   )
-  foreach ($assetName in @('theme-motion.js', 'theme-motion.css', 'motion-settings.mjs', 'motion-payload.mjs')) {
+  foreach ($assetName in @('theme-motion.js', 'theme-motion.css', 'motion-settings.mjs', 'motion-payload.mjs', 'theme-preferences.mjs')) {
     $installedMotion = Join-Path $assetsRoot $assetName
     $sourceMotion = Join-Path $Root "assets\$assetName"
     if ((Get-FileHash -LiteralPath $installedMotion -Algorithm SHA256).Hash -cne
       (Get-FileHash -LiteralPath $sourceMotion -Algorithm SHA256).Hash) {
-      throw "Motion runtime dependency was not staged exactly: $assetName"
+      throw "Shared runtime dependency was not staged exactly: $assetName"
     }
     $patchedFiles += $installedMotion
   }
@@ -191,6 +191,15 @@ try {
   if ((Get-FileHash -LiteralPath $installedPredicateRuntime -Algorithm SHA256).Hash -cne
     (Get-FileHash -LiteralPath $sourcePredicateRuntime -Algorithm SHA256).Hash) {
     throw 'A stale predicate runtime dependency was not atomically repaired.'
+  }
+  $installedPreferences = Join-Path $assetsRoot 'theme-preferences.mjs'
+  [System.IO.File]::AppendAllText(
+    $installedPreferences, "`r`n// stale theme preferences dependency`r`n", [System.Text.UTF8Encoding]::new($false)
+  )
+  & $patchScript -SourceRoot $Root -StateRoot $stateRoot
+  if ((Get-FileHash -LiteralPath $installedPreferences -Algorithm SHA256).Hash -cne
+    (Get-FileHash -LiteralPath (Join-Path $Root 'assets\theme-preferences.mjs') -Algorithm SHA256).Hash) {
+    throw 'A stale theme preferences dependency was not atomically repaired.'
   }
   $beforeIdempotentHashes = @($patchedFiles | ForEach-Object {
     (Get-FileHash -LiteralPath $_ -Algorithm SHA256).Hash

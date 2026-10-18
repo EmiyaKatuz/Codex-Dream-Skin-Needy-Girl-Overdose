@@ -234,6 +234,7 @@ test("Windows payload uses the same compiled Safe CSS cascade as macOS", async (
 }
 [data-ds-part="home-hero"] {
   font-weight: 700;
+  font-size: 18px;
 }
 [data-ds-part="composer"] {
   border-radius: 17px;
@@ -252,6 +253,7 @@ test("Windows payload uses the same compiled Safe CSS cascade as macOS", async (
     "background-color: #123456 !important;",
     "color: var(--ds-theme-color-text) !important;",
     "font-weight: 700 !important;",
+    "font-size: 18px !important;",
     "border-radius: 17px !important;",
     "color: #abcdef !important;",
   ]) {
@@ -259,6 +261,7 @@ test("Windows payload uses the same compiled Safe CSS cascade as macOS", async (
     assert.ok(captured.cssText.includes(declaration),
       `The final renderer IIFE must receive compiled Safe CSS: ${declaration}`);
   }
+  assert.ok(captured.cssText.includes('[data-ds-part="home-hero"]::after {\n    font-size: 18px !important;'));
   assert.ok(captured.cssText.includes("background-image: none !important;"));
   assert.match(captured.cssText, /composer-toolbar[^\n]+:where\(button:not/);
   assert.ok(!captured.cssText.includes("background-color: #123456;\n"),
@@ -336,7 +339,8 @@ test("helper runtime and manifest changes invalidate the real Windows payload re
       }
       for (const name of ["selectors.json", "dream-skin.css", "renderer-inject.js",
         "internet-angel-extension.css", "internet-angel-extension.js", "internet-angel-acrylic.css",
-        "theme-package-validator.mjs", "safe-css-validator.mjs"]) {
+        "theme-package-validator.mjs", "safe-css-validator.mjs", "theme-preferences.mjs",
+        "motion-payload.mjs", "motion-settings.mjs", "theme-motion.js", "theme-motion.css"]) {
         await fs.copyFile(path.join(assetsDir, name), path.join(variantRoot, "assets", name));
       }
       await fs.writeFile(path.join(variantRoot, "assets", "css-predicate-cache.mjs"), source);

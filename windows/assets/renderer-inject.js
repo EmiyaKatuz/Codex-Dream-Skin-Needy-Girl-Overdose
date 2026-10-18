@@ -30,6 +30,20 @@
     "preset-internet-angel-default",
   ]);
   const isInternetAngelTheme = INTERNET_ANGEL_THEME_IDS.has(String(rawConfig?.id || "").trim());
+  const communityStart = cssText.indexOf("@layer dreamskin-community {");
+  if (communityStart >= 0) {
+    const communityCss = cssText.slice(communityStart).replace(
+      /(^[ \t]*background-color:\s*)([^;]+?)(\s*!important;)/gm,
+      (declaration, prefix, color, suffix) => {
+        const value = color.trim();
+        if (value.toLowerCase() === "transparent") return declaration;
+        const hasAlpha = /^#(?:[0-9a-f]{4}|[0-9a-f]{8})$/i.test(value)
+          || /^rgba\(/i.test(value) || /^var\(/i.test(value);
+        return `${prefix}rgb(from ${value} r g b / var(--ds-user-surface-alpha, ${hasAlpha ? "alpha" : "0.70"}))${suffix}`;
+      },
+    );
+    cssText = cssText.slice(0, communityStart) + communityCss;
+  }
   const STYLE_REVISION = "11";
   const SKIN_VERSION = __DREAM_SKIN_VERSION_JSON__;
   const PAYLOAD_REVISION = __DREAM_SKIN_PAYLOAD_REVISION_JSON__;
@@ -108,6 +122,8 @@
     "--dream-accent-ink",
     "--ds-on-accent",
     "--dream-image-luma",
+    "--ds-user-surface-alpha", "--ds-upload-panel-alpha", "--ds-upload-bg-alpha",
+    "--ds-upload-panel-alt-alpha",
   ];
   const HOME_UTILITY_CLASS = "dream-home-utility";
   const SYSTEM_TOAST_CLASS = "dream-system-toast";
@@ -598,6 +614,7 @@
     root?.removeAttribute("data-dream-skin");
     root?.removeAttribute("data-dream-theme");
     root?.removeAttribute("data-dream-route");
+    root?.removeAttribute("data-dream-upload-alpha");
     root?.classList.remove(...ROOT_CLASSES);
     root?.classList.remove("dream-preview-blink", "dream-preview-blink-half");
     root?.classList.remove(...HOME_PANEL_STATE_CLASSES);
@@ -696,6 +713,24 @@
     if (explicitAccentInk) root.style.setProperty("--ds-on-accent", explicitAccentInk);
     else root.style.removeProperty("--ds-on-accent");
     root.style.setProperty("--dream-image-luma", profile.luma.toFixed(3));
+    const userAlpha = typeof rawConfig?.userTransparency === "number"
+      && Number.isFinite(rawConfig.userTransparency)
+      && rawConfig.userTransparency >= 0 && rawConfig.userTransparency <= 100
+      ? (100 - rawConfig.userTransparency) / 100 : null;
+    const explicitKeys = new Set(rawConfig?.explicitColorKeys || []);
+    const explicitAlpha = (name) => {
+      const value = rawConfig?.colors?.[name];
+      if ((!explicitKeys.has(name) && rawConfig?.colorMode !== "explicit") || typeof value !== "string") return null;
+      return /^(?:#(?:[0-9a-f]{4}|[0-9a-f]{8})|rgba?\([^)]*,[^)]*,[^)]*,[^)]*\))$/i.test(value.trim())
+        ? parseRgbColor(value)?.alpha ?? null : null;
+    };
+    const panelAlpha = userAlpha ?? explicitAlpha("panel") ?? 0.70;
+    if (userAlpha !== null) root.style.setProperty("--ds-user-surface-alpha", String(userAlpha));
+    else root.style.removeProperty("--ds-user-surface-alpha");
+    root.style.setProperty("--ds-upload-panel-alpha", String(panelAlpha));
+    root.style.setProperty("--ds-upload-bg-alpha", String(userAlpha ?? explicitAlpha("background") ?? panelAlpha));
+    root.style.setProperty("--ds-upload-panel-alt-alpha", String(userAlpha ?? explicitAlpha("panelAlt") ?? panelAlpha));
+    root.setAttribute("data-dream-upload-alpha", "true");
     predicateCache.syncLightRules(document.getElementById(STYLE_ID)?.sheet);
   };
 
@@ -940,7 +975,12 @@
   };
 
   const all = (selector) => {
-    try { return [...document.querySelectorAll(selector)]; } catch { return []; }
+    try { return [...document.querySelectorAll(selector)]
+      .filter((node) => !node.closest?.('[data-app-shell-active-page="false"]')); } catch { return []; }
+  };
+  const firstActive = (selector) => {
+    const candidate = all(selector)[0] ?? document.querySelector(selector);
+    return candidate?.closest?.('[data-app-shell-active-page="false"]') ? null : candidate;
   };
   const allWithin = (root, selector) => {
     if (!root) return [];
@@ -951,10 +991,10 @@
         if (!matches.includes(node)) matches.push(node);
       }
     } catch {}
-    return matches;
+    return matches.filter((node) => !node.closest?.('[data-app-shell-active-page="false"]'));
   };
   const isRenderedElement = (node) => {
-    if (!node || node.isConnected === false) return false;
+    if (!node || node.isConnected === false || node.closest?.('[data-app-shell-active-page="false"]')) return false;
     const box = node.getBoundingClientRect?.() || { x: 0, y: 0, width: 0, height: 0 };
     if (!(box.width > 0 && box.height > 0)) return false;
     let style = null;
@@ -1131,7 +1171,7 @@
   const pruneDisconnectedSafeCssParts = () => {
     let pruned = 0;
     for (const node of [...safeCssPartNodes]) {
-      if (node?.isConnected !== false) continue;
+      if (node?.isConnected !== false && !node.closest?.('[data-app-shell-active-page="false"]')) continue;
       node.removeAttribute?.(PART_ATTR);
       safeCssPartNodes.delete(node);
       pruned += 1;
@@ -1263,7 +1303,8 @@
   const classifySafeCssParts = (records) => {
     const roots = records
       .flatMap((record) => [...(record.addedNodes || [])])
-      .filter((node) => node?.nodeType === 1 && !isInjectedNode(node));
+      .filter((node) => node?.nodeType === 1 && !isInjectedNode(node) &&
+        !node.closest?.('[data-app-shell-active-page="false"]'));
     if (!roots.length) return false;
     const diffHosts = new Set();
     for (const root of roots) {
@@ -1300,10 +1341,8 @@
     // it, and clearing the skin there flashes native colors over the active theme.
     // True auxiliary windows (pets, blank targets) still have no main surface, so
     // they continue to clear residual skin state.
-    const shellMain = document.querySelector(SHELL_MAIN_SELECTOR) ||
-      document.querySelector("main") ||
-      document.querySelector('[role="main"]');
-    const shellSidebar = document.querySelector("aside.app-shell-left-panel");
+    const shellMain = firstActive(SHELL_MAIN_SELECTOR) || firstActive("main") || firstActive('[role="main"]');
+    const shellSidebar = firstActive(SIDEBAR_SELECTOR);
     if (!shellMain) {
       clearSkinDom();
       return;
@@ -1331,9 +1370,11 @@
     const activeState = window[STATE_KEY];
     if (activeState?.installToken === installToken) activeState.styleNode = style;
 
-    const routeMains = [...document.querySelectorAll('[role="main"]')];
+    const routeMains = all('[role="main"]');
     if (!routeMains.length) routeMains.push(shellMain);
-    const settingsNav = document.querySelector('nav:has([data-settings-panel-slug])');
+    const settingsCandidate = document.querySelector('nav:has([data-settings-panel-slug])');
+    const settingsNav = all('nav:has([data-settings-panel-slug])')[0]
+      || (settingsCandidate?.closest?.('[data-app-shell-active-page="false"]') ? null : settingsCandidate);
     const settingsSidebar = settingsNav?.closest?.(SIDEBAR_SELECTOR)
       || settingsNav?.parentElement
       || null;
@@ -1345,7 +1386,9 @@
       ...allWithin(shellMain, '[data-feature="game-source"]'),
       ...allWithin(shellMain, HOME_SUGGESTIONS_SELECTOR),
     ];
-    const homeMarker = [...new Set(homeSignals)].find(isRenderedElement) || null;
+    // The theme hides home-icon itself. Its active ancestry remains a route signal.
+    const homeMarker = allWithin(shellMain, '[data-testid="home-icon"]')[0]
+      || [...new Set(homeSignals)].find(isRenderedElement) || null;
     const semanticHome = homeMarker?.closest?.('[role="main"]') || null;
     const homeHeading = [...(shellMain.querySelectorAll?.('h1, h2, [role="heading"]') || [])]
       .find((candidate) => isRenderedElement(candidate) &&
@@ -2096,7 +2139,7 @@
     observer.disconnect();
     const root = document.documentElement;
     const body = document.body;
-    const shellMain = document.querySelector(SHELL_MAIN_SELECTOR) || document.querySelector("main");
+    const shellMain = firstActive(SHELL_MAIN_SELECTOR) || firstActive("main");
     const attributeOptions = {
       attributes: true,
       attributeOldValue: true,
@@ -2104,6 +2147,11 @@
     };
     if (root) observer.observe(root, attributeOptions);
     if (body) observer.observe(body, { ...attributeOptions, childList: true });
+    // Cached routes can become active without mounting a new shell subtree.
+    if (body) observer.observe(body, {
+      attributes: true, subtree: true, attributeOldValue: true,
+      attributeFilter: ["data-app-shell-active-page"],
+    });
     if (shellMain) observer.observe(shellMain, { childList: true });
     const suggestionRoot = activeHomeSuggestionRoot?.isConnected === false
       ? null
@@ -2288,7 +2336,8 @@
   const classifyRuntimeSurfaces = (records) => {
     const roots = records
       .flatMap((record) => [...(record.addedNodes || [])])
-      .filter((node) => node?.nodeType === 1 && !isInjectedNode(node));
+      .filter((node) => node?.nodeType === 1 && !isInjectedNode(node) &&
+        !node.closest?.('[data-app-shell-active-page="false"]'));
     if (!roots.length) return false;
     const runtimeSurfaceHintSelector = [
       '[role="tooltip"]',

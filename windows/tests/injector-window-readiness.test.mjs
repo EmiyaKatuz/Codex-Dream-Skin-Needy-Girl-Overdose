@@ -107,6 +107,7 @@ function makeDomFixture({
   composer = makeElement(),
   home = null,
   homeSignal = null,
+  homeIconSignals = [],
   genericMain = null,
   genericInput = null,
   settings = null,
@@ -167,11 +168,13 @@ function makeDomFixture({
         return genericMain ? [genericMain] : [];
       }
       if (selector === '[data-ds-part="composer"]') return genericInput ? [genericInput] : [];
-      if (selector === selectors.homeIcon || selector === selectors.gameSource ||
+      if (selector === selectors.homeIcon) return homeIconSignals;
+      if (selector === selectors.gameSource ||
         selector === selectors.suggestions || selector.includes("home-suggestion")) {
         return homeSignals;
       }
-      return [];
+      const node = this.querySelector(selector);
+      return node ? [node] : [];
     },
     getElementById: (id) => id === "codex-dream-skin-style" ? styleNode : null,
   };
@@ -419,6 +422,7 @@ test("home verification skips stale hidden signals and scans every current candi
     width: 920,
     height: 660,
     visible: true,
+    withinViewport: true,
   });
   assert.equal(laterVisible.result.pass, true);
 
@@ -454,6 +458,28 @@ test("home verification skips stale hidden signals and scans every current candi
   });
   assert.equal(boundaryVisible.result.homePresent, true,
     "Opacity just above 0.05 must remain a visible Home identity signal.");
+});
+
+test("hidden Home identity icon identifies only a visible active route", async () => {
+  const activeHome = makeHome({ rect: makeRect(920, 660, 30, 25) });
+  const icon = {
+    ...makeElement({ style: { display: "none" }, visible: false }),
+    closest: (selector) => selector === '[role="main"]' ? activeHome : null,
+  };
+  const active = await verify({ dom: makeDomFixture({
+    scope: { level: "L1", baseState: "home", missingL1: [] },
+    homeIconSignals: [icon],
+  }) });
+  assert.equal(active.result.homePresent, true);
+  assert.equal(active.result.pass, true);
+  const inactiveIcon = { ...icon, closest: (selector) =>
+    selector === '[data-app-shell-active-page="false"]' ? activeHome : icon.closest(selector) };
+  const inactive = await verify({ dom: makeDomFixture({
+    scope: { level: "L1", baseState: "home", missingL1: [] },
+    homeIconSignals: [inactiveIcon],
+  }) });
+  assert.equal(inactive.result.homePresent, false);
+  assert.equal(inactive.result.pass, false);
 });
 
 test("home verification matches macOS and does not require a fixed suggestion-card count", async () => {
@@ -495,6 +521,30 @@ test("home verification matches macOS and does not require a fixed suggestion-ca
   });
   assert.equal(badHome.result.suggestionLabelColorsMatch, false);
   assert.equal(badHome.result.pass, false);
+});
+
+test("home composer must fit completely inside the viewport", async () => {
+  for (const [label, rect, expected] of [
+    ["observed clipping", makeRect(1031, 98, 100, 563), false],
+    ["bottom boundary", makeRect(1031, 98, 100, 502), true],
+    ["above viewport", makeRect(800, 98, 100, -1), false],
+    ["right clipping", makeRect(1031, 98, 200, 400), false],
+  ]) {
+    const { result } = await verify({ dom: makeDomFixture({
+      viewportWidth: 1183, viewportHeight: 600,
+      home: makeHome({ rect: makeRect(1127, 500, 52, 96) }),
+      composer: makeElement({ rect }),
+    }) });
+    assert.equal(result.composer.visible, true, label);
+    assert.equal(result.homeComposerPass, expected, label);
+    assert.equal(result.pass, expected, label);
+  }
+  for (const composer of [null, makeElement({ visible: false })]) {
+    const { result } = await verify({ dom: makeDomFixture({ home: makeHome(), composer }) });
+    assert.equal(result.pass, false, "Missing or hidden Home input must fail");
+  }
+  const { result } = await verify({ dom: makeDomFixture({ composer: null }) });
+  assert.equal(result.pass, true, "Non-Home tools may omit a composer");
 });
 
 test("uninformative Browser window replies require verified Win32 HWND evidence", async () => {
