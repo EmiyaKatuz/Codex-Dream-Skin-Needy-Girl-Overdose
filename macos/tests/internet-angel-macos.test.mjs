@@ -1171,6 +1171,7 @@ function makeOverlayFixture({
   };
   let nextTimer = 0;
   const timers = new Map();
+  let clockNow = 0;
   let nextFrame = 0;
   const frames = new Map();
   const window = {
@@ -1196,7 +1197,8 @@ function makeOverlayFixture({
       Element: OverlayFixtureNode,
       MutationObserver: MockMutationObserver,
       window,
-      setTimeout(callback, delay) { const id = ++nextTimer; timers.set(id, { callback, delay }); return id; },
+      performance: { now: () => clockNow },
+      setTimeout(callback, delay) { const id = ++nextTimer; timers.set(id, { callback, delay, dueAt: clockNow + delay }); return id; },
       clearTimeout(id) { timers.delete(id); },
     },
     contextStrip,
@@ -1309,10 +1311,27 @@ function makeOverlayFixture({
       for (const callback of queued) callback();
     },
     get shadowMutationCount() { return shadowMutationCallbacks.length; },
+    advanceTime(milliseconds) {
+      const target = clockNow + milliseconds;
+      while (true) {
+        const next = [...timers.entries()]
+          .filter(([, timer]) => timer.dueAt <= target)
+          .sort((left, right) => left[1].dueAt - right[1].dueAt)[0];
+        if (!next) break;
+        const [id, timer] = next;
+        timers.delete(id);
+        clockNow = timer.dueAt;
+        timer.callback();
+      }
+      clockNow = target;
+    },
     flushTimers() {
-      const queued = [...timers.values()];
+      const queued = [...timers.values()].sort((left, right) => left.dueAt - right.dueAt);
       timers.clear();
-      for (const { callback } of queued) callback();
+      for (const { callback, dueAt } of queued) {
+        clockNow = Math.max(clockNow, dueAt);
+        callback();
+      }
     },
     mountWorkspaceEvidence() {
       workspaceMutationRoot.isConnected = true;
@@ -1422,6 +1441,19 @@ const cleanupOverlayFixture = (activeFixture, source = overlayScript) => vm.runI
   source.replace("__INTERNET_ANGEL_EXTENSION_ENABLED_JSON__", "false"),
   activeFixture.context,
 );
+const flushBoundedFrameDelay = (activeFixture) => {
+  const runs = activeFixture.window[registryKey].metrics.classifyRuns;
+  assert.equal(activeFixture.frames.size, 0, "A recent classification must wait for the bounded refresh delay.");
+  assert.equal(activeFixture.timers.size, 1, "Relevant mutations must retain exactly one refresh timer.");
+  assert.equal([...activeFixture.timers.values()][0].delay, 120);
+  activeFixture.advanceTime(119);
+  assert.equal(activeFixture.frames.size, 0, "The frame must not be queued before the bounded delay expires.");
+  assert.equal(activeFixture.window[registryKey].metrics.classifyRuns, runs);
+  activeFixture.advanceTime(1);
+  assert.equal(activeFixture.window[registryKey].metrics.classifyRuns, runs,
+    "The delay must only queue a frame; classification waits for that frame.");
+  assert.equal(activeFixture.frames.size, 1);
+};
 
 const fixture = activateOverlayFixture();
 const component = (node) => node.getAttribute("data-angel-component");
@@ -1489,6 +1521,7 @@ assert.equal(component(delayedModuleFooter.composer), "composer");
 assert.equal(component(delayedModuleFooter.composerFooter), null);
 const classifyRunsBeforeFooter = delayedModuleFooter.window[registryKey].metrics.classifyRuns;
 delayedModuleFooter.mountComposerFooter();
+flushBoundedFrameDelay(delayedModuleFooter);
 assert.equal(delayedModuleFooter.frames.size, 1,
   "A module footer inserted after mount must pass the structural mutation filter.");
 delayedModuleFooter.flushFrames();
@@ -1507,6 +1540,7 @@ assert.equal(
 const delayedPublicComposer = activateOverlayFixture({ delayedPublicComposer: true });
 assert.equal(component(delayedPublicComposer.composer), null);
 delayedPublicComposer.publishComposerPart();
+flushBoundedFrameDelay(delayedPublicComposer);
 delayedPublicComposer.flushFrames();
 assert.equal(
   component(delayedPublicComposer.composer),
@@ -1644,6 +1678,7 @@ assert.equal(
   "Settings classification must stay inside the layout that owns the settings navigation.",
 );
 fixture.removeFixedSidebar();
+flushBoundedFrameDelay(fixture);
 fixture.flushFrames();
 assert.equal(
   fixture.context.document.querySelector('aside.app-shell-left-panel, [data-testid="app-shell-floating-left-panel"]'),
@@ -1652,6 +1687,7 @@ assert.equal(
 );
 assert.equal(component(fixture.floatingSidebar), null, "The floating sidebar must not exist before its portal mounts.");
 fixture.mountFloatingSidebar();
+flushBoundedFrameDelay(fixture);
 fixture.flushFrames();
 assert.equal(component(fixture.floatingSidebar), "sidebar");
 assert.equal(component(fixture.floatingSidebarMode), "sidebar-control");
@@ -1669,6 +1705,7 @@ vm.runInNewContext(
   overlappingSidebars.context,
 );
 overlappingSidebars.mountFloatingSidebarAlongsideFixed();
+flushBoundedFrameDelay(overlappingSidebars);
 overlappingSidebars.flushFrames();
 assert.equal(component(overlappingSidebars.floatingSidebar), "sidebar",
   "The floating portal must be classified when the fixed sidebar still exists during transition");
@@ -1745,12 +1782,14 @@ delayedWorkspace.flushTimers();
 assert.equal(component(delayedWorkspace.workspace), null);
 assert.equal(delayedMetrics.classifyRuns, 2);
 delayedWorkspace.mountWorkspaceEvidence();
+flushBoundedFrameDelay(delayedWorkspace);
 assert.equal(component(delayedWorkspace.workspace), null, "Deep evidence must wait for the next frame.");
 assert.equal(delayedWorkspace.frames.size, 1);
 delayedWorkspace.flushFrames();
 assert.equal(component(delayedWorkspace.workspace), "side-workspace");
 assert.equal(delayedMetrics.classifyRuns, 3);
 delayedWorkspace.removeWorkspaceEvidence();
+flushBoundedFrameDelay(delayedWorkspace);
 assert.equal(component(delayedWorkspace.workspace), "side-workspace", "Removal reconciles on the frame boundary.");
 delayedWorkspace.flushFrames();
 assert.equal(component(delayedWorkspace.workspace), null);
@@ -1759,6 +1798,7 @@ const dynamicSystemToast = activateOverlayFixture();
 const dynamicSystemToastMetrics = dynamicSystemToast.window[registryKey].metrics;
 assert.equal(component(dynamicSystemToast.systemToast), null);
 dynamicSystemToast.mountSystemToast();
+flushBoundedFrameDelay(dynamicSystemToast);
 assert.equal(
   dynamicSystemToast.frames.size,
   1,
@@ -1776,6 +1816,7 @@ dynamicModernChanges.bodyMutation({
   addedNodes: [dynamicModernChanges.modernChangesPill],
   removedNodes: [],
 });
+flushBoundedFrameDelay(dynamicModernChanges);
 assert.equal(
   dynamicModernChanges.frames.size,
   1,
@@ -1792,6 +1833,7 @@ assert.equal(
 assert.equal(component(detachedEnvironmentEvidence.structuralGitHost), null);
 assert.equal(component(detachedEnvironmentEvidence.structuralGitSignal), null);
 detachedEnvironmentEvidence.removeStructuralEnvironmentGitEvidence();
+flushBoundedFrameDelay(detachedEnvironmentEvidence);
 assert.equal(
   detachedEnvironmentEvidence.frames.size,
   1,
@@ -1810,6 +1852,7 @@ coalescedMutations.bodyMutation({
   addedNodes: [coalescedMutations.workspaceEvidence],
   removedNodes: [],
 });
+flushBoundedFrameDelay(coalescedMutations);
 assert.equal(coalescedMutations.frames.size, 1, "Relevant mutations in one frame must coalesce.");
 coalescedMutations.flushFrames();
 assert.equal(coalescedMetrics.classifyRuns, 2, "A coalesced frame runs classify exactly once.");
@@ -1832,6 +1875,8 @@ ignoredMutations.bodyMutation({
 });
 assert.equal(ignoredMutations.frames.size, 0, "Text and ordinary message content must not request a frame.");
 assert.equal(ignoredMutations.timers.size, 0, "Text and ordinary message content must not request a timer.");
+ignoredMutations.advanceTime(120);
+ignoredMutations.flushFrames();
 assert.equal(ignoredMetrics.classifyRuns, 1);
 
 const currentAssistantMount = activateOverlayFixture({ delayedWorkspaceEvidence: true });
@@ -1842,6 +1887,7 @@ currentAssistantMount.bodyMutation({
   addedNodes: [mountedAssistantMessage],
   removedNodes: [],
 });
+flushBoundedFrameDelay(currentAssistantMount);
 assert.equal(
   currentAssistantMount.frames.size,
   1,
@@ -1853,12 +1899,15 @@ const frameBeatsTimerMetrics = frameBeatsTimer.window[registryKey].metrics;
 frameBeatsTimer.listeners.get("click")({ target: { closest: () => ({}) } });
 assert.equal(frameBeatsTimer.timers.size, 1);
 frameBeatsTimer.mountWorkspaceEvidence();
-assert.equal(frameBeatsTimer.timers.size, 0, "A relevant frame refresh must cancel the slower click timer.");
-assert.equal(frameBeatsTimer.frames.size, 1);
-frameBeatsTimer.flushFrames();
-assert.equal(frameBeatsTimerMetrics.classifyRuns, 2);
+assert.equal(frameBeatsTimer.timers.size, 1, "A relevant mutation must reuse the pending bounded click timer.");
+assert.equal(frameBeatsTimer.frames.size, 0, "A pending timer must prevent a duplicate frame refresh.");
+assert.equal(frameBeatsTimerMetrics.classifyRuns, 1);
 frameBeatsTimer.flushTimers();
-assert.equal(frameBeatsTimerMetrics.classifyRuns, 2, "The cancelled timer must not classify again.");
+assert.equal(frameBeatsTimerMetrics.classifyRuns, 2);
+assert.equal(component(frameBeatsTimer.workspace), "side-workspace");
+frameBeatsTimer.flushFrames();
+frameBeatsTimer.flushTimers();
+assert.equal(frameBeatsTimerMetrics.classifyRuns, 2, "The consumed timer must not classify again.");
 
 const composing = activateOverlayFixture({ delayedWorkspaceEvidence: true });
 composing.listeners.get("compositionstart")();
@@ -1866,6 +1915,7 @@ composing.mountWorkspaceEvidence();
 assert.equal(composing.frames.size, 0, "Mutations during composition must not schedule a frame.");
 assert.equal(composing.timers.size, 0);
 composing.listeners.get("compositionend")();
+flushBoundedFrameDelay(composing);
 assert.equal(composing.frames.size, 1, "compositionend must schedule exactly one frame.");
 composing.flushFrames();
 assert.equal(component(composing.workspace), "side-workspace");
@@ -1879,6 +1929,7 @@ timerOnlyComposition.listeners.get("compositionstart")();
 assert.equal(timerOnlyComposition.timers.size, 0, "compositionstart must cancel a pending timer.");
 assert.equal(timerOnlyComposition.frames.size, 0);
 timerOnlyComposition.listeners.get("compositionend")();
+flushBoundedFrameDelay(timerOnlyComposition);
 assert.equal(timerOnlyComposition.frames.size, 1, "The cancelled timer must defer exactly one frame.");
 assert.equal(timerOnlyCompositionMetrics.classifyRuns, 1);
 timerOnlyComposition.flushFrames();
@@ -1887,6 +1938,7 @@ assert.equal(timerOnlyComposition.frames.size, 0);
 
 const compositionCancelsFrame = activateOverlayFixture({ delayedWorkspaceEvidence: true });
 compositionCancelsFrame.mountWorkspaceEvidence();
+flushBoundedFrameDelay(compositionCancelsFrame);
 assert.equal(compositionCancelsFrame.frames.size, 1);
 compositionCancelsFrame.listeners.get("compositionstart")();
 assert.equal(compositionCancelsFrame.frames.size, 0, "compositionstart must cancel a pending frame.");
@@ -1899,6 +1951,7 @@ const dividerDrag = activateOverlayFixture();
 dividerDrag.workspaceOuter.rect = { left: 1438, top: 28, width: 240, height: 840 };
 dividerDrag.workspace.rect = { left: 1458, top: 48, width: 220, height: 820 };
 dividerDrag.listeners.get("resize")();
+flushBoundedFrameDelay(dividerDrag);
 dividerDrag.flushFrames();
 assert.equal(
   component(dividerDrag.workspace),
@@ -1909,6 +1962,7 @@ assert.equal(
 dividerDrag.workspaceOuter.rect = { left: 678, top: 28, width: 1000, height: 840 };
 dividerDrag.workspace.rect = { left: 698, top: 48, width: 980, height: 820 };
 dividerDrag.listeners.get("resize")();
+flushBoundedFrameDelay(dividerDrag);
 dividerDrag.flushFrames();
 assert.equal(
   component(dividerDrag.workspace),
@@ -1922,6 +1976,7 @@ const resized = activateOverlayFixture();
 const resizedMetrics = resized.window[registryKey].metrics;
 resized.listeners.get("resize")();
 resized.listeners.get("resize")();
+flushBoundedFrameDelay(resized);
 assert.equal(resized.frames.size, 1, "Resize refreshes must share the frame scheduler.");
 resized.flushFrames();
 assert.equal(resizedMetrics.classifyRuns, 2);
@@ -1946,6 +2001,7 @@ cleanupFrame.bodyMutation({
   addedNodes: [cleanupFrame.workspaceEvidence],
   removedNodes: [],
 });
+flushBoundedFrameDelay(cleanupFrame);
 assert.equal(cleanupFrame.frames.size, 1);
 cleanupOverlayFixture(cleanupFrame);
 assertCleaned(cleanupFrame);

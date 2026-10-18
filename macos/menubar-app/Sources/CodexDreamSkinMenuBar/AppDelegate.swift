@@ -55,6 +55,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
     "assets/internet-angel-extension.js",
     "assets/motion-payload.mjs",
     "assets/motion-settings.mjs",
+    "assets/css-predicate-cache.mjs",
     "assets/portal-hero.png",
     "assets/renderer-inject.js",
     "assets/safe-css-policy.json",

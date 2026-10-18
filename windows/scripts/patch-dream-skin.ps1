@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
   [string]$SourceRoot,
   [string]$StateRoot,
@@ -24,9 +24,11 @@ function Assert-DreamSkinPatchSource {
       throw "Patch source is incomplete: $motionPath"
     }
   }
+  $extensionScriptPath = Join-Path $Root 'assets\internet-angel-extension.js'
+  $predicateRuntimePath = Join-Path $Root 'assets\css-predicate-cache.mjs'
   foreach ($requiredPath in @(
     $commonPath, $startPath, $injectorPath, $versionPath, $rendererPath, $cssPath,
-    $acrylicCssPath, $extensionCssPath
+    $acrylicCssPath, $extensionCssPath, $extensionScriptPath, $predicateRuntimePath
   )) {
     if (-not (Test-Path -LiteralPath $requiredPath -PathType Leaf)) {
       throw "Patch source is incomplete: $requiredPath"
@@ -40,6 +42,7 @@ function Assert-DreamSkinPatchSource {
   $cssText = Read-DreamSkinUtf8File -Path $cssPath
   $acrylicCssText = Read-DreamSkinUtf8File -Path $acrylicCssPath
   $extensionCssText = Read-DreamSkinUtf8File -Path $extensionCssPath
+  $extensionScriptText = Read-DreamSkinUtf8File -Path $extensionScriptPath
   if (-not $commonText.Contains('Resolve-DreamSkinStartPort') -or
     -not $startText.Contains('Resolve-DreamSkinStartPort -Port $Port') -or
     -not $injectorText.Contains('__DREAM_SIDEBAR_SCROLL_QUIET_ENABLED_JSON__') -or
@@ -79,7 +82,9 @@ function Assert-DreamSkinPatchSource {
     -not $extensionCssText.Contains('[data-angel-component]') -or
     -not $extensionCssText.Contains('[data-angel-component="scroll-bottom"]:is(:hover') -or
     -not $extensionCssText.Contains('[data-angel-component="edited-card-files"],') -or
-    -not $extensionCssText.Contains('--angel-adaptive-text: var(--dream-text, var(--ds-text))')) {
+    -not $extensionCssText.Contains('--angel-adaptive-text: var(--dream-text, var(--ds-text))') -or
+    -not $extensionScriptText.Contains('const scheduleFrameRefresh = () =>') -or
+    -not $extensionScriptText.Contains('refreshIntervalMs - (now() - lastClassifyAt)')) {
     throw 'Patch source does not contain the required Codex 26.814 runtime fixes.'
   }
 }
@@ -161,6 +166,8 @@ $rendererSourcePath = Join-Path $sourceRoot 'assets\renderer-inject.js'
 $cssSourcePath = Join-Path $sourceRoot 'assets\dream-skin.css'
 $acrylicCssSourcePath = Join-Path $sourceRoot 'assets\internet-angel-acrylic.css'
 $extensionCssSourcePath = Join-Path $sourceRoot 'assets\internet-angel-extension.css'
+$extensionScriptSourcePath = Join-Path $sourceRoot 'assets\internet-angel-extension.js'
+$predicateRuntimeSourcePath = Join-Path $sourceRoot 'assets\css-predicate-cache.mjs'
 
 . (Join-Path $sourceRoot 'scripts\common-windows.ps1')
 . (Join-Path $sourceRoot 'scripts\theme-windows.ps1')
@@ -188,6 +195,8 @@ $installedRenderer = Join-Path $engine.Root 'assets\renderer-inject.js'
 $installedCss = Join-Path $engine.Root 'assets\dream-skin.css'
 $installedAcrylicCss = Join-Path $engine.Root 'assets\internet-angel-acrylic.css'
 $installedExtensionCss = Join-Path $engine.Root 'assets\internet-angel-extension.css'
+$installedExtensionScript = Join-Path $engine.Root 'assets\internet-angel-extension.js'
+$installedPredicateRuntime = Join-Path $engine.Root 'assets\css-predicate-cache.mjs'
 $patchIdentityPairs = @(
   @{ Source = $commonSourcePath; Installed = $installedCommon },
   @{ Source = $startSourcePath; Installed = $installedStart },
@@ -196,7 +205,9 @@ $patchIdentityPairs = @(
   @{ Source = $rendererSourcePath; Installed = $installedRenderer },
   @{ Source = $cssSourcePath; Installed = $installedCss },
   @{ Source = $acrylicCssSourcePath; Installed = $installedAcrylicCss },
-  @{ Source = $extensionCssSourcePath; Installed = $installedExtensionCss }
+  @{ Source = $extensionCssSourcePath; Installed = $installedExtensionCss },
+  @{ Source = $extensionScriptSourcePath; Installed = $installedExtensionScript },
+  @{ Source = $predicateRuntimeSourcePath; Installed = $installedPredicateRuntime }
 )
 $motionAssetNames = @('theme-motion.js', 'theme-motion.css', 'motion-settings.mjs', 'motion-payload.mjs')
 foreach ($assetName in $motionAssetNames) {
@@ -239,7 +250,7 @@ try {
     # Clone the complete managed engine first so the patch preserves bundled Node,
     # presets, and every non-patch asset. The committed update is one directory swap;
     # consumers can therefore observe either the old engine or the new one, never a
-    # eight-file mixture.
+    # partial file mixture.
     Copy-Item -LiteralPath $engine.Root -Destination $stagingRoot -Recurse -Force `
       -ErrorAction Stop
     Assert-DreamSkinRuntimeTree -Path $stagingRoot
@@ -252,6 +263,8 @@ try {
     $stagedCss = Join-Path $stagingRoot 'assets\dream-skin.css'
     $stagedAcrylicCss = Join-Path $stagingRoot 'assets\internet-angel-acrylic.css'
     $stagedExtensionCss = Join-Path $stagingRoot 'assets\internet-angel-extension.css'
+    $stagedExtensionScript = Join-Path $stagingRoot 'assets\internet-angel-extension.js'
+    $stagedPredicateRuntime = Join-Path $stagingRoot 'assets\css-predicate-cache.mjs'
     Copy-Item -LiteralPath $commonSourcePath -Destination $stagedCommon -Force -ErrorAction Stop
     Copy-Item -LiteralPath $startSourcePath -Destination $stagedStart -Force -ErrorAction Stop
     Copy-Item -LiteralPath $injectorSourcePath -Destination $stagedInjector -Force -ErrorAction Stop
@@ -262,6 +275,10 @@ try {
       -ErrorAction Stop
     Copy-Item -LiteralPath $extensionCssSourcePath -Destination $stagedExtensionCss -Force `
       -ErrorAction Stop
+    Copy-Item -LiteralPath $extensionScriptSourcePath -Destination $stagedExtensionScript -Force `
+      -ErrorAction Stop
+    Copy-Item -LiteralPath $predicateRuntimeSourcePath -Destination $stagedPredicateRuntime -Force `
+      -ErrorAction Stop
     $patchPairs = @(
       @{ Relative = 'scripts\common-windows.ps1'; Source = $commonSourcePath; Staged = $stagedCommon; Installed = $installedCommon },
       @{ Relative = 'scripts\start-dream-skin.ps1'; Source = $startSourcePath; Staged = $stagedStart; Installed = $installedStart },
@@ -270,7 +287,9 @@ try {
       @{ Relative = 'assets\renderer-inject.js'; Source = $rendererSourcePath; Staged = $stagedRenderer; Installed = $installedRenderer },
       @{ Relative = 'assets\dream-skin.css'; Source = $cssSourcePath; Staged = $stagedCss; Installed = $installedCss },
       @{ Relative = 'assets\internet-angel-acrylic.css'; Source = $acrylicCssSourcePath; Staged = $stagedAcrylicCss; Installed = $installedAcrylicCss },
-      @{ Relative = 'assets\internet-angel-extension.css'; Source = $extensionCssSourcePath; Staged = $stagedExtensionCss; Installed = $installedExtensionCss }
+      @{ Relative = 'assets\internet-angel-extension.css'; Source = $extensionCssSourcePath; Staged = $stagedExtensionCss; Installed = $installedExtensionCss },
+      @{ Relative = 'assets\internet-angel-extension.js'; Source = $extensionScriptSourcePath; Staged = $stagedExtensionScript; Installed = $installedExtensionScript },
+      @{ Relative = 'assets\css-predicate-cache.mjs'; Source = $predicateRuntimeSourcePath; Staged = $stagedPredicateRuntime; Installed = $installedPredicateRuntime }
     )
     foreach ($assetName in $motionAssetNames) {
       $relative = "assets\$assetName"

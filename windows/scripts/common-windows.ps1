@@ -478,6 +478,7 @@ function Install-DreamSkinRuntimeEngine {
     'assets\theme-motion.css',
     'assets\motion-settings.mjs',
     'assets\motion-payload.mjs',
+    'assets\css-predicate-cache.mjs',
     'assets\renderer-inject.js',
     'assets\safe-css-policy.json',
     'assets\safe-css-validator.mjs',

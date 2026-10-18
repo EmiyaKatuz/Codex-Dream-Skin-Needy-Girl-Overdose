@@ -346,6 +346,7 @@
   };
 
   const previous = window[STATE_KEY];
+  previous?.predicateCache?.cleanup();
   if (previous?.observer) previous.observer.disconnect();
   if (previous?.resizeObserver) previous.resizeObserver.disconnect();
   if (previous?.timer) clearInterval(previous.timer);
@@ -378,6 +379,14 @@
   clearSidebarScrollQuiet(previous?.sidebarScrollQuiet);
   previous?.motionQuery?.removeEventListener?.("change", previous.motionHandler);
   if (previous?.artUrl) URL.revokeObjectURL(previous.artUrl);
+
+  const CSS_PREDICATES = __DREAM_CSS_PREDICATES_JSON__
+    .filter((item) => cssText.includes(item.selector));
+  for (const { selector, replacement } of CSS_PREDICATES) {
+    cssText = cssText.replaceAll(selector, replacement);
+  }
+  const predicateCache = (__DREAM_CSS_PREDICATE_RUNTIME__)(document, CSS_PREDICATES);
+  predicateCache.refresh();
   document.documentElement?.classList?.remove?.("dream-preview-blink", "dream-preview-blink-half");
   const artUrl = (() => {
     const comma = artDataUrl.indexOf(",");
@@ -687,6 +696,7 @@
     if (explicitAccentInk) root.style.setProperty("--ds-on-accent", explicitAccentInk);
     else root.style.removeProperty("--ds-on-accent");
     root.style.setProperty("--dream-image-luma", profile.luma.toFixed(3));
+    predicateCache.syncLightRules(document.getElementById(STYLE_ID)?.sheet);
   };
 
   /* The Choten preset keeps the raster artwork untouched and composites a
@@ -1304,6 +1314,7 @@
     root.classList.add("codex-dream-skin");
     applyProfile(root);
     refreshSafeCssParts();
+    predicateCache.refresh();
     themeDiffsContainers();
 
     let style = document.getElementById(STYLE_ID);
@@ -1316,6 +1327,7 @@
       style.textContent = cssText;
       style.dataset.dreamVersion = STYLE_REVISION;
     }
+    predicateCache.syncLightRules(style.sheet);
     const activeState = window[STATE_KEY];
     if (activeState?.installToken === installToken) activeState.styleNode = style;
 
@@ -1702,13 +1714,23 @@
     const sideLauncher = exactVisibleText(/^(?:\u4fa7\u8fb9\u4efb\u52a1|side tasks)$/i);
     const browserMarkers = exactVisibleTextMatches(/^(?:\u6d4f\u89c8\u5668|browser)$/i);
     const terminalMarkers = exactVisibleTextMatches(/^(?:\u7ec8\u7aef|terminal)$/i);
-    const shellBox = shellMain.getBoundingClientRect?.() || { left: 0, width: 0 };
+    let shellBox = null;
+    const surfaceMeasurements = new Map();
+    const measureSurface = (candidate) => {
+      if (!surfaceMeasurements.has(candidate)) {
+        surfaceMeasurements.set(candidate, {
+          box: candidate.getBoundingClientRect?.() || { left: 0, width: 0, height: 0 },
+          style: getComputedStyle(candidate),
+        });
+      }
+      return surfaceMeasurements.get(candidate);
+    };
     const isRightDockedSurface = (candidate) => {
       if (!candidate || candidate === terminalRoot) return false;
-      const box = candidate.getBoundingClientRect?.() || { left: 0, width: 0, height: 0 };
+      shellBox ||= shellMain.getBoundingClientRect?.() || { left: 0, width: 0 };
+      const { box, style } = measureSurface(candidate);
       const right = Number.isFinite(box.right) ? box.right : box.left + box.width;
       const shellRight = Number.isFinite(shellBox.right) ? shellBox.right : shellBox.left + shellBox.width;
-      const style = getComputedStyle(candidate);
       return box.width >= 180
         && box.height >= 140
         && box.left >= shellBox.left + (shellBox.width * .32)
@@ -1718,15 +1740,18 @@
         && style.visibility !== "hidden"
         && Number(style.opacity || 1) > .05;
     };
-    const structuralSideWorkspace = [...document.querySelectorAll(
+    // Most pages have no Browser/Terminal workspace. Check semantic evidence
+    // before geometry so unrelated message surfaces never force layout reads.
+    const structuralSideWorkspace = (browserMarkers.length && terminalMarkers.length
+      ? [...document.querySelectorAll(
       '[class*="contain:layout_paint"], [class*="bg-token-main-surface-primary"]',
-    )]
-      .filter((candidate) => isRightDockedSurface(candidate)
-        && browserMarkers.some((marker) => candidate.contains?.(marker))
-        && terminalMarkers.some((marker) => candidate.contains?.(marker)))
+      )] : [])
+      .filter((candidate) => browserMarkers.some((marker) => candidate.contains?.(marker))
+        && terminalMarkers.some((marker) => candidate.contains?.(marker))
+        && isRightDockedSurface(candidate))
       .sort((left, right) => {
-        const a = left.getBoundingClientRect?.() || { width: 0, height: 0 };
-        const b = right.getBoundingClientRect?.() || { width: 0, height: 0 };
+        const a = measureSurface(left).box;
+        const b = measureSurface(right).box;
         return (a.width * a.height) - (b.width * b.height);
       })[0];
     const semanticSideWorkspace = sideLauncher?.closest?.('[class*="contain:layout_paint"]')
@@ -2147,6 +2172,7 @@
     if (state?.installToken !== installToken) return false;
     window.__CODEX_DREAM_SKIN_DISABLED__ = true;
     clearSkinDom();
+    predicateCache.cleanup();
     state?.observer?.disconnect();
     state?.resizeObserver?.disconnect();
     if (state?.timer) clearInterval(state.timer);
@@ -2580,6 +2606,8 @@
     styleMode: "style",
     styleNode: null,
     metrics: rendererMetrics,
+    predicateCache,
+    predicateMetrics: predicateCache.metrics,
     scope,
   };
   window[STATE_KEY] = runtimeState;

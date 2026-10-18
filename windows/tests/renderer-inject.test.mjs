@@ -4,6 +4,7 @@ import path from "node:path";
 import vm from "node:vm";
 import { fileURLToPath } from "node:url";
 import { verifySession } from "../scripts/injector.mjs";
+import { createCssPredicateCache } from "../../tools/css-predicate-cache.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const windowsRoot = path.resolve(here, "..");
@@ -129,6 +130,8 @@ assert.doesNotMatch(acrylicCss, /\.dream-sidebar-scroll-quiet\s+\*/,
 assert.doesNotMatch(css, /main\.main-surface|header\.app-header-tint/,
   "No Windows CSS rule may remain locked to the removed pre-26.727 shell classes.");
 const buildPayloadFrom = (rendererTemplate, config = {}, sidebarQuietEnabled = true) => rendererTemplate
+  .replace("__DREAM_CSS_PREDICATES_JSON__", "[]")
+  .replace("__DREAM_CSS_PREDICATE_RUNTIME__", () => createCssPredicateCache.toString())
   .replace("__DREAM_CSS_JSON__", JSON.stringify(".fixture { color: blue; }"))
   .replace("__DREAM_ART_JSON__", JSON.stringify("data:image/png;base64,AA=="))
   .replace("__DREAM_THEME_JSON__", JSON.stringify(config))

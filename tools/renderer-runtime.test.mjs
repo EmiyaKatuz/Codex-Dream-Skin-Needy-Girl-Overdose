@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import path from "node:path";
 import vm from "node:vm";
+import { createCssPredicateCache } from "./css-predicate-cache.mjs";
 
 const shellSelector = 'main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"])';
 const headerSelector = 'header:is(.app-header-tint, [data-app-shell-header-edge-scroll], [data-app-shell-application-menu-bar], [class*="_Header_"])';
@@ -433,6 +434,7 @@ function makeFixture({
     const template = fixture.template;
     return template
       .replace("__DREAM_SKIN_CSS_JSON__", JSON.stringify(cssText))
+      .replace("__DREAM_CSS_PREDICATE_RUNTIME__", () => createCssPredicateCache.toString())
       .replace("__DREAM_SKIN_ART_JSON__", JSON.stringify("data:image/png;base64,AA=="))
       .replace("__DREAM_SKIN_THEME_JSON__", JSON.stringify({ id: "fixture", appearance: "auto", ...theme }))
       .replace("__DREAM_SKIN_VERSION_JSON__", JSON.stringify("test"))
