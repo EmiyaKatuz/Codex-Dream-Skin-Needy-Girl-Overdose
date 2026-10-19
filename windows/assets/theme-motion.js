@@ -336,6 +336,26 @@
     if (!navigating && currentRouteKey !== routeKey()) resetRoute(false);
     metrics.refreshes += 1;
     mode = effectiveMode();
+    // Codex can replace its main surface while the old anchor is offscreen.
+    // Repair that binding before the paused early return can retain it forever.
+    // IME composition still defers every scan and style/layout measurement.
+    if (!composition) {
+      for (const node of tracked.keys()) {
+        if (node.isConnected !== false) continue;
+        clearNodeFeedback(node); clearBinding(node); tracked.delete(node); intersection?.unobserve(node);
+      }
+      const nextAnchor = [...tracked.keys()].find((node) => matches(node, SELECTORS.anchor))
+        || query(document.body, SELECTORS.anchor) || document.body;
+      if (nextAnchor !== anchor) {
+        if (anchor && !tracked.has(anchor)) intersection?.unobserve(anchor);
+        // An added surface may have hit the tracking limit before detached
+        // nodes were pruned. Reuse the bounded scan now that space is available.
+        if (nextAnchor !== document.body && !tracked.has(nextAnchor)) scan(nextAnchor);
+        anchor = nextAnchor;
+        anchorVisible = tracked.get(anchor)?.visible ?? visible(anchor);
+        intersection?.observe(anchor);
+      }
+    }
     paused = Boolean(document.hidden || composition || navigating || !anchorVisible || scrolling);
     if (paused) {
       attr(root, "data-dream-motion", mode);
@@ -349,7 +369,6 @@
     let busy = false;
     let attention = false;
     for (const [node, item] of tracked) {
-      if (node.isConnected === false) { clearNodeFeedback(node); clearBinding(node); tracked.delete(node); intersection?.unobserve(node); continue; }
       if (matches(node, SELECTORS.home)) route = "home";
       else if (route === "other" && matches(node, SELECTORS.thread)) route = "thread";
       if (isCurrentDialog(node)) attention = true;
@@ -402,8 +421,6 @@
       if (matches(node, SELECTORS.edited)) { const key = entryKey(node); if (key) remember(key); }
       seenNodes.add(node);
     }
-    const nextAnchor = [...tracked.keys()].find((node) => matches(node, SELECTORS.anchor)) || document.body;
-    if (nextAnchor !== anchor) { anchor = nextAnchor; anchorVisible = visible(anchor); intersection?.observe(anchor); }
   };
   const schedule = () => {
     if (!active() || frame !== null || composition) return;
