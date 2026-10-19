@@ -13,11 +13,11 @@
   <img src="windows/assets/dream-reference.jpg" alt="超天酱 INTERNET ANGEL 主题背景" width="900">
 </p>
 
-> 当前版本：`1.7.3`。Windows、macOS 与 Linux 共用超天酱组件识别、覆盖层和动画运行时。
+> 当前版本：`1.7.4`。Windows、macOS 与 Linux 共用超天酱组件识别、覆盖层和动画运行时。
 
 本项目是基于 [Fei-Away/Codex-Dream-Skin](https://github.com/Fei-Away/Codex-Dream-Skin) 持续开发的独立 fork，主要维护超天酱视觉、跨平台一致性、启动兼容性与安全边界。
 
-v1.7.3 修复主界面重新创建后动效一直暂停的问题：角色、星点和状态反馈会重新连接当前主区域，现有主题与动效设置保留。详见[更新说明](docs/releases/v1.7.3.md)。
+v1.7.4 修复侧栏与差异面板占满窗口边缘时，动效虽然运行但角色、星点仍被隐藏的问题：装饰会在内部空白区域继续寻找位置，并避开正文、控件与其他装饰。详见[更新说明](docs/releases/v1.7.4.md)。
 
 v1.6.0 新增统一动效设置：macOS 菜单栏的「主题 → 动态效果」、Windows 托盘的「动态效果」及 Linux 配置命令提供跟随系统 / 关闭 / 轻量 / 完整四档和五类效果开关。包含任务与工具状态反馈、独立像素角色、项目行入场和小范围星点视差；装饰在滚动、模态窗口和空间不足时避让。适配条件与验证范围见[统一动效系统](docs/theme-motion.md)。
 
