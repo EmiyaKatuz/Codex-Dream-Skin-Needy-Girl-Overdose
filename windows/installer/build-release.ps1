@@ -343,6 +343,8 @@ try {
     'assets\selectors.json',
     'assets\theme-package-validator.mjs',
     'assets\theme-preferences.mjs',
+    'assets\retired-theme-migration.mjs',
+    'assets\retired-theme-catalog.json',
     'assets\theme.json',
     'assets\codex-dream-skin.ico',
     'scripts\apply-community-theme.ps1',

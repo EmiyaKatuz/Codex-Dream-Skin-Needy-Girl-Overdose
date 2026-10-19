@@ -28,6 +28,8 @@ try {
     'renderer-inject.js',
     'css-predicate-cache.mjs',
     'theme-preferences.mjs',
+    'retired-theme-migration.mjs',
+    'retired-theme-catalog.json',
     'dream-skin.css',
     'internet-angel-acrylic.css',
     'internet-angel-extension.js',

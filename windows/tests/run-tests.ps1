@@ -8,6 +8,7 @@ $Root = Split-Path -Parent $PSScriptRoot
 . (Join-Path $Root 'scripts\localization-windows.ps1')
 & (Join-Path $PSScriptRoot 'theme-manager-maintenance.tests.ps1')
 & (Join-Path $PSScriptRoot 'codex-home.tests.ps1')
+& (Join-Path $PSScriptRoot 'retired-theme-migration.tests.ps1')
 
 if ((Resolve-DreamSkinLanguage -Language 'zh-CN') -cne 'zh-CN' -or
   (Resolve-DreamSkinLanguage -Language 'en-US') -cne 'en-US') {
@@ -1454,6 +1455,7 @@ args = [
     'dream-reference.jpg', 'theme.json',
     'dream-skin.css', 'internet-angel-acrylic.css', 'internet-angel-extension.css',
     'internet-angel-extension.js', 'css-predicate-cache.mjs', 'renderer-inject.js', 'safe-css-policy.json', 'safe-css-validator.mjs', 'selectors.json',
+    'retired-theme-migration.mjs', 'retired-theme-catalog.json',
     'theme-package-validator.mjs', 'theme-preferences.mjs', 'theme-motion.js', 'theme-motion.css', 'motion-settings.mjs', 'motion-payload.mjs'
   )) {
     Copy-Item -LiteralPath (Join-Path $Root "assets\$releaseAsset") `

@@ -89,14 +89,14 @@ MOUNTED_ENGINE="$MOUNTED_APP/Contents/Resources/engine"
 [ -f "$MOUNTED_ENGINE/assets/selectors.json" ] \
   || { printf 'Mounted app is missing the selector contract.\n' >&2; exit 1; }
 for motion_asset in theme-motion.js theme-motion.css motion-settings.mjs motion-payload.mjs \
-  theme-preferences.mjs css-predicate-cache.mjs; do
+  theme-preferences.mjs css-predicate-cache.mjs retired-theme-migration.mjs retired-theme-catalog.json; do
   [ -s "$MOUNTED_ENGINE/assets/$motion_asset" ] \
     || { printf 'Mounted app is missing a motion asset: %s\n' "$motion_asset" >&2; exit 1; }
   /usr/bin/cmp -s "$ROOT/assets/$motion_asset" "$MOUNTED_ENGINE/assets/$motion_asset" \
     || { printf 'Mounted motion asset differs from source: %s\n' "$motion_asset" >&2; exit 1; }
 done
 for runtime_script in apply-community-theme-macos.sh snapshot-active-theme-macos.sh \
-  theme-switch-lock-macos.sh localization-macos.sh motion-settings-macos.sh; do
+  theme-switch-lock-macos.sh localization-macos.sh motion-settings-macos.sh migrate-retired-themes-macos.sh; do
   [ -x "$MOUNTED_ENGINE/scripts/$runtime_script" ] \
     || { printf 'Mounted runtime script is missing or not executable: %s\n' "$runtime_script" >&2; exit 1; }
 done

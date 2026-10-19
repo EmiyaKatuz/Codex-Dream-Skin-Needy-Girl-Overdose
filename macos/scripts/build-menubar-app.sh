@@ -101,6 +101,7 @@ RUNTIME_SCRIPTS=(
   load-image-theme-macos.sh
   localization-macos.sh
   motion-settings-macos.sh
+  migrate-retired-themes-macos.sh
   pause-dream-skin-macos.sh
   publish-theme-import.mjs
   recover-theme-imports-macos.sh
@@ -125,6 +126,12 @@ for name in "${RUNTIME_SCRIPTS[@]}"; do
 done
 [ -d "$ROOT/assets" ] || { printf 'Engine directory missing: assets\n' >&2; exit 1; }
 /usr/bin/rsync -a "$ROOT/assets/" "$ENGINE/assets/"
+for migration_asset in retired-theme-migration.mjs retired-theme-catalog.json; do
+  [ -s "$ENGINE/assets/$migration_asset" ] \
+    || { printf 'Theme migration asset missing: %s\n' "$migration_asset" >&2; exit 1; }
+  /usr/bin/cmp -s "$ROOT/assets/$migration_asset" "$ENGINE/assets/$migration_asset" \
+    || { printf 'Theme migration asset differs from source: %s\n' "$migration_asset" >&2; exit 1; }
+done
 copy_reviewed_preset() {
   local preset_id="$1"
   local image_name="$2"

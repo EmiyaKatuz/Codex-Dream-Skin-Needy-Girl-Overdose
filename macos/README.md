@@ -96,9 +96,12 @@ Fresh installs use the byte-identical `theme.json` + `dream-reference.jpg` pair
 from the Windows edition. Internet Angel artwork is outside the MIT software
 license; review the asset terms in `NOTICE.md` before redistributing the DMG.
 
-Seeding is idempotent. Upgrades preserve existing saved and imported themes,
-user images, and the currently active theme copy. Removed bundled variants are
-not included in new packages or seeded into a fresh library.
+Seeding is idempotent. A one-time upgrade archives unchanged retired built-ins
+and their saved copies under `retired-themes/`, outside the visible theme library.
+A retired active theme switches to the JPEG default; full original files remain
+in the archive. Personal themes, imported packs, modified themes and preferences
+are preserved. Restoring a backup after migration is an explicit user choice
+and is not undone on each launch.
 
 To contribute a preset, see [`presets/README.md`](./presets/README.md).
 

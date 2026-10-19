@@ -592,6 +592,8 @@ function Install-DreamSkinRuntimeEngine {
     'assets\selectors.json',
     'assets\theme-package-validator.mjs',
     'assets\theme-preferences.mjs',
+    'assets\retired-theme-migration.mjs',
+    'assets\retired-theme-catalog.json',
     'assets\theme.json',
     'scripts\apply-community-theme.ps1',
     'scripts\acrylic-window.ps1',

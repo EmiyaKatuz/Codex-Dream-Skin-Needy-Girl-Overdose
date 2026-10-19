@@ -33,3 +33,17 @@ for (const [platform, inventories] of [
     }
   });
 }
+
+test('macOS installed and packaged engines require the complete retired-theme migration', async () => {
+  const app = await read('macos/menubar-app/Sources/CodexDreamSkinMenuBar/AppDelegate.swift');
+  const build = await read('macos/scripts/build-menubar-app.sh');
+  const mounted = await read('macos/scripts/build-dmg.sh');
+  for (const asset of ['retired-theme-migration.mjs', 'retired-theme-catalog.json']) {
+    assert.ok(app.includes(`"assets/${asset}"`), `installed engine must require ${asset}`);
+    assert.ok(build.includes(asset), `app package must verify ${asset}`);
+    assert.ok(mounted.includes(asset), `mounted DMG must verify ${asset}`);
+  }
+  for (const [label, source] of [['installed engine', app], ['app package', build], ['mounted DMG', mounted]]) {
+    assert.ok(source.includes('migrate-retired-themes-macos.sh'), `${label} must require migration entry`);
+  }
+});

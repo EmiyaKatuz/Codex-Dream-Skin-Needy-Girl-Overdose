@@ -145,7 +145,7 @@ direct entry without that three-second grace and normally minimizes stock flash.
 Open `Codex Dream Skin - Tray` to:
 
 - Recognize the managed skin at a glance through its custom Internet Angel pixel icon.
-- Start with only the customized Internet Angel JPEG theme. Upgrades retain existing saved, imported, and active themes.
+- Start with only the customized Internet Angel JPEG theme. Upgrades archive unchanged retired built-ins and their saved copies under `retired-themes/`, switching a retired active theme to the JPEG default. Personal themes and preferences remain.
 - Import a PNG, JPEG, or WebP background.
 - Import an ordinary `.zip` theme pack into Saved Themes (`.dreamskin` is not supported).
 - Save the active theme and switch through saved themes.

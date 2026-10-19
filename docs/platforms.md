@@ -91,7 +91,7 @@ Linux 启动器优先使用 `codex-desktop`，其次读取 `/usr/share/applicati
 ### 平台差异
 
 - macOS 的选图脚本会把这些字段写入主题库，可通过 `--appearance`、`--focus-x`、`--focus-y`、`--safe-area`、`--task-mode` 设置。
-- Windows 安装会把运行所需的 `assets/`、`scripts/` 与可选内置运行时原子复制到 `%LOCALAPPDATA%\CodexDreamSkin\engine`，所有快捷方式均指向该受管副本，因此安装后可移动或删除源码目录。安装还会初始化 `active-theme`、`themes` 与 `images`，并把「超天酱 · INTERNET ANGEL」JPEG 版设为首次默认活动主题，仅把该 JPEG 默认主题播种到已保存主题库；升级保留用户已有的已保存、导入与活动主题。系统托盘支持更换背景、保存当前主题、从「已保存主题」切换、暂停和恢复；图片与 `theme.json` 保存在主题仓库中，不写进 Codex 的 `config.toml`。安装会保留用户已有的 `appearanceTheme`；仅在识别到旧版精确托管的浅色三元组时按备份迁移。
+- Windows 安装会把运行所需的 `assets/`、`scripts/` 与可选内置运行时原子复制到 `%LOCALAPPDATA%\CodexDreamSkin\engine`，所有快捷方式均指向该受管副本，因此安装后可移动或删除源码目录。安装还会初始化 `active-theme`、`themes` 与 `images`，并把「超天酱 · INTERNET ANGEL」JPEG 版设为首次默认活动主题，仅把该 JPEG 默认主题播种到已保存主题库；升级会把未改动的旧内置主题及其保存副本移到 `retired-themes/`，旧活动主题切回 JPEG；自建、导入、已改动的主题与设置保留。系统托盘支持更换背景、保存当前主题、从「已保存主题」切换、暂停和恢复；图片与 `theme.json` 保存在主题仓库中，不写进 Codex 的 `config.toml`。安装会保留用户已有的 `appearanceTheme`；仅在识别到旧版精确托管的浅色三元组时按备份迁移。
 - Windows 渲染器仍支持在注入前用 `window.__CODEX_DREAM_SKIN_CONFIG__` 提供内存级可选覆盖（形状同上，颜色覆盖使用 `palette.accent`），但普通用户应优先使用持久化主题仓库与托盘。
 
 ### 主题 ZIP 与手动目录
@@ -105,7 +105,7 @@ Linux 启动器优先使用 `codex-desktop`，其次读取 `/usr/share/applicati
 ## 预设与图片类型
 
 - macOS 仅内置 `macos/presets/preset-internet-angel-default/`，与 Windows 的 `windows/assets/theme.json` + `dream-reference.jpg` 保持字节一致；两端首次安装均默认启用「超天酱 · INTERNET ANGEL」JPEG 主题。
-- 安装包仅包含这套定制主题；升级保留用户已有的已保存主题、导入主题、用户图片和当前活动主题副本，不会为精简安装包而删除本机主题库。
+- 安装包仅包含这套定制主题；升级会一次性将识别出的旧内置主题和未改动保存副本移出可见主题库，完整备份到状态目录的 `retired-themes/`；旧活动主题切回 JPEG。个人主题、带自定义 CSS 的主题和偏好保留；迁移完成后用户主动恢复的备份不会每次启动又被移走。
 - README 实机截图与 `docs/images/gallery/` 概念图只作预览，绝不能作为背景导入。主题中的 JPEG 是纯背景素材，必须与 `theme.json` 一起使用；新导入的主题 ZIP 仍须满足上面的完整包合同。
 - Windows 导入和 macOS 快速加载入口会拒绝空文件或超过 10 MB 的输入；macOS 主定制入口可接收最高 50 MB 的源图，但转换后的主题文件必须不超过 10 MB。两端 payload 构建还会拒绝任一边超过 16384px 或总像素超过 50MP 的声明尺寸；Windows 在复制导入图前复用 Node 元数据解析器执行同一限制。Windows 注入器用图片、主题和 Safe CSS 内容的 SHA-256 修订值识别热更新，并在构建首帧 payload 前同步读取图片比例。
 - 自定义生图优先使用 `2560 × 1440`（16:9）：左侧约 50%～58% 保持低信息、低对比，主体放在右侧约 58%～88%。输出必须是连续铺满画布的纯背景，禁止窗口、侧栏、卡片、输入框、文字、Logo 和水印。

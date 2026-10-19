@@ -42,7 +42,7 @@ try {
     'css-predicate-cache.mjs',
     'dream-skin.css',
     'internet-angel-acrylic.css',
-    'internet-angel-extension.js', 'internet-angel-extension.css', 'theme-motion.js', 'theme-motion.css', 'motion-settings.mjs', 'motion-payload.mjs', 'theme-preferences.mjs'
+    'internet-angel-extension.js', 'internet-angel-extension.css', 'theme-motion.js', 'theme-motion.css', 'motion-settings.mjs', 'motion-payload.mjs', 'theme-preferences.mjs', 'retired-theme-migration.mjs', 'retired-theme-catalog.json'
   )) {
     if (-not $quickFixBuilderSource.Contains("'$requiredQuickFixAsset'")) {
       throw "The quick-fix archive omits a runtime patch asset: $requiredQuickFixAsset"
@@ -64,7 +64,7 @@ try {
     'css-predicate-cache.mjs',
     'dream-skin.css',
     'internet-angel-acrylic.css',
-    'internet-angel-extension.js', 'internet-angel-extension.css', 'theme-motion.js', 'theme-motion.css', 'motion-settings.mjs', 'motion-payload.mjs', 'theme-preferences.mjs'
+    'internet-angel-extension.js', 'internet-angel-extension.css', 'theme-motion.js', 'theme-motion.css', 'motion-settings.mjs', 'motion-payload.mjs', 'theme-preferences.mjs', 'retired-theme-migration.mjs', 'retired-theme-catalog.json'
   )) {
     $sourceAsset = Join-Path $Root "assets\$requiredQuickFixAsset"
     $archivedAsset = Join-Path $quickFixExtract "assets\$requiredQuickFixAsset"
@@ -91,6 +91,8 @@ try {
   & $patchScript -SourceRoot $Root -StateRoot $stateRoot
   $sourceCommon = Join-Path $Root 'scripts\common-windows.ps1'
   $sourceStart = Join-Path $Root 'scripts\start-dream-skin.ps1'
+  $installedTheme = Join-Path $scriptsRoot 'theme-windows.ps1'
+  $sourceTheme = Join-Path $Root 'scripts\theme-windows.ps1'
   $installedInjector = Join-Path $scriptsRoot 'injector.mjs'
   $sourcePatch = Join-Path $Root 'scripts\patch-dream-skin.ps1'
   $installedPatch = Join-Path $scriptsRoot 'patch-dream-skin.ps1'
@@ -110,6 +112,8 @@ try {
       (Get-FileHash -LiteralPath $sourceCommon -Algorithm SHA256).Hash -or
     (Get-FileHash -LiteralPath $installedStart -Algorithm SHA256).Hash -cne
       (Get-FileHash -LiteralPath $sourceStart -Algorithm SHA256).Hash -or
+    (Get-FileHash -LiteralPath $installedTheme -Algorithm SHA256).Hash -cne
+      (Get-FileHash -LiteralPath $sourceTheme -Algorithm SHA256).Hash -or
     (Get-FileHash -LiteralPath $installedInjector -Algorithm SHA256).Hash -cne
       (Get-FileHash -LiteralPath $sourceInjector -Algorithm SHA256).Hash -or
     (Get-FileHash -LiteralPath $installedPatch -Algorithm SHA256).Hash -cne
@@ -172,10 +176,10 @@ try {
   }
 
   $patchedFiles = @(
-    $installedCommon, $installedStart, $installedInjector, $installedPatch, $installedRenderer,
+    $installedCommon, $installedStart, $installedTheme, $installedInjector, $installedPatch, $installedRenderer,
     $installedCss, $installedAcrylicCss, $installedExtensionCss, $installedExtensionScript, $installedPredicateRuntime
   )
-  foreach ($assetName in @('theme-motion.js', 'theme-motion.css', 'motion-settings.mjs', 'motion-payload.mjs', 'theme-preferences.mjs')) {
+  foreach ($assetName in @('theme-motion.js', 'theme-motion.css', 'motion-settings.mjs', 'motion-payload.mjs', 'theme-preferences.mjs', 'retired-theme-migration.mjs', 'retired-theme-catalog.json')) {
     $installedMotion = Join-Path $assetsRoot $assetName
     $sourceMotion = Join-Path $Root "assets\$assetName"
     if ((Get-FileHash -LiteralPath $installedMotion -Algorithm SHA256).Hash -cne

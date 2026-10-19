@@ -598,6 +598,45 @@ function Get-DreamSkinActiveThemeAppearance {
   return 'auto'
 }
 
+function Invoke-DreamSkinRetiredThemeMigration {
+  param(
+    [Parameter(Mandatory = $true)][string]$SkillRoot,
+    [Parameter(Mandatory = $true)][string]$StateRoot
+  )
+  $assetRoot = Join-Path $SkillRoot 'assets'
+  $migration = Join-Path $assetRoot 'retired-theme-migration.mjs'
+  $catalog = Join-Path $assetRoot 'retired-theme-catalog.json'
+  foreach ($required in @($migration, $catalog)) {
+    Assert-DreamSkinNoReparseComponents -Path $required
+    if (-not (Test-Path -LiteralPath $required -PathType Leaf)) {
+      throw 'The retired-theme migration runtime is incomplete. Reinstall Dream Skin.'
+    }
+  }
+  $node = Get-DreamSkinNodeRuntime
+  # Native manager mutations share ThemeImport. Keep it held across both the
+  # active-theme replacement and saved-pack archival, not only recovery.
+  $mutex = New-DreamSkinThemeImportMutex
+  $acquired = $false
+  try {
+    try { $acquired = $mutex.WaitOne(0) } catch [System.Threading.AbandonedMutexException] { $acquired = $true }
+    if (-not $acquired) {
+      throw 'Another theme operation is still running; retired-theme migration is deferred.'
+    }
+    $paths = Get-DreamSkinThemePaths -StateRoot $StateRoot
+    Repair-DreamSkinThemeReplacementTransactions -Paths $paths
+    $result = Invoke-DreamSkinNative -FilePath $node.Path -ArgumentList @(
+      $migration, '--state-root', $paths.Root, '--active-name', 'active-theme',
+      '--default-theme-dir', $assetRoot
+    )
+    if ($result.ExitCode -ne 0) {
+      throw 'Retired-theme migration could not finish safely. Existing themes and recovery backups were retained.'
+    }
+  } finally {
+    if ($acquired) { try { $mutex.ReleaseMutex() } catch {} }
+    $mutex.Dispose()
+  }
+}
+
 function Initialize-DreamSkinThemeStore {
   param(
     [Parameter(Mandatory = $true)][string]$SkillRoot,
@@ -635,7 +674,7 @@ function Initialize-DreamSkinThemeStore {
   }
   $null = Update-DreamSkinLegacyManagedActiveThemeSchema `
     -ThemeDirectory $paths.Active -ManagedRoot $paths.Root
-  # Retired bundled themes already saved by users remain available after upgrades.
+  # Refresh only the retained JPEG; recognized retired packs are archived below.
   $presetDirectory = Join-Path $paths.Saved $bundledPresetId
   $presetTheme = Join-Path $presetDirectory 'theme.json'
   Assert-DreamSkinNoReparseComponents -Path $presetDirectory
@@ -675,6 +714,7 @@ function Initialize-DreamSkinThemeStore {
       }
     }
   }
+  Invoke-DreamSkinRetiredThemeMigration -SkillRoot $SkillRoot -StateRoot $StateRoot
   $null = Read-DreamSkinTheme -ThemeDirectory $paths.Active
   return $paths
 }

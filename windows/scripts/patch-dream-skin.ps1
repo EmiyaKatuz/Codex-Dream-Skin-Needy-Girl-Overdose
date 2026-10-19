@@ -12,13 +12,14 @@ function Assert-DreamSkinPatchSource {
 
   $commonPath = Join-Path $Root 'scripts\common-windows.ps1'
   $startPath = Join-Path $Root 'scripts\start-dream-skin.ps1'
+  $themePath = Join-Path $Root 'scripts\theme-windows.ps1'
   $injectorPath = Join-Path $Root 'scripts\injector.mjs'
   $versionPath = Join-Path $Root 'VERSION'
   $rendererPath = Join-Path $Root 'assets\renderer-inject.js'
   $cssPath = Join-Path $Root 'assets\dream-skin.css'
   $acrylicCssPath = Join-Path $Root 'assets\internet-angel-acrylic.css'
   $extensionCssPath = Join-Path $Root 'assets\internet-angel-extension.css'
-  foreach ($assetName in @('theme-motion.js', 'theme-motion.css', 'motion-settings.mjs', 'motion-payload.mjs', 'theme-preferences.mjs')) {
+  foreach ($assetName in @('theme-motion.js', 'theme-motion.css', 'motion-settings.mjs', 'motion-payload.mjs', 'theme-preferences.mjs', 'retired-theme-migration.mjs', 'retired-theme-catalog.json')) {
     $motionPath = Join-Path $Root "assets\$assetName"
     if (-not (Test-Path -LiteralPath $motionPath -PathType Leaf)) {
       throw "Patch source is incomplete: $motionPath"
@@ -27,7 +28,7 @@ function Assert-DreamSkinPatchSource {
   $extensionScriptPath = Join-Path $Root 'assets\internet-angel-extension.js'
   $predicateRuntimePath = Join-Path $Root 'assets\css-predicate-cache.mjs'
   foreach ($requiredPath in @(
-    $commonPath, $startPath, $injectorPath, $versionPath, $rendererPath, $cssPath,
+    $commonPath, $startPath, $themePath, $injectorPath, $versionPath, $rendererPath, $cssPath,
     $acrylicCssPath, $extensionCssPath, $extensionScriptPath, $predicateRuntimePath
   )) {
     if (-not (Test-Path -LiteralPath $requiredPath -PathType Leaf)) {
@@ -160,6 +161,7 @@ if (-not $SourceRoot) {
 $sourceRoot = [System.IO.Path]::GetFullPath($SourceRoot)
 $commonSourcePath = Join-Path $sourceRoot 'scripts\common-windows.ps1'
 $startSourcePath = Join-Path $sourceRoot 'scripts\start-dream-skin.ps1'
+$themeSourcePath = Join-Path $sourceRoot 'scripts\theme-windows.ps1'
 $injectorSourcePath = Join-Path $sourceRoot 'scripts\injector.mjs'
 $patchSourcePath = Join-Path $sourceRoot 'scripts\patch-dream-skin.ps1'
 $rendererSourcePath = Join-Path $sourceRoot 'assets\renderer-inject.js'
@@ -189,6 +191,7 @@ Assert-DreamSkinPatchSource -Root $sourceRoot
 
 $installedCommon = Join-Path $engine.Scripts 'common-windows.ps1'
 $installedStart = Join-Path $engine.Scripts 'start-dream-skin.ps1'
+$installedTheme = Join-Path $engine.Scripts 'theme-windows.ps1'
 $installedInjector = Join-Path $engine.Scripts 'injector.mjs'
 $installedPatch = Join-Path $engine.Scripts 'patch-dream-skin.ps1'
 $installedRenderer = Join-Path $engine.Root 'assets\renderer-inject.js'
@@ -200,6 +203,7 @@ $installedPredicateRuntime = Join-Path $engine.Root 'assets\css-predicate-cache.
 $patchIdentityPairs = @(
   @{ Source = $commonSourcePath; Installed = $installedCommon },
   @{ Source = $startSourcePath; Installed = $installedStart },
+  @{ Source = $themeSourcePath; Installed = $installedTheme },
   @{ Source = $injectorSourcePath; Installed = $installedInjector },
   @{ Source = $patchSourcePath; Installed = $installedPatch },
   @{ Source = $rendererSourcePath; Installed = $installedRenderer },
@@ -209,7 +213,7 @@ $patchIdentityPairs = @(
   @{ Source = $extensionScriptSourcePath; Installed = $installedExtensionScript },
   @{ Source = $predicateRuntimeSourcePath; Installed = $installedPredicateRuntime }
 )
-$motionAssetNames = @('theme-motion.js', 'theme-motion.css', 'motion-settings.mjs', 'motion-payload.mjs', 'theme-preferences.mjs')
+$motionAssetNames = @('theme-motion.js', 'theme-motion.css', 'motion-settings.mjs', 'motion-payload.mjs', 'theme-preferences.mjs', 'retired-theme-migration.mjs', 'retired-theme-catalog.json')
 foreach ($assetName in $motionAssetNames) {
   $patchIdentityPairs += @{
     Source = (Join-Path $sourceRoot "assets\$assetName")
@@ -257,6 +261,7 @@ try {
 
     $stagedCommon = Join-Path $stagingRoot 'scripts\common-windows.ps1'
     $stagedStart = Join-Path $stagingRoot 'scripts\start-dream-skin.ps1'
+    $stagedTheme = Join-Path $stagingRoot 'scripts\theme-windows.ps1'
     $stagedInjector = Join-Path $stagingRoot 'scripts\injector.mjs'
     $stagedPatch = Join-Path $stagingRoot 'scripts\patch-dream-skin.ps1'
     $stagedRenderer = Join-Path $stagingRoot 'assets\renderer-inject.js'
@@ -267,6 +272,7 @@ try {
     $stagedPredicateRuntime = Join-Path $stagingRoot 'assets\css-predicate-cache.mjs'
     Copy-Item -LiteralPath $commonSourcePath -Destination $stagedCommon -Force -ErrorAction Stop
     Copy-Item -LiteralPath $startSourcePath -Destination $stagedStart -Force -ErrorAction Stop
+    Copy-Item -LiteralPath $themeSourcePath -Destination $stagedTheme -Force -ErrorAction Stop
     Copy-Item -LiteralPath $injectorSourcePath -Destination $stagedInjector -Force -ErrorAction Stop
     Copy-Item -LiteralPath $patchSourcePath -Destination $stagedPatch -Force -ErrorAction Stop
     Copy-Item -LiteralPath $rendererSourcePath -Destination $stagedRenderer -Force -ErrorAction Stop
@@ -282,6 +288,7 @@ try {
     $patchPairs = @(
       @{ Relative = 'scripts\common-windows.ps1'; Source = $commonSourcePath; Staged = $stagedCommon; Installed = $installedCommon },
       @{ Relative = 'scripts\start-dream-skin.ps1'; Source = $startSourcePath; Staged = $stagedStart; Installed = $installedStart },
+      @{ Relative = 'scripts\theme-windows.ps1'; Source = $themeSourcePath; Staged = $stagedTheme; Installed = $installedTheme },
       @{ Relative = 'scripts\injector.mjs'; Source = $injectorSourcePath; Staged = $stagedInjector; Installed = $installedInjector },
       @{ Relative = 'scripts\patch-dream-skin.ps1'; Source = $patchSourcePath; Staged = $stagedPatch; Installed = $installedPatch },
       @{ Relative = 'assets\renderer-inject.js'; Source = $rendererSourcePath; Staged = $stagedRenderer; Installed = $installedRenderer },
@@ -312,7 +319,7 @@ try {
     # their staged bytes have been authenticated against the selected source.
     # injector.mjs is data/code consumed by the bundled runtime and is never
     # unblocked here.
-    foreach ($stagedScript in @($stagedCommon, $stagedStart, $stagedPatch)) {
+    foreach ($stagedScript in @($stagedCommon, $stagedStart, $stagedTheme, $stagedPatch)) {
       Unblock-File -LiteralPath $stagedScript -ErrorAction Stop
     }
 
