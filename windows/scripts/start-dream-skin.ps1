@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
   [int]$Port = 9335,
   [switch]$RestartExisting,
@@ -9,6 +9,7 @@ param(
   [switch]$ForegroundInjector,
   [ValidateRange(0, 300000)][int]$OperationLockTimeoutMilliseconds = 0,
   [switch]$RequireUnpaused,
+  [string]$SavedThemeDirectory,
   [ValidatePattern('^[a-f0-9]{32}$')][string]$ResultToken
 )
 
@@ -87,13 +88,43 @@ function Test-DreamSkinRenderedVerificationOutput {
   return $false
 }
 
+function Test-DreamSkinHiddenVerificationOutput {
+  param([AllowEmptyCollection()][object[]]$Output)
+  try {
+    $payload = ($Output -join "`n") | ConvertFrom-Json -ErrorAction Stop
+    $targets = @($payload.targets)
+    if ($targets.Count -eq 0) { return $false }
+    foreach ($target in $targets) {
+      $result = $target.result
+      # Unknown, failed, mixed or visible targets never authorize recovery.
+      if ($result.documentHidden -isnot [bool] -or -not $result.documentHidden -or
+        $result.documentVisibility -cne 'hidden' -or
+        $result.readiness.documentPass -isnot [bool] -or $result.readiness.documentPass) {
+        return $false
+      }
+    }
+    return $true
+  } catch { return $false }
+}
+
+function Restore-DreamSkinStartupThemeSelection {
+  param([object]$Transaction, [object]$Paths, [string]$StateRoot)
+  # Caller holds the operation lock. External changes must still win.
+  $current = Get-DreamSkinThemeRuntimeContentFingerprint -ThemeDirectory $Paths.Active
+  if ($current -cne $Transaction.SelectedFingerprint) { return 'superseded' }
+  if ((Get-DreamSkinThemeRuntimeContentFingerprint -ThemeDirectory $Transaction.Snapshot) -cne
+    $Transaction.PreviousFingerprint) { throw 'The rollback snapshot changed; current theme was preserved.' }
+  $null = Restore-DreamSkinActiveThemeSnapshot -SnapshotDirectory $Transaction.Snapshot `
+    -StateRoot $StateRoot -ExpectedContentFingerprint $Transaction.PreviousFingerprint
+  return 'restored'
+}
+
 $StateRoot = Join-Path $env:LOCALAPPDATA 'CodexDreamSkin'
-$ConfigPath = Join-Path $HOME '.codex\config.toml'
-$BackupPath = Join-Path $StateRoot 'config.before-dream-skin.toml'
 $operationLock = $null
 $startFailureCategory = 'internal-start-failure'
 $appearanceTransaction = $null
 $appearanceRecovery = 'not-needed'
+$themeSelectionTransaction = $null
 try {
   $operationLock = Enter-DreamSkinOperationLock `
     -TimeoutMilliseconds $OperationLockTimeoutMilliseconds
@@ -107,6 +138,9 @@ try {
     throw '-AutoRestartReservationToken is only valid with -AutoRestartStock.'
   }
   Assert-DreamSkinPort -Port $Port
+  if ($SavedThemeDirectory -and $ForegroundInjector) {
+    throw 'Saved-theme selection requires the verified background startup operation.'
+  }
   if ($ProfilePath) { $ProfilePath = [System.IO.Path]::GetFullPath($ProfilePath) }
   $node = Get-DreamSkinNodeRuntime
   $currentCodex = Get-DreamSkinCodexInstall
@@ -123,7 +157,7 @@ try {
     if (-not (Test-Path -LiteralPath $acrylicHelper -PathType Leaf)) {
       throw "The managed Desktop Acrylic helper is missing: $acrylicHelper"
     }
-    $codexConfigPath = Join-Path ([Environment]::GetFolderPath('UserProfile')) '.codex\config.toml'
+    $codexConfigPath = (Resolve-DreamSkinConfigPaths -StateRoot $StateRoot).ConfigPath
     $acrylicTransparencyReady = Test-DreamSkinAcrylicTransparencyConfig `
       -ConfigPath $codexConfigPath
     if (-not (Test-DreamSkinAcrylicTransparencyConfigManageable -ConfigPath $codexConfigPath)) {
@@ -136,6 +170,9 @@ try {
   $language = Resolve-DreamSkinLanguage -StateRoot $StateRoot
   $themePaths = Get-DreamSkinThemePaths -StateRoot $StateRoot
   Ensure-DreamSkinManagedDirectory -Path $themePaths.Root -Root $themePaths.Root
+  $configPaths = Resolve-DreamSkinConfigPaths -StateRoot $StateRoot -BindBackup
+  $ConfigPath = $configPaths.ConfigPath
+  $BackupPath = $configPaths.BackupPath
   if (-not $ProfilePathExplicit) {
     # Chromium 136+ ignores remote-debugging switches for its default data
     # directory. Keep Dream Skin on a separate persistent profile so current
@@ -211,7 +248,7 @@ try {
     }
   }
 
-  $currentProcesses = Get-DreamSkinCodexProcesses -Codex $currentCodex @autoSessionParameters
+  $currentProcesses = @(Get-DreamSkinCodexProcesses -Codex $currentCodex @autoSessionParameters)
   $codexToStop = $currentCodex
   $cdpIdentity = Get-DreamSkinVerifiedCdpIdentity -Port $Port -Codex $currentCodex `
     @autoSessionParameters
@@ -271,11 +308,28 @@ try {
     $cdpIdentity = $null
   }
   $debugReady = $null -ne $cdpIdentity
-  $codexProcesses = if (Test-DreamSkinPathEqual -Left $codexToStop.Executable -Right $currentCodex.Executable) {
+  $hiddenSessionIdentity = $null
+  if ($PromptRestart -and -not $RestartExisting -and $debugReady) {
+    $visibility = Invoke-DreamSkinNative -FilePath $node.Path -ArgumentList @(
+      $Injector, '--verify', '--port', "$Port", '--browser-id', $cdpIdentity.BrowserId,
+      '--theme-dir', $themePaths.Active, '--timeout-ms', '5000') -SeparateStderr
+    if (Test-DreamSkinHiddenVerificationOutput -Output $visibility.Output) {
+      $hiddenSessionIdentity = $cdpIdentity
+      $debugReady = $false
+    }
+  }
+  # Explicit restart must also replace a still-live CDP session. Closing the
+  # last Owl window leaves that session alive, so treating the listener as a
+  # reason to ignore -RestartExisting strands the renderer in hidden state.
+  if ($RestartExisting -and $debugReady) {
+    $cdpIdentity = $null
+    $debugReady = $false
+  }
+  $codexProcesses = @(if (Test-DreamSkinPathEqual -Left $codexToStop.Executable -Right $currentCodex.Executable) {
     $currentProcesses
   } else {
     Get-DreamSkinCodexProcesses -Codex $codexToStop @autoSessionParameters
-  }
+  })
   if ($AutoRestartStock) {
     # Revalidate both the reservation and the complete registered Codex process
     # set under the operation mutex. A session that exited, was replaced, or
@@ -342,6 +396,14 @@ try {
     if (-not $restartAuthorized) {
       throw 'Codex is open without a verified Dream Skin CDP endpoint. Close it first or explicitly use -RestartExisting.'
     }
+    if ($null -ne $hiddenSessionIdentity) {
+      $latestIdentity = Get-DreamSkinVerifiedCdpIdentity -Port $Port -Codex $codexToStop
+      if ($null -eq $latestIdentity -or
+        $latestIdentity.BrowserId -cne $hiddenSessionIdentity.BrowserId) {
+        throw 'The hidden Codex session changed during restart confirmation; no process was stopped.'
+      }
+      $cdpIdentity = $null
+    }
     if ($AutoRestartStock) {
       Stop-DreamSkinCodex -Codex $codexToStop -AllowForce `
         -ExpectedAutoRestartTargets @($autoRestartReservation.TargetProcesses) `
@@ -385,6 +447,32 @@ try {
       } catch {
         $appearanceRecovery = 'blocked'
         throw 'Interrupted startup appearance could not be recovered safely; config was preserved.'
+      }
+    }
+    if ($SavedThemeDirectory) {
+      # Selection belongs to this locked child, after consent and before launch.
+      # Reuse the community apply snapshot contract without its UI entry point.
+      . (Join-Path (Split-Path -Parent $Injector) 'apply-community-theme.ps1') -FunctionsOnly
+      $snapshot = Join-Path $StateRoot ('.tray-apply-' + [guid]::NewGuid().ToString('N'))
+      $previousFingerprint = Get-DreamSkinThemeRuntimeContentFingerprint -ThemeDirectory $themePaths.Active
+      $null = Copy-DreamSkinActiveThemeSnapshot -Paths $themePaths -Destination $snapshot
+      if ((Get-DreamSkinThemeRuntimeContentFingerprint -ThemeDirectory $snapshot) -cne $previousFingerprint) {
+        throw 'The active theme changed while its rollback snapshot was being copied.'
+      }
+      try {
+        $null = Use-DreamSkinSavedTheme -ThemeDirectory $SavedThemeDirectory -StateRoot $StateRoot
+        $selectedFingerprint = Get-DreamSkinThemeRuntimeContentFingerprint -ThemeDirectory $themePaths.Active
+      } catch {
+        # A partial write is still ours: no lock has been released since snapshot.
+        $selectionError = $_
+        $null = Restore-DreamSkinActiveThemeSnapshot -SnapshotDirectory $snapshot `
+          -StateRoot $StateRoot -ExpectedContentFingerprint $previousFingerprint
+        Remove-DreamSkinManagedDirectoryVerified -Path $snapshot -Root $StateRoot
+        throw $selectionError
+      }
+      $themeSelectionTransaction = [pscustomobject]@{
+        Snapshot = $snapshot; PreviousFingerprint = $previousFingerprint
+        SelectedFingerprint = $selectedFingerprint
       }
     }
     if ($null -eq (Get-DreamSkinVerifiedCdpIdentity -Port $Port -Codex $codex `
@@ -875,8 +963,8 @@ try {
         '--browser-id', $cdpIdentity.BrowserId, '--theme-dir', $themePaths.Active,
         '--timeout-ms', '30000', '--allow-hidden-document'
       ) + $injectorWindowArgs
-      $verify = Invoke-DreamSkinNative -FilePath $node.Path -ArgumentList $verifyArguments
-      Write-DreamSkinUtf8FileAtomically -Path $VerifyPath -Content (($verify.Output -join "`r`n") + "`r`n")
+      $verify = Invoke-DreamSkinNative -FilePath $node.Path -ArgumentList $verifyArguments -SeparateStderr
+      Write-DreamSkinUtf8FileAtomically -Path $VerifyPath -Content ((($verify.Output + $verify.ErrorOutput) -join "`r`n") + "`r`n")
       if ($verify.ExitCode -eq 0) { break }
       # A verify can fail while the theme is demonstrably on screen: the
       # renderer reports the document visible, the viewport sized and the shell
@@ -897,9 +985,9 @@ try {
           '--browser-id', $cdpIdentity.BrowserId, '--theme-dir', $themePaths.Active,
           '--timeout-ms', '15000', '--allow-hidden-document'
         ) + $injectorWindowArgs
-        $once = Invoke-DreamSkinNative -FilePath $node.Path -ArgumentList $onceArguments
+        $once = Invoke-DreamSkinNative -FilePath $node.Path -ArgumentList $onceArguments -SeparateStderr
         Write-DreamSkinUtf8FileAtomically -Path $VerifyPath -Content (
-          (($verify.Output + $once.Output) -join "`r`n") + "`r`n"
+          (($verify.Output + $verify.ErrorOutput + $once.Output + $once.ErrorOutput) -join "`r`n") + "`r`n"
         )
         if (Test-DreamSkinRenderedVerificationOutput -Output $once.Output) {
           $skinLooksRendered = $true
@@ -1085,8 +1173,38 @@ try {
     Write-DreamSkinStartResult -StateRoot $StateRoot -Token $ResultToken `
       -Outcome 'success' -Category 'none' -AppearanceRecovery $appearanceRecovery
   }
+  if ($null -ne $themeSelectionTransaction) {
+    $completedSnapshot = $themeSelectionTransaction.Snapshot
+    $themeSelectionTransaction = $null
+    try { Remove-DreamSkinManagedDirectoryVerified -Path $completedSnapshot -Root $StateRoot } catch {
+      Write-Warning 'The verified theme is active, but its completed rollback snapshot could not be removed.'
+    }
+  }
 } catch {
   $startError = $_
+  if ($null -ne $themeSelectionTransaction -and $null -ne $operationLock) {
+    try {
+      if ($appearanceRecovery -in @('blocked', 'conflict-preserved')) {
+        throw 'Appearance recovery is unresolved; theme rollback snapshot must be retained.'
+      }
+      $selectionRecovery = Restore-DreamSkinStartupThemeSelection `
+        -Transaction $themeSelectionTransaction -Paths $themePaths -StateRoot $StateRoot
+      if ($selectionRecovery -ceq 'restored' -and $null -ne $cdpIdentity -and
+        -not (Test-DreamSkinPaused -StateRoot $StateRoot)) {
+        $restoreIdentity = Get-DreamSkinVerifiedCdpIdentity -Port $Port -Codex $codex
+        if ($null -ne $restoreIdentity -and $restoreIdentity.BrowserId -ceq $cdpIdentity.BrowserId) {
+          $restoredInjection = Invoke-DreamSkinNative -FilePath $node.Path -ArgumentList @(
+            $Injector, '--once', '--port', "$Port", '--browser-id', $restoreIdentity.BrowserId,
+            '--theme-dir', $themePaths.Active, '--timeout-ms', '15000')
+          if ($restoredInjection.ExitCode -ne 0) { Write-Warning 'The previous theme files were restored, but their live appearance could not be verified.' }
+        }
+      }
+      Remove-DreamSkinManagedDirectoryVerified -Path $themeSelectionTransaction.Snapshot -Root $StateRoot
+      $themeSelectionTransaction = $null
+    } catch {
+      Write-Warning 'Theme selection recovery was blocked; its private rollback snapshot was retained.'
+    }
+  }
   if ($ResultToken) {
     try {
       $reportedCategory = Get-DreamSkinStartFailureCategory `

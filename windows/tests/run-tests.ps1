@@ -6,6 +6,8 @@ $Root = Split-Path -Parent $PSScriptRoot
 . (Join-Path $Root 'scripts\common-windows.ps1')
 . (Join-Path $Root 'scripts\theme-windows.ps1')
 . (Join-Path $Root 'scripts\localization-windows.ps1')
+& (Join-Path $PSScriptRoot 'theme-manager-maintenance.tests.ps1')
+& (Join-Path $PSScriptRoot 'codex-home.tests.ps1')
 
 if ((Resolve-DreamSkinLanguage -Language 'zh-CN') -cne 'zh-CN' -or
   (Resolve-DreamSkinLanguage -Language 'en-US') -cne 'en-US') {
@@ -182,6 +184,31 @@ try {
   foreach ($runtimeBackup in Get-ChildItem -LiteralPath $runtimeStateRoot -Directory -Force |
     Where-Object { $_.Name -like '.engine-backup-*' }) {
     Remove-DreamSkinRuntimeTree -Path $runtimeBackup.FullName -StateRoot $runtimeStateRoot
+  }
+
+  $missingPredicateRoot = Join-Path $temporaryRoot 'missing-predicate-source'
+  Copy-Item -LiteralPath $runtimeSourceRoot -Destination $missingPredicateRoot -Recurse -Force
+  Remove-Item -LiteralPath (Join-Path $missingPredicateRoot 'assets\css-predicate-cache.mjs') -Force
+  $enginePrefixBeforePredicateCheck = $engine.Root.TrimEnd('\') + '\'
+  $engineHashesBeforePredicateCheck = @(Get-ChildItem -LiteralPath $engine.Root -File -Recurse |
+    Sort-Object FullName | ForEach-Object {
+      "$($_.FullName.Substring($enginePrefixBeforePredicateCheck.Length))=$((Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash)"
+    }) -join "`n"
+  $missingPredicateRejected = $false
+  try {
+    $null = Install-DreamSkinRuntimeEngine -SkillRoot $missingPredicateRoot -StateRoot $runtimeStateRoot
+  } catch {
+    if ($_.Exception.Message -notlike '*runtime source is incomplete*assets\css-predicate-cache.mjs*') { throw }
+    $missingPredicateRejected = $true
+  }
+  $engineHashesAfterPredicateCheck = @(Get-ChildItem -LiteralPath $engine.Root -File -Recurse |
+    Sort-Object FullName | ForEach-Object {
+      "$($_.FullName.Substring($enginePrefixBeforePredicateCheck.Length))=$((Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash)"
+    }) -join "`n"
+  if (-not $missingPredicateRejected -or $engineHashesBeforePredicateCheck -cne $engineHashesAfterPredicateCheck -or
+    @(Get-ChildItem -LiteralPath $runtimeStateRoot -Directory |
+      Where-Object { $_.Name -like '.engine-staging-*' -or $_.Name -like '.engine-backup-*' }).Count -ne 0) {
+    throw 'A source missing the predicate dependency changed the installed engine or left transaction directories.'
   }
 
   $missingBundledNodeRoot = Join-Path $temporaryRoot 'missing-bundled-node-source'
@@ -1395,8 +1422,8 @@ args = [
   Copy-Item -LiteralPath (Join-Path $Root 'VERSION') -Destination $releaseFixtureRoot -Force
   foreach ($releaseAsset in @(
     'dream-skin.css', 'internet-angel-acrylic.css', 'internet-angel-extension.css',
-    'internet-angel-extension.js', 'renderer-inject.js', 'safe-css-policy.json', 'safe-css-validator.mjs', 'selectors.json',
-    'theme-package-validator.mjs', 'theme-motion.js', 'theme-motion.css', 'motion-settings.mjs', 'motion-payload.mjs'
+    'internet-angel-extension.js', 'css-predicate-cache.mjs', 'renderer-inject.js', 'safe-css-policy.json', 'safe-css-validator.mjs', 'selectors.json',
+    'theme-package-validator.mjs', 'theme-preferences.mjs', 'theme-motion.js', 'theme-motion.css', 'motion-settings.mjs', 'motion-payload.mjs'
   )) {
     Copy-Item -LiteralPath (Join-Path $Root "assets\$releaseAsset") `
       -Destination $releaseFixtureAssets -Force
@@ -1417,6 +1444,7 @@ args = [
   Copy-Item -LiteralPath (Join-Path $Root 'scripts\restore-dream-skin.ps1') -Destination $releaseFixtureScripts -Force
   Copy-Item -LiteralPath (Join-Path $Root 'scripts\start-dream-skin.ps1') -Destination $releaseFixtureScripts -Force
   Copy-Item -LiteralPath (Join-Path $Root 'scripts\theme-windows.ps1') -Destination $releaseFixtureScripts -Force
+  Copy-Item -LiteralPath (Join-Path $Root 'assets\theme-manager') -Destination $releaseFixtureAssets -Recurse -Force
   Copy-Item -LiteralPath (Join-Path $Root 'scripts\tray-dream-skin.ps1') -Destination $releaseFixtureScripts -Force
   Copy-Item -LiteralPath (Join-Path $Root 'scripts\validate-safe-css-file.mjs') -Destination $releaseFixtureScripts -Force
   Copy-Item -LiteralPath (Join-Path $Root 'scripts\verify-dream-skin.ps1') -Destination $releaseFixtureScripts -Force
@@ -1619,7 +1647,7 @@ args = [
       throw "Windows injector operation UI is missing: $requiredOperationUi"
     }
   }
-  if ([regex]::Matches($traySource, '-ExecutionPolicy RemoteSigned').Count -ne 2 -or
+  if ([regex]::Matches($traySource, '-ExecutionPolicy RemoteSigned').Count -ne 3 -or
     $traySource.Contains('-ExecutionPolicy Bypass')) {
     throw 'Tray actions still bypass the PowerShell execution policy.'
   }
@@ -1796,9 +1824,11 @@ args = [
   $node = Get-DreamSkinNodeRuntime
   & (Join-Path $PSScriptRoot 'tray-motion.tests.ps1') -Root $Root
   & (Join-Path $PSScriptRoot 'community-theme-link.tests.ps1') -Root $Root
+  & (Join-Path $PSScriptRoot 'native-stderr.tests.ps1') -Root $Root
   & (Join-Path $PSScriptRoot 'theme-zip-import.tests.ps1') -Root $Root
   & (Join-Path $PSScriptRoot 'config-startup-rollback.tests.ps1') -Root $Root
   & (Join-Path $PSScriptRoot 'start-result-contract.tests.ps1') -Root $Root
+  & (Join-Path $PSScriptRoot 'tray-apply-result.tests.ps1')
   & (Join-Path $PSScriptRoot 'start-cdp-failure-appearance-recovery.tests.ps1') -Root $Root
   & (Join-Path $PSScriptRoot 'start-post-launch-appearance-recovery.tests.ps1') -Root $Root
   & (Join-Path $PSScriptRoot 'start-renderer-readiness.tests.ps1') -Root $Root

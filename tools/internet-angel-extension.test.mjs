@@ -579,7 +579,8 @@ const sharedSurface = installedDiffCss.match(/--diffs-bg:\s*([^;]+?)\s*!importan
 const sharedSurfaceRaised = installedDiffCss.match(/--diffs-bg-context:\s*([^;]+?)\s*!important;/)?.[1];
 assert.deepEqual(
   [sharedSurface, sharedSurfaceRaised],
-  [windowsSurface, windowsSurfaceRaised].map(normalizeWindowsDiffFormula),
+  [windowsSurface, windowsSurfaceRaised].map(normalizeWindowsDiffFormula).map((formula, index) =>
+    `var(--angel-user-diff-${index ? "surface-raised" : "surface"}, ${formula})`),
   "Shared Diff Shadow surfaces must preserve the existing Windows 94/5 and 94/6 mixes.",
 );
 const outerDiffHostCss = sourceCss.match(
@@ -605,7 +606,8 @@ assert.deepEqual(
     outerDiffValue("--diffs-bg-context"),
     outerDiffValue("background-color"),
   ],
-  [windowsSurface, windowsSurfaceRaised, windowsSurface].map(normalizeWindowsDiffFormula),
+  [windowsSurface, windowsSurfaceRaised, windowsSurface].map(normalizeWindowsDiffFormula).map((formula, index) =>
+    `var(--angel-user-diff-${index === 1 ? "surface-raised" : "surface"}, ${formula})`),
   "The shared outer Diff host must use the same surface and context mixes as Windows.",
 );
 lateDiffRoot.state.cleanup();

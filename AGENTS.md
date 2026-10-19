@@ -48,7 +48,7 @@
 ## 实现与测试
 
 - 优先复用 `runtime/` 的共享源，通过现有同步工具生成双端资产；不要直接制造 macOS、Windows 漂移。
-- 版本发布必须同步 `macos/VERSION`、`windows/VERSION`、`macos/package.json`、`macos/scripts/common-macos.sh`、`macos/scripts/injector.mjs` 和 `windows/scripts/injector.mjs`，并更新绑定当前版本的断言。
+- 版本发布必须同步 `macos/VERSION`、`windows/VERSION`、`macos/package.json`、`macos/scripts/common-macos.sh`、`macos/scripts/injector.mjs`、`windows/scripts/injector.mjs`、`linux/VERSION`、`linux/scripts/common-linux.sh` 和 `linux/scripts/injector.mjs`，并更新绑定当前版本的断言。
 - 修改主题 schema、manifest、Safe CSS、导入或提取逻辑时，必须覆盖合法包、缺件、空文件、边界大小、哈希不符、路径攻击、链接、嵌套归档、压缩滥用、重复导入和 ID 冲突。
 - 修改共享 renderer 或 CSS 时，运行同步校验和双端 payload 检查；不得只验证一个平台副本。
 - macOS 相关改动至少运行适用的 Node、shell 语法和 Swift 测试；Windows 相关改动至少运行适用的 Node 与 PowerShell 测试。无法在本机执行的平台测试必须交给 CI 并明确说明。
@@ -57,11 +57,14 @@
 
 ## Git 与发布
 
+- Write all new commit messages in English, including squash/merge commit titles and bodies.
+- 每次发布遵循 [`docs/releases/README.md`](docs/releases/README.md)：版本 PR 必须包含中文 `docs/releases/vX.Y.Z.md` 和完整英文 `docs/releases/vX.Y.Z-en.md`，顶部互链；以用户可感知的新增、修复和升级说明为先，附贡献者与完整变更链接；Release 展示中文正文，下载信息由工作流追加。
+
 - 保留用户现有改动；禁止未经授权的 reset、checkout 丢弃、强推、移动已公开 tag 或覆盖已公开 Release。
 - 功能开发、版本准备和紧急修复使用独立分支；提交只包含当前范围，推送前审查 staged diff。
 - 客户端发布由 `main` 上的版本变化驱动。版本未变化的普通合并不得重复构建或覆盖 Release。
-- Issue 修复的 PR 合并、CI 转绿后，同一轮工作里直接完成版本号提升（含六处版本一致）与 Release 触发，并在关闭 Issue 的评论中写清根因、修复提交与验证方式；不要把"已修复"停在合并这一步、让发布和关闭 Issue 变成另一次单独请求才做的事。
-- 自动发布必须验证六处版本一致、版本递增、tag 与发布提交一致、目标 Release 尚未公开。失败后的 `workflow_dispatch` 只能幂等重试同一 tag 和提交。
+- Issue 修复的 PR 合并、CI 转绿后，同一轮工作里直接完成版本号提升（含九处版本一致）与 Release 触发，并在关闭 Issue 的评论中写清根因、修复提交与验证方式；不要把"已修复"停在合并这一步、让发布和关闭 Issue 变成另一次单独请求才做的事。
+- 自动发布必须验证九处版本一致、版本递增、tag 与发布提交一致、目标 Release 尚未公开。失败后的 `workflow_dispatch` 只能幂等重试同一 tag 和提交。
 - 构建资产必须来自 tag 对应提交。发布前核对 DMG、Setup.exe、`SHA256SUMS.txt` 的文件名、非空大小和摘要；发布后再次核对 Release 为公开状态且三个资产齐全。
 - 发布失败时保留可诊断状态，不把不完整资产标记为成功，也不通过重用旧版本号规避更新检测。
 

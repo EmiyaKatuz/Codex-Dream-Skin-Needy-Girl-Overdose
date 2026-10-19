@@ -218,6 +218,70 @@ function Test-DreamSkinPathEqual {
   }
 }
 
+function Resolve-DreamSkinConfigPaths {
+  [CmdletBinding()]
+  param(
+    [Parameter(Mandatory = $true)][string]$StateRoot,
+    [switch]$BindBackup,
+    [switch]$AllowMissingConfig
+  )
+
+  $defaultHome = Join-Path $HOME '.codex'
+  $configuredHome = [Environment]::GetEnvironmentVariable('CODEX_HOME', 'Process')
+  $codexHome = $defaultHome
+  if ($null -ne $configuredHome -and $configuredHome.Length -gt 0) {
+    # GetFullPath alone accepts drive-relative and rooted-on-current-drive paths.
+    if ($configuredHome -notmatch '^[A-Za-z]:[\\/]' -or
+      $configuredHome.Substring(2) -match '[:*?"<>|\x00-\x1f]') {
+      throw 'CODEX_HOME must be an absolute local directory path (for example D:\Codex Home).'
+    }
+    $codexHome = $configuredHome
+  }
+  $codexHome = [System.IO.Path]::GetFullPath($codexHome)
+  $configPath = Join-Path $codexHome 'config.toml'
+  Assert-DreamSkinNoReparseComponents -Path $configPath
+  if (-not (Test-Path -LiteralPath $codexHome -PathType Container) -or
+    ((Test-Path -LiteralPath $configPath) -and -not (Test-Path -LiteralPath $configPath -PathType Leaf)) -or
+    (-not $AllowMissingConfig -and -not (Test-Path -LiteralPath $configPath -PathType Leaf))) {
+    throw 'Codex config not found in the selected CODEX_HOME (or default .codex directory). Open official Codex with that home first.'
+  }
+  $backupPath = Join-Path $StateRoot 'config.before-dream-skin.toml'
+  $originPath = "$backupPath.origin.json"
+  $artifacts = @($backupPath, (Get-DreamSkinAppearanceMarkerPath -BackupPath $backupPath),
+    (Get-DreamSkinAppearanceTransactionPath -BackupPath $backupPath))
+  $hasBackupState = $false
+  foreach ($path in @($artifacts) + @($originPath)) {
+    Assert-DreamSkinNoReparseComponents -Path $path
+    if ((Test-Path -LiteralPath $path) -and -not (Test-Path -LiteralPath $path -PathType Leaf)) {
+      throw 'The Codex config backup state must contain ordinary files.'
+    }
+    if ($path -ne $originPath -and (Test-Path -LiteralPath $path)) { $hasBackupState = $true }
+  }
+  if ((Test-Path -LiteralPath $originPath) -and (Get-Item -LiteralPath $originPath).Length -gt 16384) {
+    throw 'Invalid Codex config backup origin.'
+  }
+  if ($hasBackupState) {
+    if (Test-Path -LiteralPath $originPath) {
+      try { $origin = (Read-DreamSkinUtf8File -Path $originPath) | ConvertFrom-Json -ErrorAction Stop } catch {
+        throw 'Invalid Codex config backup origin.'
+      }
+      if ($origin.version -ne 1 -or $origin.configPath -isnot [string] -or
+        -not (Test-DreamSkinPathEqual -Left $origin.configPath -Right $configPath)) {
+        throw 'The config backup belongs to a different CODEX_HOME. Restore using the original home before switching homes.'
+      }
+    } elseif (-not (Test-DreamSkinPathEqual -Left $configPath -Right (Join-Path $defaultHome 'config.toml'))) {
+      throw 'The legacy config backup belongs to the default .codex home. Restore that home before switching CODEX_HOME.'
+    }
+  }
+  if ($BindBackup -and (-not $hasBackupState -or -not (Test-Path -LiteralPath $originPath))) {
+    $null = Read-DreamSkinUtf8File -Path $configPath
+    $originBytes = if (Test-Path -LiteralPath $originPath) { [System.IO.File]::ReadAllBytes($originPath) } else { $null }
+    Write-DreamSkinUtf8FileAtomically -Path $originPath -ExpectedBytes $originBytes -Content (
+      [ordered]@{ version = 1; configPath = $configPath } | ConvertTo-Json -Compress)
+  }
+  return [pscustomobject]@{ Home = $codexHome; ConfigPath = $configPath; BackupPath = $backupPath }
+}
+
 function Test-DreamSkinPathWithin {
   param([string]$Path, [string]$Root)
   if (-not $Path -or -not $Root) { return $false }
@@ -423,6 +487,49 @@ function Stop-DreamSkinTrayProcess {
   }
 }
 
+function Stop-DreamSkinThemeManagerProcess {
+  param([string]$StateRoot = (Join-Path $env:LOCALAPPDATA 'CodexDreamSkin'))
+
+  $engine = Get-DreamSkinRuntimeEnginePaths -StateRoot $StateRoot
+  $manager = Join-Path $engine.Root 'assets\theme-manager\DreamSkin.ThemeManager.exe'
+  # Never close by process name alone. Check the complete managed path before
+  # sending WM_CLOSE; the manager's FormClosing handler flushes pending settings.
+  Assert-DreamSkinNoReparseComponents -Path $manager
+  $processes = @(Get-Process -Name 'DreamSkin.ThemeManager' -ErrorAction SilentlyContinue)
+  try {
+    foreach ($process in $processes) {
+      if ($process.HasExited) { continue }
+      if (-not (Test-DreamSkinPathEqual -Left $process.Path -Right $manager)) {
+        throw 'A theme manager outside the installed runtime is running. Close it manually before continuing.'
+      }
+    }
+    foreach ($process in $processes) {
+      if ($process.HasExited) { continue }
+      if (-not $process.CloseMainWindow() -or -not $process.WaitForExit(5000)) {
+        throw 'The theme manager could not close normally. Close it manually and retry; the runtime was not replaced.'
+      }
+    }
+  } finally {
+    foreach ($process in $processes) { $process.Dispose() }
+  }
+}
+
+function Enter-DreamSkinThemeManagerMaintenance {
+  # Hold the same single-instance mutex through replacement, so a shortcut
+  # cannot reopen the old executable between the close and the atomic swap.
+  $sid = [System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+  $mutex = [System.Threading.Mutex]::new($false, "Local\CodexDreamSkin.$sid.ThemeManager")
+  try {
+    $acquired = $false
+    try { $acquired = $mutex.WaitOne(0) } catch [System.Threading.AbandonedMutexException] { $acquired = $true }
+    if (-not $acquired) { throw 'Close the DreamSkin theme manager before replacing the runtime.' }
+    return $mutex
+  } catch {
+    $mutex.Dispose()
+    throw
+  }
+}
+
 function Assert-DreamSkinRuntimeTree {
   param([Parameter(Mandatory = $true)][string]$Path)
   $root = [System.IO.Path]::GetFullPath($Path)
@@ -478,11 +585,13 @@ function Install-DreamSkinRuntimeEngine {
     'assets\theme-motion.css',
     'assets\motion-settings.mjs',
     'assets\motion-payload.mjs',
+    'assets\css-predicate-cache.mjs',
     'assets\renderer-inject.js',
     'assets\safe-css-policy.json',
     'assets\safe-css-validator.mjs',
     'assets\selectors.json',
     'assets\theme-package-validator.mjs',
+    'assets\theme-preferences.mjs',
     'assets\theme.json',
     'presets\preset-gothic-void-crusade\background.jpg',
     'presets\preset-gothic-void-crusade\theme.json',
@@ -503,6 +612,7 @@ function Install-DreamSkinRuntimeEngine {
     'scripts\start-dream-skin.ps1',
     'scripts\theme-windows.ps1',
     'scripts\tray-dream-skin.ps1',
+    'assets\theme-manager\DreamSkin.ThemeManager.exe',
     'scripts\validate-safe-css-file.mjs',
     'scripts\verify-dream-skin.ps1'
   )
@@ -545,7 +655,9 @@ function Install-DreamSkinRuntimeEngine {
   $backupRoot = Join-Path $fullStateRoot ".engine-backup-$token"
   Ensure-DreamSkinManagedDirectory -Path $stagingRoot -Root $fullStateRoot
 
+  $managerMaintenance = $null
   try {
+    $managerMaintenance = Enter-DreamSkinThemeManagerMaintenance
     Copy-Item -LiteralPath (Join-Path $sourceRoot 'VERSION') -Destination $stagingRoot `
       -Force -ErrorAction Stop
     foreach ($directoryName in $sourceDirectories) {
@@ -624,6 +736,10 @@ function Install-DreamSkinRuntimeEngine {
     }
     return Get-DreamSkinRuntimeEnginePaths -StateRoot $fullStateRoot
   } finally {
+    if ($null -ne $managerMaintenance) {
+      $managerMaintenance.ReleaseMutex()
+      $managerMaintenance.Dispose()
+    }
     if (Test-Path -LiteralPath $stagingRoot) {
       try { Remove-DreamSkinRuntimeTree -Path $stagingRoot -StateRoot $fullStateRoot } catch {
         try {
@@ -1085,20 +1201,41 @@ function Invoke-DreamSkinNative {
   param(
     [Parameter(Mandatory = $true)][string]$FilePath,
     [string[]]$ArgumentList = @(),
-    [switch]$DiscardStderr
+    [switch]$DiscardStderr,
+    [switch]$SeparateStderr
   )
+  if ($DiscardStderr -and $SeparateStderr) {
+    throw 'Choose either discarded or separate native stderr.'
+  }
   $previousPreference = $ErrorActionPreference
   $ErrorActionPreference = 'Continue'
+  # PowerShell 7 callers may opt into native exit-code errors. This wrapper
+  # reports the actual exit code instead, without changing the caller's policy.
+  $PSNativeCommandUseErrorActionPreference = $false
+  $stderrPath = $null
   try {
-    if ($DiscardStderr) {
+    if ($SeparateStderr) {
+      # JSON consumers must not mix harmless startup warnings into stdout.
+      # Keep stderr separately so failed validators retain their diagnostics.
+      $stderrPath = [System.IO.Path]::GetTempFileName()
+      $nativeOutput = @(& $FilePath @ArgumentList 2>$stderrPath)
+    } elseif ($DiscardStderr) {
       $nativeOutput = @(& $FilePath @ArgumentList 2>$null)
     } else {
       $nativeOutput = @(& $FilePath @ArgumentList 2>&1)
     }
     $exitCode = $LASTEXITCODE
     $output = @($nativeOutput | ForEach-Object { "$_" })
-    return [pscustomobject]@{ Output = $output; ExitCode = $exitCode }
+    $errorOutput = @()
+    if ($stderrPath) {
+      # PS 5.1 redirects as UTF-16 with a BOM; PS 7 uses UTF-8.
+      $reader = [System.IO.StreamReader]::new($stderrPath, [System.Text.Encoding]::UTF8, $true)
+      try { $errorText = $reader.ReadToEnd() } finally { $reader.Dispose() }
+      $errorOutput = @($errorText -split '\r?\n' | Where-Object { $_.Length -gt 0 })
+    }
+    return [pscustomobject]@{ Output = $output; ErrorOutput = $errorOutput; ExitCode = $exitCode }
   } finally {
+    if ($stderrPath) { Remove-Item -LiteralPath $stderrPath -Force -ErrorAction SilentlyContinue }
     $ErrorActionPreference = $previousPreference
   }
 }

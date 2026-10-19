@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import vm from "node:vm";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { loadPayload } from "../scripts/injector.mjs";
 
 // Regression for the payload template substitution bug.
@@ -234,6 +234,7 @@ test("Windows payload uses the same compiled Safe CSS cascade as macOS", async (
 }
 [data-ds-part="home-hero"] {
   font-weight: 700;
+  font-size: 18px;
 }
 [data-ds-part="composer"] {
   border-radius: 17px;
@@ -252,6 +253,7 @@ test("Windows payload uses the same compiled Safe CSS cascade as macOS", async (
     "background-color: #123456 !important;",
     "color: var(--ds-theme-color-text) !important;",
     "font-weight: 700 !important;",
+    "font-size: 18px !important;",
     "border-radius: 17px !important;",
     "color: #abcdef !important;",
   ]) {
@@ -259,6 +261,7 @@ test("Windows payload uses the same compiled Safe CSS cascade as macOS", async (
     assert.ok(captured.cssText.includes(declaration),
       `The final renderer IIFE must receive compiled Safe CSS: ${declaration}`);
   }
+  assert.ok(captured.cssText.includes('[data-ds-part="home-hero"]::after {\n    font-size: 18px !important;'));
   assert.ok(captured.cssText.includes("background-image: none !important;"));
   assert.match(captured.cssText, /composer-toolbar[^\n]+:where\(button:not/);
   assert.ok(!captured.cssText.includes("background-color: #123456;\n"),
@@ -304,4 +307,57 @@ test("the payload build refuses to emit a corrupted script", async () => {
     /not parseable JavaScript/,
     "A $'-corrupted payload must be caught by the parse assertion.",
   );
+});
+
+test("helper runtime and manifest changes invalidate the real Windows payload revision", async () => {
+  const fixtureRoot = await fs.mkdtemp(path.join(os.tmpdir(), "dream-skin-helper-revision-"));
+  try {
+    const themeDir = path.join(fixtureRoot, "theme");
+    await fs.mkdir(themeDir);
+    await fs.copyFile(path.join(assetsDir, "dream-reference.jpg"), path.join(themeDir, "background.jpg"));
+    await fs.writeFile(path.join(themeDir, "theme.json"), JSON.stringify({
+      schemaVersion: 1, id: "helper-revision", image: "background.jpg", name: "Helper revision",
+    }));
+    const helper = await fs.readFile(path.join(assetsDir, "css-predicate-cache.mjs"), "utf8");
+    const changedRuntime = helper.replace("const predicates = manifest;",
+      "const predicates = manifest; /* helper-only revision probe */");
+    // Change only build-time leaf metadata, preserving the standalone factory
+    // source and CSS. This equivalent selector still queries the same landmark.
+    const changedManifest = helper.replace(
+      "predicate.selector.includes('[role=\"main\"]') ? '[role=\"main\"]'",
+      "predicate.selector.includes('[role=\"main\"]') ? ':is([role=\"main\"])'",
+    );
+    assert.notEqual(changedRuntime, helper);
+    assert.notEqual(changedManifest, helper);
+    const results = [];
+    for (const [variant, source] of [["baseline", helper], ["runtime", changedRuntime], ["manifest", changedManifest]]) {
+      const variantRoot = path.join(fixtureRoot, variant);
+      await fs.mkdir(path.join(variantRoot, "scripts"), { recursive: true });
+      await fs.mkdir(path.join(variantRoot, "assets"), { recursive: true });
+      for (const name of ["injector.mjs", "image-metadata.mjs"]) {
+        await fs.copyFile(path.resolve(here, "../scripts", name), path.join(variantRoot, "scripts", name));
+      }
+      for (const name of ["selectors.json", "dream-skin.css", "renderer-inject.js",
+        "internet-angel-extension.css", "internet-angel-extension.js", "internet-angel-acrylic.css",
+        "theme-package-validator.mjs", "safe-css-validator.mjs", "theme-preferences.mjs",
+        "motion-payload.mjs", "motion-settings.mjs", "theme-motion.js", "theme-motion.css"]) {
+        await fs.copyFile(path.join(assetsDir, name), path.join(variantRoot, "assets", name));
+      }
+      await fs.writeFile(path.join(variantRoot, "assets", "css-predicate-cache.mjs"), source);
+      const injector = await import(pathToFileURL(path.join(variantRoot, "scripts", "injector.mjs")).href);
+      const first = await injector.loadPayload(themeDir);
+      const repeat = await injector.loadPayload(themeDir);
+      assert.equal(first.revision, repeat.revision, "identical inputs retain a stable revision");
+      results.push(first);
+    }
+    for (const result of results.slice(1)) {
+      assert.equal(extractRendererArguments(result.payload).cssText,
+        extractRendererArguments(results[0].payload).cssText, "CSS stays unchanged");
+      assert.notEqual(result.payload, results[0].payload, "the helper or manifest bytes changed");
+      assert.notEqual(result.revision, results[0].revision,
+        "changed executable inputs must not be accepted as an already patched revision");
+    }
+  } finally {
+    await fs.rm(fixtureRoot, { recursive: true, force: true });
+  }
 });

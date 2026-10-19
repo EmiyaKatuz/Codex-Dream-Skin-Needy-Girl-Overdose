@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param([string]$OutputDirectory)
 
 $ErrorActionPreference = 'Stop'
@@ -26,8 +26,11 @@ try {
     -Destination $packageRoot -Force
   foreach ($assetName in @(
     'renderer-inject.js',
+    'css-predicate-cache.mjs',
+    'theme-preferences.mjs',
     'dream-skin.css',
     'internet-angel-acrylic.css',
+    'internet-angel-extension.js',
     'internet-angel-extension.css',
     'theme-motion.js',
     'theme-motion.css',

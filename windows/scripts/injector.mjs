@@ -1,4 +1,5 @@
 import fs from "node:fs/promises";
+import { readThemeTransparency, themePreferencesPath } from "../assets/theme-preferences.mjs";
 import { constants as fsConstants } from "node:fs";
 import { createHash } from "node:crypto";
 import path from "node:path";
@@ -12,6 +13,7 @@ import {
   normalizeThemeText,
 } from "../assets/theme-package-validator.mjs";
 import { decodeAndValidateSafeCss } from "../assets/safe-css-validator.mjs";
+import { cacheableCssPredicateManifest, createCssPredicateCache } from "../assets/css-predicate-cache.mjs";
 
 const scriptPath = fileURLToPath(import.meta.url);
 const here = path.dirname(scriptPath);
@@ -42,7 +44,7 @@ const stableTestidLiteral = (testid) => {
   }
   return JSON.stringify(`[data-testid="${testid}"]`);
 };
-const SKIN_VERSION = "1.6.0";
+const SKIN_VERSION = "1.7.0";
 // .github/workflows/ci.yml's version-consistency check greps this file for a
 // literal `const SKIN_VERSION = "...";` line, so the export stays a separate
 // statement rather than an inline `export const`.
@@ -700,7 +702,7 @@ async function loadSafeCss(themeRoot) {
   }
 }
 
-export async function loadTheme(themeDir) {
+export async function loadTheme(themeDir, preferenceOptions = {}) {
   const realThemeDir = await fs.realpath(themeDir);
   const themePath = path.join(realThemeDir, "theme.json");
   const themeText = await fs.readFile(themePath, "utf8");
@@ -775,6 +777,8 @@ export async function loadTheme(themeDir) {
     explicitColorKeys,
     colors,
   };
+  const userTransparency = await readThemeTransparency(theme.id, { preferencesPath: themePreferencesPath("win32"), ...preferenceOptions });
+  if (userTransparency !== undefined) theme.userTransparency = userTransparency;
   const [themeStat, imageStat, safeCss] = await Promise.all([
     fs.stat(themePath),
     fs.stat(realImagePath),
@@ -796,6 +800,7 @@ export async function loadTheme(themeDir) {
   theme.artMetadata = artMetadata;
   const fingerprint = createHash("sha256")
     .update(themeText, "utf8")
+    .update(JSON.stringify({ userTransparency: theme.userTransparency }))
     .update("\0")
     .update(imageBytes)
     .update("\0")
@@ -856,6 +861,13 @@ export async function loadPayload(
   // CSS. Acrylic consumes durable renderer classes instead, so omit that legacy
   // layer while retaining validated per-theme Safe CSS in both modes.
   const injectedCss = `${acrylicOverlay ? acrylicAndSafeCss : themedAndSafeCss}\n${motionCss}`;
+  // Cache only trusted built-in structural selectors. Imported Safe CSS keeps
+  // its validated cascade and does not participate in runtime marker creation.
+  const predicateManifest = cacheableCssPredicateManifest(
+    acrylicOverlay ? `${baseCss}\n${acrylicCss}` : themedCss,
+  );
+  const predicateRuntime = createCssPredicateCache.toString();
+  const predicateManifestJson = JSON.stringify(predicateManifest);
   const styleRevision = createHash("sha256").update(injectedCss).digest("hex").slice(0, 20);
   loadedTheme.theme.artKey = createHash("sha256")
     .update(loadedTheme.imageBytes).digest("hex").slice(0, 20);
@@ -864,6 +876,8 @@ export async function loadPayload(
     .update(windowMaterial)
     .update(injectedCss)
     .update(template)
+    .update(predicateRuntime)
+    .update(predicateManifestJson)
     .update(internetAngelTemplate)
     .update(motionTemplate)
     .update(motionPreferences.signature)
@@ -877,6 +891,8 @@ export async function loadPayload(
   // stray "$`" produced a SyntaxError, while "$&"/"$$" silently corrupted the
   // theme name.
   const basePayload = template
+    .replace("__DREAM_CSS_PREDICATE_RUNTIME__", () => predicateRuntime)
+    .replace("__DREAM_CSS_PREDICATES_JSON__", () => predicateManifestJson)
     .replace("__DREAM_SKIN_CSS_JSON__", () => JSON.stringify(injectedCss))
     .replace("__DREAM_SKIN_ART_JSON__", () => "__dreamSkinMotionArt")
     .replace("__DREAM_SKIN_THEME_JSON__", () => JSON.stringify(loadedTheme.theme))
@@ -903,7 +919,8 @@ export async function loadPayload(
   // Defence in depth for every caller, not just --check-payload: a template
   // splice leaves an unreplaced placeholder token behind and usually breaks the
   // syntax outright, so refuse to hand a corrupted script to the renderer.
-  if (/__(?:DREAM(?:_SKIN)?|INTERNET_ANGEL_EXTENSION)_[A-Z0-9_]+_JSON__/.test(payload)) {
+  if (/__(?:DREAM(?:_SKIN)?|INTERNET_ANGEL_EXTENSION)_[A-Z0-9_]+_JSON__/.test(payload)
+      || payload.includes("__DREAM_CSS_PREDICATE_RUNTIME__")) {
     throw new Error("Payload placeholders were not fully replaced");
   }
   try {
@@ -1460,10 +1477,12 @@ export async function verifySession(
         x: Math.round(r.x), y: Math.round(r.y),
         width: Math.round(r.width), height: Math.round(r.height),
         visible: Boolean(node.isConnected !== false && cssVisible && intersectsViewport),
+        withinViewport: r.x >= 0 && r.y >= 0 && right <= innerWidth && bottom <= innerHeight,
       };
     };
     const queryAll = (selector, root = document) => {
-      try { return [...root.querySelectorAll(selector)]; } catch { return []; }
+      try { return [...root.querySelectorAll(selector)]
+        .filter((node) => !node.closest?.('[data-app-shell-active-page="false"]')); } catch { return []; }
     };
     const queryAllIncludingRoot = (root, selector) => {
       if (!root) return [];
@@ -1471,14 +1490,13 @@ export async function verifySession(
       try {
         if (root.matches?.(selector)) matches.push(root);
         for (const node of root.querySelectorAll?.(selector) || []) {
-          if (!matches.includes(node)) matches.push(node);
+          if (!matches.includes(node) && !node.closest?.('[data-app-shell-active-page="false"]')) matches.push(node);
         }
       } catch {}
       return matches;
     };
     const firstVisible = (nodes) => nodes.find((node) => box(node)?.visible) ?? null;
-    const homeSignal = firstVisible([
-      ...queryAll(${selectorLiteral("home-icon")}),
+    const homeSignal = queryAll(${selectorLiteral("home-icon")})[0] ?? firstVisible([
       ...queryAll(${selectorLiteral("game-source")}),
       ...queryAll(${selectorLiteral("home-suggestions")}),
       ...queryAll('[data-feature="home-suggestions"], [data-testid*="home-suggestion" i]'),
@@ -1488,9 +1506,9 @@ export async function verifySession(
     const home = homeSignal && box(homeRoute)?.visible
       ? homeRoute
       : (homeSignal && visibleShell ? visibleShell : null);
-    const settingsAnchor = document.querySelector(${selectorLiteral("settings-panel")}) ||
-      document.querySelector(${selectorLiteral("appearance-radio")}) ||
-      document.querySelector(${stableTestidLiteral("theme-preview")});
+    const settingsAnchor = firstVisible(queryAll(${selectorLiteral("settings-panel")})) ||
+      firstVisible(queryAll(${selectorLiteral("appearance-radio")})) ||
+      firstVisible(queryAll(${stableTestidLiteral("theme-preview")}));
     const suggestionCandidates = home ? queryAllIncludingRoot(home, [
       '.dream-native-suggestions-root',
       ${selectorLiteral("home-suggestions")},
@@ -1620,7 +1638,12 @@ export async function verifySession(
         effectiveDocumentPass,
       };
       const internetAngelExpected = ${JSON.stringify(INTERNET_ANGEL_EXTENSION_THEME_IDS.has(expectedThemeId))};
+      const homeComposer = result.composer ?? result.genericInput;
+      result.homeComposerPass = !homeScope || Boolean(
+        homeComposer?.visible && homeComposer.withinViewport
+      );
       const homePass = !homeScope || (
+        result.homeComposerPass &&
       result.homePresent && Boolean(result.homeSurface?.visible) &&
       ((result.hero?.visible && result.hero.width >= 280 && result.hero.height >= 120) ||
         Boolean(result.genericMain?.visible)) &&
@@ -1967,6 +1990,12 @@ async function runWatch(options) {
           const motionPreferences = await readMotionPreferences();
           const motionChanged = motionPreferences.signature !== loadedPayload?.motionSignature;
           let shouldAudit = !loadedPayload || now - lastStrongThemeAuditAt >= STRONG_THEME_AUDIT_MS;
+          if (!shouldAudit) {
+            const userTransparency = await readThemeTransparency(loadedPayload.theme.id, {
+              preferencesPath: themePreferencesPath("win32"),
+            });
+            shouldAudit = userTransparency !== loadedPayload.theme.userTransparency;
+          }
           if (!shouldAudit) {
             try {
               shouldAudit = await readThemeSourceStamp(loadedPayload) !== loadedPayload.sourceStamp;

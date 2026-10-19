@@ -285,11 +285,12 @@ function Get-DreamSkinValidatedImageMetadata {
   }
   $node = Get-DreamSkinNodeRuntime
   $metadataScript = Join-Path $PSScriptRoot 'image-metadata.mjs'
-  $output = @(& $node.Path $metadataScript '--check' ([System.IO.Path]::GetFullPath($Path)) 2>&1)
-  if ($LASTEXITCODE -ne 0) {
+  $result = Invoke-DreamSkinNative -FilePath $node.Path -ArgumentList @(
+    $metadataScript, '--check', ([System.IO.Path]::GetFullPath($Path))) -DiscardStderr
+  if ($result.ExitCode -ne 0) {
     throw "Image metadata is invalid or exceeds the 16384px / 50MP safety limit: $Path"
   }
-  try { $metadata = ($output -join "`n") | ConvertFrom-Json -ErrorAction Stop } catch {
+  try { $metadata = ($result.Output -join "`n") | ConvertFrom-Json -ErrorAction Stop } catch {
     throw "Image metadata helper returned invalid output: $Path"
   }
   if ($null -eq $metadata -or $null -eq $metadata.width -or $null -eq $metadata.height) {
@@ -335,9 +336,9 @@ function Assert-DreamSkinSafeCssFile {
   if (-not (Test-Path -LiteralPath $validator -PathType Leaf)) {
     throw 'Safe CSS validator is missing from the runtime engine.'
   }
-  $output = @(& $node.Path $validator $fullPath 2>&1)
-  if ($LASTEXITCODE -ne 0) {
-    $detail = ($output -join "`n").Trim()
+  $result = Invoke-DreamSkinNative -FilePath $node.Path -ArgumentList @($validator, $fullPath)
+  if ($result.ExitCode -ne 0) {
+    $detail = ($result.Output -join "`n").Trim()
     throw $(if ($detail) { $detail } else { 'Theme Safe CSS failed validation.' })
   }
 }
@@ -1948,13 +1949,14 @@ function Import-DreamSkinThemeZip {
     $validatedRoot = Join-Path $workRoot 'validated'
     Ensure-DreamSkinManagedDirectory -Path $validatedRoot -Root $paths.Root
     $clientVersion = (Read-DreamSkinUtf8File -Path $versionPath).Trim()
-    $packageOutput = @(& $node.Path $packageValidator '--source' $sourceRoot '--stage' $validatedRoot `
-      '--platform' 'windows' '--client-version' $clientVersion 2>&1)
-    if ($LASTEXITCODE -ne 0) {
-      $detail = ($packageOutput -join "`n").Trim()
+    $packageResult = Invoke-DreamSkinNative -FilePath $node.Path -ArgumentList @(
+      $packageValidator, '--source', $sourceRoot, '--stage', $validatedRoot,
+      '--platform', 'windows', '--client-version', $clientVersion) -SeparateStderr
+    if ($packageResult.ExitCode -ne 0) {
+      $detail = (($packageResult.Output + $packageResult.ErrorOutput) -join "`n").Trim()
       throw $(if ($detail) { $detail } else { 'Theme ZIP failed package validation.' })
     }
-    try { $packageInfo = ($packageOutput -join "`n") | ConvertFrom-Json -ErrorAction Stop } catch {
+    try { $packageInfo = ($packageResult.Output -join "`n") | ConvertFrom-Json -ErrorAction Stop } catch {
       throw 'Theme package validator returned invalid output.'
     }
     if ($packageInfo.format -notin @('official', 'simple')) {
@@ -1983,8 +1985,9 @@ function Import-DreamSkinThemeZip {
     $requestedId = $sourceIdentity.RequestedId
     $injector = Join-Path $PSScriptRoot 'injector.mjs'
     if ($sourceIdentity.SourceIdIsString) {
-      $payloadCheck = @(& $node.Path $injector '--check-payload' '--theme-dir' $sourceRoot 2>&1)
-      if ($LASTEXITCODE -ne 0) {
+      $payloadCheck = Invoke-DreamSkinNative -FilePath $node.Path -ArgumentList @(
+        $injector, '--check-payload', '--theme-dir', $sourceRoot)
+      if ($payloadCheck.ExitCode -ne 0) {
         throw 'Theme ZIP failed theme.json or image payload validation.'
       }
     }
@@ -2115,8 +2118,9 @@ function Import-DreamSkinThemeZip {
     # Missing/non-string source IDs cannot pass the injector until the stable
     # fallback ID has been written. This private-stage check remains mandatory
     # and completes before any existing saved theme is moved or replaced.
-    $stagedPayloadCheck = @(& $node.Path $injector '--check-payload' '--theme-dir' $publishStage 2>&1)
-    if ($LASTEXITCODE -ne 0) { throw 'Imported theme failed final payload validation.' }
+    $stagedPayloadCheck = Invoke-DreamSkinNative -FilePath $node.Path -ArgumentList @(
+      $injector, '--check-payload', '--theme-dir', $publishStage)
+    if ($stagedPayloadCheck.ExitCode -ne 0) { throw 'Imported theme failed final payload validation.' }
 
     $destination = Join-Path $paths.Saved $id
     $backup = $null
@@ -2380,8 +2384,9 @@ function Use-DreamSkinSavedTheme {
     if (-not (Test-Path -LiteralPath $injector -PathType Leaf)) {
       throw 'Saved theme payload validator is missing from the runtime engine.'
     }
-    $payloadCheck = @(& $node.Path $injector '--check-payload' '--theme-dir' $directory 2>&1)
-    if ($LASTEXITCODE -ne 0) {
+    $payloadCheck = Invoke-DreamSkinNative -FilePath $node.Path -ArgumentList @(
+      $injector, '--check-payload', '--theme-dir', $directory)
+    if ($payloadCheck.ExitCode -ne 0) {
       throw 'Saved theme failed the schema, image, or runtime payload contract.'
     }
     $theme = $saved.Theme | ConvertTo-Json -Depth 8 | ConvertFrom-Json

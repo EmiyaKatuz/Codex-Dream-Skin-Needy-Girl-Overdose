@@ -8,6 +8,8 @@ import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 import { Script } from "node:vm";
 import { readImageMetadata } from "./image-metadata.mjs";
+import { readThemeTransparency, themePreferencesPath } from "../assets/theme-preferences.mjs";
+import { cacheableCssPredicateManifest, createCssPredicateCache } from "../assets/css-predicate-cache.mjs";
 import {
   buildMotionPayload, getMotionSettingsPath, readMotionPreferences, watchMotionPreferences,
 } from "../assets/motion-payload.mjs";
@@ -42,7 +44,7 @@ const stableTestidLiteral = (testid) => {
   }
   return JSON.stringify(`[data-testid="${testid}"]`);
 };
-const SKIN_VERSION = "1.6.0";
+const SKIN_VERSION = "1.7.0";
 const INTERNET_ANGEL_EXTENSION_THEME_IDS = new Set([
   "preset-internet-angel",
   "preset-internet-angel-default",
@@ -584,7 +586,7 @@ function assertContainedPath(rootPath, candidatePath, label) {
   throw new Error(`${label} must stay inside its theme directory`);
 }
 
-async function loadTheme(themeDir) {
+async function loadTheme(themeDir, preferenceOptions = {}) {
   const requestedRoot = themeDir ?? path.join(root, "assets");
   const configPath = path.join(requestedRoot, "theme.json");
   let assetsRoot;
@@ -700,6 +702,10 @@ async function loadTheme(themeDir) {
     },
   };
   if (paletteAccent) theme.palette = { accent: paletteAccent };
+  const userTransparency = await readThemeTransparency(theme.id, {
+    preferencesPath: themePreferencesPath("linux"), ...preferenceOptions,
+  });
+  if (userTransparency !== undefined) theme.userTransparency = userTransparency;
   if (appearance !== undefined) theme.appearance = appearance;
   if (performanceMode !== undefined) theme.performanceMode = performanceMode;
   if (Object.values(art).some((value) => value !== undefined)) {
@@ -771,17 +777,19 @@ function invalidateStaticPayloadAssets() {
   staticPayloadAssets = null;
 }
 
-export async function loadPayload(themeDir, { motionSettingsPath = getMotionSettingsPath() } = {}) {
+export async function loadPayload(themeDir, { motionSettingsPath = getMotionSettingsPath(), ...preferenceOptions } = {}) {
   const startedAt = performance.now();
   const [staticAssets, loaded, motionPreferences] = await Promise.all([
     loadStaticPayloadAssets(),
-    loadTheme(themeDir),
+    loadTheme(themeDir, preferenceOptions),
     readMotionPreferences(motionSettingsPath),
   ]);
   const { css: baseCss, template, internetAngelCss, internetAngelTemplate, motionCss, motionTemplate } = staticAssets;
   const { art, extension, theme } = loaded;
   const internetAngelExtension = usesInternetAngelExtension(theme);
   const css = `${baseCss}\n${internetAngelExtension ? internetAngelCss : ""}\n${motionCss}`;
+  const predicateManifestJson = JSON.stringify(cacheableCssPredicateManifest(css));
+  const predicateRuntime = createCssPredicateCache.toString();
   const styleRevision = createHash("sha256").update(css).digest("hex").slice(0, 20);
   const artMetadata = readImageMetadata(art, extension);
   if (!artMetadata) {
@@ -797,6 +805,8 @@ export async function loadPayload(themeDir, { motionSettingsPath = getMotionSett
     .update(SKIN_VERSION)
     .update(css)
     .update(template)
+    .update(predicateManifestJson)
+    .update(predicateRuntime)
     .update(internetAngelTemplate)
     .update(motionTemplate)
     .update(motionPreferences.signature)
@@ -810,6 +820,8 @@ export async function loadPayload(themeDir, { motionSettingsPath = getMotionSett
     .replace("__DREAM_SKIN_VERSION_JSON__", () => JSON.stringify(SKIN_VERSION))
     .replace("__DREAM_SKIN_STYLE_REVISION_JSON__", () => JSON.stringify(styleRevision))
     .replace("__DREAM_SKIN_PAYLOAD_REVISION_JSON__", () => JSON.stringify(revision))
+    .replace("__DREAM_CSS_PREDICATES_JSON__", () => predicateManifestJson)
+    .replace("__DREAM_CSS_PREDICATE_RUNTIME__", () => predicateRuntime)
     .replace("__DREAM_CSS_JSON__", () => JSON.stringify(css))
     .replace("__DREAM_ART_JSON__", () => "__dreamSkinMotionArt")
     .replace("__DREAM_THEME_JSON__", () => JSON.stringify(theme));

@@ -6394,3 +6394,295 @@ html.codex-dream-skin.dream-art-wide main:is(.main-surface, [data-app-shell-main
   background: transparent !important;
   background-image: none !important;
 }
+
+
+
+/* Apply the resolved background preference to the fork's existing scrims.
+   Keep palette colors themselves opaque for icons, text and owned artwork. */
+html.codex-dream-skin[style*="--ds-upload-panel-alpha:"] {
+  --dream-hero-shade: rgb(from var(--dream-surface) r g b / var(--ds-upload-panel-alpha));
+  --dream-immersive-edge: rgb(from var(--dream-surface) r g b / var(--ds-upload-bg-alpha, var(--ds-upload-panel-alpha)));
+  --dream-immersive-mid: rgb(from var(--dream-surface) r g b / var(--ds-upload-bg-alpha, var(--ds-upload-panel-alpha)));
+  --dream-immersive-far: rgb(from var(--dream-surface) r g b / var(--ds-upload-bg-alpha, var(--ds-upload-panel-alpha)));
+  --dream-task-immersive-edge: rgb(from var(--dream-surface) r g b / var(--ds-upload-bg-alpha, var(--ds-upload-panel-alpha)));
+  --dream-task-immersive-mid: rgb(from var(--dream-surface) r g b / var(--ds-upload-bg-alpha, var(--ds-upload-panel-alpha)));
+  --dream-task-immersive-far: rgb(from var(--dream-surface) r g b / var(--ds-upload-bg-alpha, var(--ds-upload-panel-alpha)));
+  --dream-immersive-sidebar: rgb(from var(--dream-sidebar) r g b / var(--ds-upload-panel-alpha));
+  --dream-task-immersive-sidebar: rgb(from var(--dream-sidebar) r g b / var(--ds-upload-panel-alpha));
+  --dream-immersive-composer: rgb(from var(--dream-surface-raised) r g b / var(--ds-upload-panel-alt-alpha, var(--ds-upload-panel-alpha)));
+}
+html.codex-dream-skin[style*="--ds-upload-panel-alpha:"] [data-ds-part="sidebar"] {
+  background: rgb(from var(--dream-sidebar) r g b / var(--ds-upload-panel-alpha)) !important;
+}
+
+/* Codex 26.930 structural surfaces and assistant message wrapper. Keep the
+   fork's chrome, floating sidebar, theme decorations and legacy Home intact. */
+html.codex-dream-skin [data-app-shell-page-surface="true"],
+html.codex-dream-skin aside.app-shell-left-panel .sidebar-navigation,
+html.codex-dream-skin [data-testid="app-shell-floating-left-panel"] .sidebar-navigation,
+html.codex-dream-skin.dream-art-wide [data-app-shell-focus-area="main"] > div >
+  [class~="h-full"][class~="electron:bg-surface"] {
+  background: transparent !important;
+}
+html.codex-dream-skin [data-local-conversation-final-assistant="true"][data-ds-part="message"] {
+  box-sizing: border-box;
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid color-mix(in srgb, var(--dream-text) 36%, transparent);
+}
+
+/* Codex 26.930 footer paint layers. Keep the native footer/composer geometry
+   and hit targets; clear only the aria-hidden, pointer-inert decorations.
+   Reset color and image separately, preserving native background geometry. */
+html.codex-dream-skin.dream-art-wide:not(.dream-task-off)
+  .thread-scroll-container [data-thread-scroll-footer="true"] > [aria-hidden="true"].pointer-events-none.absolute.bg-surface,
+html.codex-dream-skin.dream-art-wide:not(.dream-task-off)
+  .thread-scroll-container .pointer-events-none.sticky > [aria-hidden="true"].pointer-events-none.absolute.bg-gradient-to-t.from-surface {
+  background-color: transparent !important;
+  background-image: none !important;
+}
+
+/* The 26.930 titlebar sits outside main. Continue the same scrim across its
+   native slots, whose widths already follow sidebar resize/collapse. */
+html.codex-dream-skin.dream-art-wide {
+  --dream-titlebar-edge: var(--dream-immersive-edge);
+  --dream-titlebar-mid: var(--dream-immersive-mid);
+  --dream-titlebar-far: var(--dream-immersive-far);
+  --dream-titlebar-sidebar: var(--dream-immersive-sidebar);
+}
+html.codex-dream-skin.dream-art-wide:is(.dream-task-ambient, .dream-task-banner):not(:has(main:is(.main-surface, [data-app-shell-main-surface], [class*="_MainContentSurface_"]):not([data-app-shell-active-page="false"], [data-app-shell-active-page="false"] *) [role="main"])) {
+  --dream-titlebar-edge: var(--dream-task-immersive-edge);
+  --dream-titlebar-mid: var(--dream-task-immersive-mid);
+  --dream-titlebar-far: var(--dream-task-immersive-far);
+  --dream-titlebar-sidebar: var(--dream-task-immersive-sidebar);
+}
+html.codex-dream-skin.dream-art-wide:not(.dream-task-off)
+  [data-app-shell-titlebar="true"] [data-app-shell-main-titlebar="true"] {
+  anchor-name: --dream-titlebar-main;
+}
+html.codex-dream-skin.dream-art-wide:not(.dream-task-off)
+  [data-app-shell-titlebar="true"]::after {
+  content: "";
+  position: fixed;
+  position-anchor: --dream-titlebar-main;
+  /* Electron drag regions ignore pointer-events. Do not inherit `drag` from
+     the native header or this decorative layer steals real mouse clicks. */
+  -webkit-app-region: initial;
+  left: anchor(left);
+  width: anchor-size(width);
+  top: var(--app-shell-root-banner-height, 0px);
+  height: var(--app-shell-titlebar-height, var(--height-toolbar));
+  background: linear-gradient(90deg, var(--dream-titlebar-edge), var(--dream-titlebar-mid) 64%, var(--dream-titlebar-far));
+  pointer-events: none;
+  z-index: -1;
+}
+html.codex-dream-skin.dream-art-wide:not(.dream-task-off)
+  [data-app-shell-titlebar="true"] [data-app-shell-header-slot="start"] {
+  background: linear-gradient(90deg, var(--dream-titlebar-sidebar), var(--dream-titlebar-edge)) !important;
+}
+
+/* Resolved background alpha follows user preference, author alpha, then 70%.
+   Text, icons, switches and interaction-state colors retain their opacity. */
+/* Fixed skins can disagree with the native appearance. Pair native surfaces
+   with the skin foreground in that case; all surfaces use the resolved alpha. */
+html.codex-dream-skin:is(:not(.dream-theme-dark)[data-theme="dark"], .dream-theme-dark[data-theme="light"]) {
+  --color-surface: rgb(from var(--dream-surface) r g b / var(--ds-upload-panel-alpha, 1));
+  --color-surface-secondary: rgb(from var(--dream-surface) r g b / var(--ds-upload-panel-alpha, 1));
+  --color-surface-tertiary: rgb(from var(--dream-surface) r g b / var(--ds-upload-panel-alpha, 1));
+  --color-surface-elevated: rgb(from var(--dream-surface) r g b / var(--ds-upload-panel-alpha, 1));
+  --color-surface-elevated-secondary: rgb(from var(--dream-surface-raised) r g b / var(--ds-upload-panel-alt-alpha, 1));
+  --color-token-dropdown-background: rgb(from var(--dream-surface) r g b / var(--ds-upload-panel-alpha, 1));
+}
+html.codex-dream-skin:is(:not(.dream-theme-dark)[data-theme="dark"], .dream-theme-dark[data-theme="light"])
+  :is([role="menu"], [data-ds-part="dialog"]) {
+  background-color: rgb(from var(--dream-surface) r g b / var(--ds-upload-panel-alpha, 1)) !important;
+}
+html.codex-dream-skin[style*="--ds-upload-panel-alpha:"] {
+  --dream-immersive-composer: rgb(from var(--dream-surface) r g b / var(--ds-upload-panel-alpha));
+  --color-surface: rgb(from var(--dream-surface) r g b / var(--ds-upload-panel-alpha));
+  --color-surface-secondary: rgb(from var(--dream-surface) r g b / var(--ds-upload-panel-alpha));
+  --color-surface-tertiary: rgb(from var(--dream-surface) r g b / var(--ds-upload-panel-alpha));
+  --color-surface-elevated: rgb(from var(--dream-surface) r g b / var(--ds-upload-panel-alpha));
+  --color-surface-elevated-secondary: rgb(from var(--dream-surface-raised) r g b / var(--ds-upload-panel-alt-alpha, var(--ds-upload-panel-alpha)));
+  --color-token-dropdown-background: rgb(from var(--dream-surface) r g b / var(--ds-upload-panel-alpha));
+}
+html.codex-dream-skin[style*="--ds-upload-panel-alpha:"]
+  [class~="group/settings"] [class~="rounded-2xl"][class~="border"],
+html.codex-dream-skin[style*="--ds-upload-panel-alpha:"] [data-ds-part="dialog"],
+html.codex-dream-skin[style*="--ds-upload-panel-alpha:"] [role="menu"] {
+  background-color: rgb(from var(--dream-surface) r g b / var(--ds-upload-panel-alpha)) !important;
+}
+
+/* Work and Codex place the same composer body at different depths. Paint the
+   public root once; nested body/action-bar surfaces must not cover its alpha. */
+html.codex-dream-skin[style*="--ds-upload-panel-alpha:"] [data-ds-part="composer"] {
+  background: rgb(from var(--dream-surface) r g b / var(--ds-upload-panel-alpha)) !important;
+}
+html.codex-dream-skin[style*="--ds-upload-panel-alpha:"]
+  [data-ds-part="composer"] [class*="_ComposerLayoutBody_"],
+html.codex-dream-skin[style*="--ds-upload-panel-alpha:"]
+  [data-ds-part="composer"] [data-ds-part="composer-toolbar"] {
+  background: transparent !important;
+}
+html.codex-dream-skin[style*="--ds-upload-panel-alpha:"] {
+  --color-background-composer: rgb(from var(--dream-surface) r g b / var(--ds-upload-panel-alpha));
+  --color-background-composer-action-bar: rgb(from var(--dream-surface) r g b / var(--ds-upload-panel-alpha));
+  --color-background-panel: rgb(from var(--dream-surface) r g b / var(--ds-upload-panel-alpha));
+  --color-token-diff-surface: rgb(from var(--dream-surface-raised) r g b / var(--ds-upload-panel-alt-alpha, var(--ds-upload-panel-alpha)));
+}
+html.codex-dream-skin[style*="--ds-upload-panel-alpha:"] {
+  --color-background-other-user-message: rgb(from var(--dream-surface) r g b / var(--ds-upload-panel-alpha));
+}
+
+/* 26.930 neutral text tokens are consumed inside button labels and Work's
+   composer, beyond the older button-level color rules. Keep them on the skin
+   palette even when native appearance disagrees with a fixed theme. */
+html.codex-dream-skin {
+  --color-text: var(--dream-text);
+  --color-text-primary: var(--dream-text);
+  --color-text-emphasis: var(--dream-text);
+  --color-text-secondary: var(--dream-text-muted);
+  --color-text-tertiary: var(--dream-text-muted);
+  --color-text-primary-ghost: var(--dream-text);
+  --color-text-primary-ghost-hover: var(--dream-text);
+  --color-text-secondary-ghost: var(--dream-text);
+  --color-text-secondary-ghost-hover: var(--dream-text);
+  --color-text-toolbar-action: var(--dream-text);
+  --color-text-user-message: var(--dream-text);
+  --color-text-composer-primary: var(--dream-text);
+  --color-text-composer-secondary: var(--dream-text);
+  --color-token-foreground: var(--dream-text);
+  --color-token-text-primary: var(--dream-text);
+  --color-token-text-secondary: var(--dream-text-muted);
+  --color-token-text-tertiary: var(--dream-text-muted);
+  --input-placeholder-text-color: var(--dream-text-muted);
+}
+/* Action labels need full foreground contrast over explicitly translucent art;
+   disabled controls retain native opacity, and colored solid actions keep ink. */
+html.codex-dream-skin[data-dream-upload-alpha="true"]
+  :is([data-ds-part="sidebar"], [data-ds-part="header"], [data-ds-part="composer"])
+  button:not(:disabled):not([aria-disabled="true"]):not([data-variant="solid"]) {
+  --color-text-secondary: var(--dream-text);
+  --color-text-tertiary: var(--dream-text);
+}
+html.codex-dream-skin [data-ds-part="sidebar"] nav {
+  --color-text: var(--dream-text);
+  --color-text-secondary: var(--dream-text-muted);
+  --color-text-tertiary: var(--dream-text-muted);
+}
+html.codex-dream-skin[data-dream-upload-alpha="true"]
+  :is([data-ds-part="sidebar"], [data-ds-part="header"], [data-ds-part="composer"])
+  button:not(:disabled):not([aria-disabled="true"]):not([data-variant="solid"]):not([aria-label="发送"]):not([aria-label="Send"]) {
+  color: var(--dream-text) !important;
+}
+html.codex-dream-skin [data-ds-part="composer"] [contenteditable="true"] {
+  color: var(--dream-text) !important;
+  caret-color: var(--dream-text) !important;
+}
+/* Model and permission labels are actions, including in opaque light skins.
+   Their native tertiary foreground can be too faint on a theme's panel. */
+html.codex-dream-skin [data-ds-part="composer"]
+  button:not(:disabled):not([aria-disabled="true"]) [data-composer-dropdown-foreground] {
+  --color-text-secondary: var(--dream-text);
+  --color-text-tertiary: var(--dream-text);
+  color: var(--dream-text) !important;
+}
+html.codex-dream-skin[data-dream-upload-alpha="true"]
+  aside.app-shell-left-panel button:not(:disabled):not([aria-disabled="true"])
+  svg:not([style^="color:"]):not([style*=";color:"]):not([style*="; color:"]) {
+  color: inherit !important;
+}
+html.codex-dream-skin[data-dream-upload-alpha="true"]
+  [data-ds-part="composer"] p.placeholder::before {
+  color: var(--dream-text) !important;
+}
+
+/* Portaled menus and syntax surfaces own native appearance tokens. Rebind
+   their neutral text locally as well as at the document root. */
+html.codex-dream-skin :is([role="menu"], [data-ds-part="dialog"], [data-composer-overlay-floating-ui="true"], [data-markdown-copy="code-block"]) {
+  --color-text: var(--dream-text);
+  --color-text-primary: var(--dream-text);
+  --color-text-secondary: var(--dream-text-muted);
+  --color-text-tertiary: var(--dream-text-muted);
+  --color-codex-description: var(--dream-text-muted);
+  --color-token-description-foreground: var(--dream-text-muted);
+  color: var(--dream-text);
+}
+html.codex-dream-skin[data-dream-upload-alpha="true"]
+  :is([role="menu"], [data-ds-part="dialog"], [data-composer-overlay-floating-ui="true"]) {
+  --color-codex-description: var(--dream-text);
+  --color-text-secondary: var(--dream-text);
+  --color-text-tertiary: var(--dream-text);
+}
+/* These three native popup families can overlap conversation text. Blur the
+   backdrop of the painted popup, retaining the uploaded background alpha. */
+html.codex-dream-skin[data-dream-upload-alpha="true"]
+  :is([role="menu"], [data-ds-part="dialog"], [data-composer-overlay-floating-ui="true"] > :has(> [data-mention-list-scroll-area])) {
+  backdrop-filter: blur(24px) !important;
+}
+html.codex-dream-skin [data-markdown-copy="code-block"] > [data-markdown-copy="exclude"] {
+  background: transparent !important;
+  color: var(--dream-text) !important;
+}
+html.codex-dream-skin [data-markdown-copy="code-block"] {
+  --codeblock-background-color: transparent;
+  background: rgb(from var(--dream-surface-raised) r g b / var(--ds-upload-panel-alt-alpha, 1)) !important;
+  border-color: rgb(from var(--dream-text) r g b / .24) !important;
+}
+/* All Markdown surfaces use the uploaded palette, independently of native
+   appearance. Missing explicit alpha means an opaque surface. */
+html.codex-dream-skin [data-markdown-table="true"] [data-block-actions="true"] {
+  background: rgb(from var(--dream-surface-raised) r g b / var(--ds-upload-panel-alt-alpha, 1)) !important;
+  color: var(--dream-text);
+  --color-text-tertiary: var(--dream-text);
+  box-shadow: inset 0 0 0 1px rgb(from var(--dream-text) r g b / .24);
+}
+html.codex-dream-skin [data-markdown-copy="code-block"] code {
+  color: var(--dream-text) !important;
+}
+
+/* Native 26.930 syntax palettes. Only bridge a native/skin appearance mismatch;
+   matching appearances retain the native code theme without recoloring it. */
+html.codex-dream-skin.dream-theme-dark[data-theme="light"] [data-markdown-copy="code-block"] {
+  --color-codex-syntax-keyword: #f8a6c8;
+  --color-codex-syntax-literal: #f1a275;
+  --color-codex-syntax-string: #83d197;
+  --color-codex-syntax-variable: #b897f4;
+  --color-codex-syntax-name: #63a8f8;
+  --color-codex-syntax-attribute: #f9dc78;
+  --color-codex-syntax-comment: #b9b9b9;
+}
+html.codex-dream-skin:not(.dream-theme-dark)[data-theme="dark"] [data-markdown-copy="code-block"] {
+  --color-codex-syntax-keyword: #ab4f7a;
+  --color-codex-syntax-literal: #ac4f23;
+  --color-codex-syntax-string: #3a843f;
+  --color-codex-syntax-variable: #643cae;
+  --color-codex-syntax-name: #1f4e94;
+  --color-codex-syntax-attribute: #b8802b;
+  --color-codex-syntax-comment: #4f4f4f;
+}
+
+/* Table expansion is a fullscreen preview, not a painted dialog card. Keep
+   one themed table surface and honor explicit alpha in its native scrim. */
+/* Native !bg-black/90 is important inside utilities. Override in that same
+   layer: an unlayered important declaration cannot beat a layered one. */
+@layer utilities {
+  html.codex-dream-skin .codex-dialog-overlay:has(~ [role="dialog"] [data-testid="image-preview-dismiss-area"] table) {
+    background: rgb(from var(--dream-canvas) r g b / var(--ds-upload-bg-alpha, .9)) !important;
+  }
+  html.codex-dream-skin[data-dream-upload-alpha="true"] .codex-dialog-overlay:has(~ [role="dialog"] [data-testid="image-preview-dismiss-area"] table) {
+    backdrop-filter: blur(12px) !important;
+  }
+}
+html.codex-dream-skin [role="dialog"][aria-modal="true"]:has([data-testid="image-preview-dismiss-area"] table) {
+  background: transparent !important;
+  backdrop-filter: none !important;
+}
+html.codex-dream-skin [role="dialog"] [data-testid="image-preview-dismiss-area"] > :has(table) {
+  background: rgb(from var(--dream-surface-raised) r g b / var(--ds-upload-panel-alt-alpha, 1)) !important;
+  color: var(--dream-text);
+  border: 1px solid rgb(from var(--dream-text) r g b / .36);
+}
+html.codex-dream-skin [role="dialog"]:has([data-testid="image-preview-dismiss-area"] table) [data-testid="image-preview-dismiss-area"] [class~="bg-inherit"] {
+  background: transparent !important;
+}

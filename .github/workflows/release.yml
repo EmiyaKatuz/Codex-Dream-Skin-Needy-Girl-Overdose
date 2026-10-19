@@ -91,6 +91,7 @@ jobs:
             previous_version="$(git show "$BEFORE_SHA:macos/VERSION" 2>/dev/null | tr -d '[:space:]' || true)"
             if [[ "$previous_version" == "$version" ]]; then
               version_unchanged="true"
+              should_release="false"
             else
               [[ "$previous_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
                 echo "Previous main version is invalid: $previous_version" >&2
@@ -195,6 +196,19 @@ jobs:
         with:
           ref: ${{ needs.guard.outputs.release_sha }}
           persist-credentials: false
+
+      - name: Require version-specific release notes
+        shell: bash
+        env:
+          VERSION: ${{ needs.guard.outputs.version }}
+        run: |
+          set -euo pipefail
+          for notes in "docs/releases/v${VERSION}.md" "docs/releases/v${VERSION}-en.md"; do
+            test -s "$notes" || {
+              echo "Missing release notes: $notes (see docs/releases/README.md)." >&2
+              exit 1
+            }
+          done
 
       - name: Set up Node.js for portable regressions
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -363,7 +377,7 @@ jobs:
     needs: [guard, create-tag]
     if: needs.guard.outputs.should_release == 'true'
     runs-on: windows-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -375,6 +389,23 @@ jobs:
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: '22'
+
+      - name: Set up .NET for native theme management
+        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Test native theme management
+        shell: cmd
+        run: dotnet run --configuration Release --project windows/theme-manager/Tests/DreamSkin.ThemeManager.Tests.csproj
+
+      - name: Test Windows mutex and Recycle Bin integration
+        shell: cmd
+        run: dotnet run --configuration Release --project windows/theme-manager/NativeTests/DreamSkin.ThemeManager.NativeTests.csproj
+
+      - name: Build native theme manager
+        shell: cmd
+        run: node tools/build-theme-manager.mjs
 
       - name: Install Inno Setup 6
         shell: pwsh
@@ -470,26 +501,23 @@ jobs:
             sha256sum "CodexDreamSkin-v${VERSION}.dmg" \
               "CodexDreamSkin-Setup-v${VERSION}.exe" > SHA256SUMS.txt
           )
-          cat > release-notes.md <<EOF
-          ## Codex Dream Skin v${VERSION}
+          test -s "docs/releases/v${VERSION}.md"
+          test -s "docs/releases/v${VERSION}-en.md"
+          cat "docs/releases/v${VERSION}.md" > release-notes.md
+          cat >> release-notes.md <<EOF
 
-          ### Downloads
+          ## 下载与安装 / Downloads
 
-          - **macOS:** [CodexDreamSkin-v${VERSION}.dmg](https://github.com/${GITHUB_REPOSITORY}/releases/download/v${VERSION}/CodexDreamSkin-v${VERSION}.dmg)
-          - **Windows:** [CodexDreamSkin-Setup-v${VERSION}.exe](https://github.com/${GITHUB_REPOSITORY}/releases/download/v${VERSION}/CodexDreamSkin-Setup-v${VERSION}.exe)
-          - [SHA256SUMS.txt](https://github.com/${GITHUB_REPOSITORY}/releases/download/v${VERSION}/SHA256SUMS.txt)
+          | 平台 / Platform | 安装包 / Package | 安装说明 / Guide |
+          | --- | --- | --- |
+          | macOS · Apple Silicon / Intel | [CodexDreamSkin-v${VERSION}.dmg](https://github.com/${GITHUB_REPOSITORY}/releases/download/v${VERSION}/CodexDreamSkin-v${VERSION}.dmg) | [macOS](https://github.com/${GITHUB_REPOSITORY}/blob/v${VERSION}/docs/install-macos.md) |
+          | Windows · x64 | [CodexDreamSkin-Setup-v${VERSION}.exe](https://github.com/${GITHUB_REPOSITORY}/releases/download/v${VERSION}/CodexDreamSkin-Setup-v${VERSION}.exe) | [Windows](https://github.com/${GITHUB_REPOSITORY}/blob/v${VERSION}/docs/install-windows.md) |
 
-          The packages are currently unsigned. Follow the graphical first-run steps in
-          [macOS installation](https://github.com/${GITHUB_REPOSITORY}/blob/v${VERSION}/docs/install-macos.md)
-          or [Windows installation](https://github.com/${GITHUB_REPOSITORY}/blob/v${VERSION}/docs/install-windows.md).
-          No terminal trust command is required for ordinary users.
+          安装包目前未签名，首次打开请按对应平台的图形化安装说明操作。
+          Packages are currently unsigned; follow the platform guide for first-run steps.
 
-          This release was built automatically from ${RELEASE_SHA} after the version bump reached main.
+          [SHA256SUMS.txt](https://github.com/${GITHUB_REPOSITORY}/releases/download/v${VERSION}/SHA256SUMS.txt) · [Source commit](https://github.com/${GITHUB_REPOSITORY}/commit/${RELEASE_SHA})
           EOF
-          if [[ -f "docs/releases/v${VERSION}.md" ]]; then
-            printf '\n' >> release-notes.md
-            cat "docs/releases/v${VERSION}.md" >> release-notes.md
-          fi
 
       - name: Stage, verify, and publish release
         env:

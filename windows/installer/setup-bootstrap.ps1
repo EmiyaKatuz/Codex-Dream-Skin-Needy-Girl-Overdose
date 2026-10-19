@@ -2,6 +2,7 @@
 param(
   [switch]$Install,
   [switch]$LaunchTray,
+  [switch]$ShowWindow,
   [switch]$Uninstall,
   [switch]$Silent
 )
@@ -13,6 +14,7 @@ $commonPath = Join-Path $payloadScripts 'common-windows.ps1'
 $themePath = Join-Path $payloadScripts 'theme-windows.ps1'
 $stateRoot = Join-Path $env:LOCALAPPDATA 'CodexDreamSkin'
 $startupShortcut = Join-Path ([Environment]::GetFolderPath('Startup')) 'Codex Dream Skin.lnk'
+$managerMaintenance = $null
 
 function Show-DreamSkinBootstrapMessage {
   param(
@@ -67,6 +69,8 @@ try {
   $engine = Get-DreamSkinRuntimeEnginePaths -StateRoot $stateRoot
   if ($Uninstall) {
     Stop-DreamSkinTrayProcess -ScriptPaths @($engine.Tray) -RequireStopped
+    Stop-DreamSkinThemeManagerProcess -StateRoot $stateRoot
+    $managerMaintenance = Enter-DreamSkinThemeManagerMaintenance
     $restoreRequired = (Test-Path -LiteralPath $engine.Root -PathType Container) -or
       (Test-Path -LiteralPath (Join-Path $stateRoot 'config.before-dream-skin.toml') -PathType Leaf)
     if ($restoreRequired -and -not (Test-Path -LiteralPath $engine.Restore -PathType Leaf)) {
@@ -117,10 +121,16 @@ try {
     'assets\internet-angel-extension.css',
     'assets\internet-angel-extension.js',
     'assets\renderer-inject.js',
+    'assets\css-predicate-cache.mjs',
+    'assets\theme-motion.js',
+    'assets\theme-motion.css',
+    'assets\motion-settings.mjs',
+    'assets\motion-payload.mjs',
     'assets\safe-css-policy.json',
     'assets\safe-css-validator.mjs',
     'assets\selectors.json',
     'assets\theme-package-validator.mjs',
+    'assets\theme-preferences.mjs',
     'assets\theme.json',
     'presets\preset-gothic-void-crusade\background.jpg',
     'presets\preset-gothic-void-crusade\theme.json',
@@ -140,6 +150,7 @@ try {
     'scripts\restore-dream-skin.ps1',
     'scripts\start-dream-skin.ps1',
     'scripts\theme-windows.ps1',
+    'assets\theme-manager\DreamSkin.ThemeManager.exe',
     'scripts\tray-dream-skin.ps1',
     'scripts\validate-safe-css-file.mjs',
     'scripts\verify-dream-skin.ps1',
@@ -156,6 +167,9 @@ try {
   if ($needsInstall) {
     Wait-DreamSkinCodexClosedForSetup
     Stop-DreamSkinTrayProcess -ScriptPaths @($engine.Tray) -RequireStopped
+    # Close before install acquires Operation: FormClosing must be able to
+    # acquire that lock itself to save a pending transparency adjustment.
+    Stop-DreamSkinThemeManagerProcess -StateRoot $stateRoot
     & (Join-Path $payloadScripts 'install-dream-skin.ps1') -NoShortcuts
     $engine = Get-DreamSkinRuntimeEnginePaths -StateRoot $stateRoot
     $committedVersion = if (Test-Path -LiteralPath $engine.Version -PathType Leaf) {
@@ -170,14 +184,20 @@ try {
     }
   }
 
-  if ($LaunchTray -and -not (Test-DreamSkinTrayActive)) {
+  if ($LaunchTray) {
     $powershell = (Get-Command powershell.exe -ErrorAction Stop).Source
     $argumentLine = '-NoProfile -STA -WindowStyle Hidden -ExecutionPolicy RemoteSigned -File ' +
       (ConvertTo-DreamSkinProcessArgument -Value $engine.Tray)
+    if ($ShowWindow) { $argumentLine += ' -ShowWindow' }
     Start-Process -FilePath $powershell -ArgumentList $argumentLine -WindowStyle Hidden | Out-Null
   }
 } catch {
   Show-DreamSkinBootstrapMessage -Message $_.Exception.Message -Kind Error
   Write-Error $_
   exit 1
+} finally {
+  if ($null -ne $managerMaintenance) {
+    $managerMaintenance.ReleaseMutex()
+    $managerMaintenance.Dispose()
+  }
 }
