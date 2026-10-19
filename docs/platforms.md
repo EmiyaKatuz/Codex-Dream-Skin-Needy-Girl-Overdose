@@ -91,7 +91,7 @@ Linux 启动器优先使用 `codex-desktop`，其次读取 `/usr/share/applicati
 ### 平台差异
 
 - macOS 的选图脚本会把这些字段写入主题库，可通过 `--appearance`、`--focus-x`、`--focus-y`、`--safe-area`、`--task-mode` 设置。
-- Windows 安装会把运行所需的 `assets/`、`presets/`、`scripts/` 与可选内置运行时原子复制到 `%LOCALAPPDATA%\CodexDreamSkin\engine`，所有快捷方式均指向该受管副本，因此安装后可移动或删除源码目录。安装还会初始化 `active-theme`、`themes` 与 `images`，并把「超天酱 · INTERNET ANGEL」JPEG 版设为首次默认活动主题，同时把 JPEG 版、无损 PNG Pixel Cafe 版与「Gothic Void Crusade / 哥特虚空远征」播种为可切换的已保存主题。系统托盘支持更换背景、保存当前主题、从「已保存主题」切换、暂停和恢复；图片与 `theme.json` 保存在主题仓库中，不写进 Codex 的 `config.toml`。安装会保留用户已有的 `appearanceTheme`；仅在识别到旧版精确托管的浅色三元组时按备份迁移。
+- Windows 安装会把运行所需的 `assets/`、`scripts/` 与可选内置运行时原子复制到 `%LOCALAPPDATA%\CodexDreamSkin\engine`，所有快捷方式均指向该受管副本，因此安装后可移动或删除源码目录。安装还会初始化 `active-theme`、`themes` 与 `images`，并把「超天酱 · INTERNET ANGEL」JPEG 版设为首次默认活动主题，仅把该 JPEG 默认主题播种到已保存主题库；升级保留用户已有的已保存、导入与活动主题。系统托盘支持更换背景、保存当前主题、从「已保存主题」切换、暂停和恢复；图片与 `theme.json` 保存在主题仓库中，不写进 Codex 的 `config.toml`。安装会保留用户已有的 `appearanceTheme`；仅在识别到旧版精确托管的浅色三元组时按备份迁移。
 - Windows 渲染器仍支持在注入前用 `window.__CODEX_DREAM_SKIN_CONFIG__` 提供内存级可选覆盖（形状同上，颜色覆盖使用 `palette.accent`），但普通用户应优先使用持久化主题仓库与托盘。
 
 ### 主题 ZIP 与手动目录
@@ -104,10 +104,9 @@ Linux 启动器优先使用 `codex-desktop`，其次读取 `/usr/share/applicati
 
 ## 预设与图片类型
 
-- `macos/presets/preset-arina-hashimoto/` 是「桥本有菜 / Arina Hashimoto」源码参考主题；公开安装包在人物与素材分发权确认前明确排除它。
-- 该 preset pack 中只有 `background.jpg`（`2560 × 1440`、16:9、纯背景）和 `theme.json` 会被播种；它由用户提供的 `1672 × 941` 源 PNG 标准化导出，不代表增加了源图细节。Byte-identical 源图归档在 `docs/images/presets/arina-hashimoto-source.png`，不会随 preset 播种；`arina-hashimoto-light.jpg` 与 `arina-hashimoto-dark.jpg` 是 `2308 × 1572` Retina 浅/暗真实首页截图，未发送输入仅在截图时用临时本地样式遮蔽，只作效果预览，绝不能当背景导入。
-- `macos/presets/preset-gothic-void-crusade/` 是社区作者贡献的原创哥特科幻主题；macOS 没有活动主题时默认启用它。升级只清理固定的旧内置预设 ID，不删除 `custom-*` 或当前活动主题副本。
-- Windows 自带独立的 `windows/assets/dream-reference.jpg` 超天酱像素纯背景，并在首次初始化时播种默认 JPEG、无损 `codex-dream-skin-pixel-cafe.png` 两个「超天酱 · INTERNET ANGEL」主题，以及上游新增的「Gothic Void Crusade」；可直接从「已保存主题」切换。README 实机截图仍只作预览，绝不能作为背景导入。
+- macOS 仅内置 `macos/presets/preset-internet-angel-default/`，与 Windows 的 `windows/assets/theme.json` + `dream-reference.jpg` 保持字节一致；两端首次安装均默认启用「超天酱 · INTERNET ANGEL」JPEG 主题。
+- 安装包仅包含这套定制主题；升级保留用户已有的已保存主题、导入主题、用户图片和当前活动主题副本，不会为精简安装包而删除本机主题库。
+- README 实机截图与 `docs/images/gallery/` 概念图只作预览，绝不能作为背景导入。主题中的 JPEG 是纯背景素材，必须与 `theme.json` 一起使用；新导入的主题 ZIP 仍须满足上面的完整包合同。
 - Windows 导入和 macOS 快速加载入口会拒绝空文件或超过 10 MB 的输入；macOS 主定制入口可接收最高 50 MB 的源图，但转换后的主题文件必须不超过 10 MB。两端 payload 构建还会拒绝任一边超过 16384px 或总像素超过 50MP 的声明尺寸；Windows 在复制导入图前复用 Node 元数据解析器执行同一限制。Windows 注入器用图片、主题和 Safe CSS 内容的 SHA-256 修订值识别热更新，并在构建首帧 payload 前同步读取图片比例。
 - 自定义生图优先使用 `2560 × 1440`（16:9）：左侧约 50%～58% 保持低信息、低对比，主体放在右侧约 58%～88%。输出必须是连续铺满画布的纯背景，禁止窗口、侧栏、卡片、输入框、文字、Logo 和水印。
 - 可直接复制的无人物、右侧成年人物与参考图编辑模板见 `docs/reference-background-prompt-guide.md`；公共默认提示词不指定真人或名人。

@@ -150,25 +150,20 @@ copy_reviewed_preset() {
 }
 
 copy_reviewed_preset \
-  "preset-gothic-void-crusade" "background.jpg" \
-  "b76a7cbe2ff9d923846e931984d243a7ba1f25de8d190b5c6412c809c41aee42" \
-  "8316c6ad29e3b84806358ab4a730c7e063b261e379179b9608cf751c282d66a7"
-copy_reviewed_preset \
   "preset-internet-angel-default" "dream-reference.jpg" \
   "4858200d0c5714091d3d15cfa6a07f237b543e1c07d02c599be3fc11353b72c3" \
   "e7f18ca3e535da6e5e4a9c81c48aef3d2e2f7c58eb3d0c4fd4c4b09ed2b96384"
-copy_reviewed_preset \
-  "preset-internet-angel" "codex-dream-skin-pixel-cafe.png" \
-  "d78177458da6c805d5ef55ea65cf4352a80aba921f4770029f15384bdcdbdea5" \
-  "0ba8d94c7974b01aa3b05886e65afc3323591996f2db7f2d759236019797c430"
 /bin/cp "$ROOT/VERSION" "$ENGINE/VERSION"
 /bin/cp "$ROOT/LICENSE" "$RESOURCES/LICENSE.txt"
 /bin/cp "$ROOT/NOTICE.md" "$RESOURCES/NOTICE.md"
 /bin/chmod 755 "$ENGINE/scripts/"*.sh
 /bin/chmod 644 "$ENGINE/scripts/"*.mjs
 /bin/chmod 644 "$ENGINE/VERSION"
-[ ! -e "$ENGINE/presets/preset-arina-hashimoto" ] \
-  || { printf 'Rights-restricted preset entered the public app bundle.\n' >&2; exit 1; }
+[ "$(/usr/bin/find "$ENGINE/presets" -mindepth 1 -maxdepth 1 -type d | /usr/bin/wc -l | /usr/bin/tr -d ' ')" -eq 1 ] \
+  || { printf 'Public app must contain only the customized Internet Angel JPEG preset.\n' >&2; exit 1; }
+/usr/bin/cmp -s "$ENGINE/assets/theme.json" "$ENGINE/presets/preset-internet-angel-default/theme.json" \
+  && /usr/bin/cmp -s "$ENGINE/assets/dream-reference.jpg" "$ENGINE/presets/preset-internet-angel-default/dream-reference.jpg" \
+  || { printf 'Default assets differ from the customized Internet Angel JPEG preset.\n' >&2; exit 1; }
 
 "$ROOT/scripts/generate-app-icon.sh" "$RESOURCES/DreamSkin.icns"
 [ -s "$RESOURCES/DreamSkin.icns" ] \

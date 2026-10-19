@@ -19,8 +19,11 @@ trap '/bin/rm -rf "$TMP"' EXIT
   --exclude '.DS_Store' \
   --exclude 'release/' \
   --exclude 'runtime/' \
-  --exclude 'presets/preset-arina-hashimoto/' \
+  --exclude 'presets/preset-*/' \
   "$ROOT/" "$ENGINE/"
+
+/bin/mkdir -p "$ENGINE/presets"
+/bin/cp -R "$ROOT/presets/preset-internet-angel-default" "$ENGINE/presets/"
 
 # Keep the customer ZIP self-contained: bundle prompt docs and referenced
 # images, then translate repository paths for the hidden standalone engine.
@@ -62,8 +65,8 @@ fi
 /bin/chmod 755 "$CLIENT_ROOT/安装 Codex 主题编辑器.command"
 /bin/chmod 755 "$ENGINE"/*.command "$ENGINE"/scripts/*.sh "$ENGINE"/tests/*.sh
 /usr/bin/find "$CLIENT_ROOT" -type f \( -name '.DS_Store' -o -name '._*' \) -delete
-[ ! -e "$ENGINE/presets/preset-arina-hashimoto" ] \
-  || { printf 'Restricted Arina preset entered the standalone ZIP.\n' >&2; exit 1; }
+[ "$(/usr/bin/find "$ENGINE/presets" -mindepth 1 -maxdepth 1 -type d | /usr/bin/wc -l | /usr/bin/tr -d ' ')" -eq 1 ] \
+  || { printf 'Standalone ZIP must contain only the customized Internet Angel JPEG preset.\n' >&2; exit 1; }
 if /usr/bin/find "$CLIENT_ROOT" -type f -name 'arina-hashimoto-*' -print -quit | /usr/bin/grep -q .; then
   printf 'Restricted Arina documentation asset entered the standalone ZIP.\n' >&2
   exit 1

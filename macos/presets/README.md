@@ -6,34 +6,20 @@
 
 ## 内置实测预设
 
-当前发行 DMG 内置三套主题：
+当前发行 DMG 仅内置定制的「超天酱 · INTERNET ANGEL」JPEG 主题：
 
-- `preset-internet-angel-default/`：`超天酱 · INTERNET ANGEL`，使用
-  `theme.json` + `dream-reference.jpg`（`2560 × 1440` JPEG），首次安装默认启用；
-- `preset-internet-angel/`：`超天酱 · INTERNET ANGEL · Pixel Cafe`，使用
-  `1672 × 941` 无损 PNG；
-- `preset-gothic-void-crusade/`：社区作者提供的原创哥特科幻背景。
+- `preset-internet-angel-default/`：`theme.json` + `dream-reference.jpg`
+  （`2560 × 1440` JPEG），首次安装默认启用。
 
-两套 Internet Angel 文件与 Windows 主题包保持字节一致。它们不属于
-MIT 软件许可，分发限制见 [`../NOTICE.md`](../NOTICE.md)。源码树另保留
-`preset-arina-hashimoto/`（桥本有菜 / Arina Hashimoto）作为本地参考，
-但发行 DMG 明确排除该目录。
+主题文件与 Windows 默认主题保持字节一致。图片不属于 MIT 软件许可，
+分发限制见 [`../NOTICE.md`](../NOTICE.md)。升级保留已有的已保存主题、
+导入主题、用户图片与当前活动主题副本；不再向新主题库播种已移除的变体。
 
-### Arina 源码参考素材
-
-来源尺寸必须如实区分：归档的用户源图（不随 preset 播种）是 `1672 × 941` PNG；preset 内的 `background.jpg` 保持其近 16:9 构图，标准化导出为 `2560 × 1440` JPEG，并不代表补回或新增了源图细节。派生文件使用 `sips -z 1440 2560 -s format jpeg -s formatOptions 90` 生成。
-
-- 可导入/可播种的主题素材只有 [`background.jpg`](./preset-arina-hashimoto/background.jpg) 与 [`theme.json`](./preset-arina-hashimoto/theme.json)。
-- 用户提供的 byte-identical 源 PNG 单独归档在 [`docs/images/presets/arina-hashimoto-source.png`](../../docs/images/presets/arina-hashimoto-source.png)，不放进 preset pack，因此不会被安装脚本播种为多余文件。
-- 当前浅色、暗色实测文档截图均为 `2308 × 1572` Retina JPEG（CSS viewport `1154 × 786`），来自同一真实 Codex 首页；为保护未发送草稿，截图时仅用临时本地样式隐藏输入文字并收起编辑区，没有修改草稿内容或伪造皮肤效果。它们包含真实侧栏、项目工具栏和输入框，**只作预览，绝不能当背景导入**。
-- 背景是用户提供的 AI 生成示例，不代表 OpenAI/Codex 官方视觉或背书；公开分发前仍需确认人物、模型输出与素材使用权。
-- 该维护者提供的精选预设是单独记录的发行例外，不纳入 MIT 软件许可；文件清单和限制见 [`../NOTICE.md`](../NOTICE.md)。这不表示以后可以提交其他可识别真人素材。
-
-安装后可直接切换到 Pixel Cafe：
+安装后可直接切换回默认主题：
 
 ```bash
 ~/.codex/codex-dream-skin-studio/scripts/switch-theme-macos.sh \
-  --id preset-internet-angel
+  --id preset-internet-angel-default
 ```
 
 ## 一套预设的结构
@@ -49,12 +35,12 @@ preset-<slug>/
 - `appearance` **必须如实声明背景图成立的模式**（这是强制规范，不能省略）：
   - `"auto"`——仅限浅色、暗色外壳下都协调的图，且两种模式都实测过。皮肤跟随 Codex 客户端的浅暗设置切换外壳。
   - `"dark"` / `"light"`——单模专属图（如深色大教堂、纯白极简）。皮肤外壳固定为该模式，不随客户端切换。
-  - 暗色专属画作声明 `auto` 会构成缺陷，该结果与偏好无关：客户端处于浅色时，Codex 原生组件（差异卡片、任务条等）按浅色渲染，会与暗图直接打架（#134 曾因此返修）。拿不准就按图的实际明暗写死，不要照抄模板默认值。
+  - 暗色专属画作声明 `auto` 会构成缺陷，该结果与偏好无关：客户端处于浅色时，Codex 原生组件（差异卡片、任务条等）按浅色渲染，会与暗图直接打架。拿不准就按图的实际明暗写死，不要照抄模板默认值。
 - 人物/场景背景优先提交 `2560 × 1440`（16:9）母版；主视觉放在右侧约 58%～88%，左侧约 50%～58% 保持低信息、低对比。禁止把效果截图、窗口 mockup 或任何带 UI 的图片命名为 `background.*`。
 
 ## theme.json 字段全解（投稿必读）
 
-以 `preset-gothic-void-crusade/theme.json` 为参考模板。除标注「可选」外均建议如实填写；文案留空会退回内置默认值，不会报错但会显得敷衍。
+以 `preset-internet-angel-default/theme.json` 为参考模板。除标注「可选」外均建议如实填写；文案留空会退回内置默认值，不会报错但会显得敷衍。
 
 ### 文案字段（界面哪里能看到）
 
@@ -92,7 +78,7 @@ preset-<slug>/
 | `muted` | 次要文字与大多数描边（卡片/面板边框按它调透明度） |
 | `line` | 分隔线与细描边 |
 
-- 颜色必须与背景图协调：`accent` 建议直接从画面主体取色（Gothic 取的是烛金 `#c8a55a`）。
+- 颜色必须与背景图协调：`accent` 建议直接从画面主体取色（如从背景中选取协调的粉色或蓝色）。
 - 声明 `appearance: dark` 的主题请给暗底亮字；`light` 反之；`auto` 主题两种模式都要自查对比度。
 
 ### art 元数据

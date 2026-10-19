@@ -177,14 +177,16 @@ if /usr/bin/grep -R -n -E --exclude-dir='.build*' \
 fi
 if /usr/bin/grep -n -F -q 'xattr' \
   "$ROOT/scripts/build-client-release.sh" "$ROOT/scripts/build-release.sh" >/dev/null; then
-  printf 'Standalone release builders must not strip quarantine or include the restricted Arina preset.\n' >&2
+  printf 'Standalone release builders must not strip quarantine.\n' >&2
   exit 1
 fi
-if ! /usr/bin/grep -F -q "presets/preset-arina-hashimoto/" \
-  "$ROOT/scripts/build-client-release.sh" "$ROOT/scripts/build-release.sh"; then
-  printf 'Standalone release builders must explicitly exclude the restricted Arina preset.\n' >&2
-  exit 1
-fi
+for builder in build-client-release.sh build-release.sh; do
+  if ! /usr/bin/grep -F -q -- "--exclude 'presets/preset-*/'" "$ROOT/scripts/$builder" ||
+     ! /usr/bin/grep -F -q '/bin/cp -R "$ROOT/presets/preset-internet-angel-default"' "$ROOT/scripts/$builder"; then
+    printf 'Standalone release builders must allowlist only the customized JPEG preset.\n' >&2
+    exit 1
+  fi
+done
 if ! /usr/bin/grep -F -q 'DEPLOY_PREVIOUS' "$ROOT/scripts/install-dream-skin-macos.sh" ||
    ! /usr/bin/grep -F -q 'rollback_deployed_project' "$ROOT/scripts/install-dream-skin-macos.sh"; then
   printf 'The macOS outer installer must roll back a failed engine deployment.\n' >&2
@@ -363,35 +365,31 @@ trap cleanup_tests EXIT
 STANDALONE_ROOT="$TMP/standalone-root"
 STANDALONE_DOCS="$TMP/standalone-source-docs"
 /bin/mkdir -p "$STANDALONE_ROOT" \
-  "$STANDALONE_DOCS/images/gallery" "$STANDALONE_DOCS/images/presets"
+  "$STANDALONE_DOCS/images/gallery"
 /usr/bin/printf '%s\n' \
-  'macos/presets/preset-arina-hashimoto/ macos/assets/portal-hero.png macos/NOTICE.md windows/assets/theme.json' \
+  'macos/presets/preset-internet-angel-default/ macos/assets/dream-reference.jpg macos/NOTICE.md windows/assets/theme.json' \
   > "$STANDALONE_DOCS/reference-background-prompt-guide.md"
 /bin/cp "$STANDALONE_DOCS/reference-background-prompt-guide.md" \
   "$STANDALONE_DOCS/reference-background-prompt-guide.en.md"
 /bin/cp "$STANDALONE_DOCS/reference-background-prompt-guide.md" \
   "$STANDALONE_DOCS/background-generation-prompts.md"
 : > "$STANDALONE_DOCS/images/gallery/skin-01.jpg"
-: > "$STANDALONE_DOCS/images/presets/arina-hashimoto-source.png"
 : > "$STANDALONE_DOCS/images/hero-banner-red-white.png"
 /usr/bin/printf '%s\n' \
-  '- `presets/preset-arina-hashimoto/background.jpg`' \
+  '- `presets/preset-internet-angel-default/dream-reference.jpg`' \
   '- `../windows/assets/dream-reference.jpg`' \
-  '- `../docs/images/presets/arina-hashimoto-source.png`' \
   "They are included at the maintainer's direction as a local theme preset, source archive, and real runtime previews." \
   > "$STANDALONE_ROOT/NOTICE.md"
 "$ROOT/scripts/prepare-standalone-docs.sh" "$STANDALONE_ROOT" "$STANDALONE_DOCS"
-/usr/bin/grep -F -q 'presets/preset-arina-hashimoto/' \
+/usr/bin/grep -F -q 'presets/preset-internet-angel-default/' \
   "$STANDALONE_ROOT/docs/reference-background-prompt-guide.md"
-/usr/bin/grep -F -q 'assets/portal-hero.png' \
+/usr/bin/grep -F -q 'assets/dream-reference.jpg' \
   "$STANDALONE_ROOT/docs/reference-background-prompt-guide.md"
 /usr/bin/grep -F -q 'https://github.com/EmiyaKatuz/Codex-Dream-Skin-Needy-Girl-Overdose/blob/main/windows/assets/theme.json' \
   "$STANDALONE_ROOT/docs/reference-background-prompt-guide.md"
 [ -f "$STANDALONE_ROOT/docs/images/hero-banner-red-white.png" ]
-[ ! -e "$STANDALONE_ROOT/docs/images/presets/arina-hashimoto-source.png" ]
-/usr/bin/grep -F -q 'arina-hashimoto' "$STANDALONE_ROOT/NOTICE.md"
-/usr/bin/grep -F -q '`docs/images/presets/arina-hashimoto-source.png`' \
-  "$STANDALONE_ROOT/NOTICE.md"
+[ ! -e "$STANDALONE_ROOT/docs/images/presets" ]
+/usr/bin/grep -F -q 'presets/preset-internet-angel-default/dream-reference.jpg' "$STANDALONE_ROOT/NOTICE.md"
 /usr/bin/grep -F -q 'not included in this macOS archive' \
   "$STANDALONE_ROOT/NOTICE.md"
 
@@ -447,45 +445,21 @@ if /usr/bin/printf '%s\n' "$MENU_IMAGE_OUTPUT" | /usr/bin/grep -F -q 'bad'; then
   exit 1
 fi
 
-# seed_bundled_presets is idempotent and must never touch user custom-* packs.
-/usr/bin/env HOME="$TMP/seed-home" /bin/bash -c '
-  . "$1/scripts/common-macos.sh"
-  ensure_state_root
-  themes="$STATE_ROOT/themes"
-  /bin/mkdir -p "$themes/custom-keepme"
-  : > "$themes/custom-keepme/theme.json"
-  retired="preset-midnight-aurora preset-sakura-dawn preset-amber-dusk preset-forest-mist preset-cyber-neon preset-romantic-rose"
-  for id in $retired; do
-    /bin/mkdir -p "$themes/$id"
-    : > "$themes/$id/retired-marker"
-  done
-  seed_bundled_presets
-  seed_bundled_presets
-  [ -f "$themes/preset-gothic-void-crusade/theme.json" ] || exit 1
-  [ -f "$themes/preset-gothic-void-crusade/background.jpg" ] || exit 1
-  [ -f "$themes/preset-internet-angel-default/theme.json" ] || exit 1
-  [ -f "$themes/preset-internet-angel-default/dream-reference.jpg" ] || exit 1
-  [ -f "$themes/preset-internet-angel/theme.json" ] || exit 1
-  [ -f "$themes/preset-internet-angel/codex-dream-skin-pixel-cafe.png" ] || exit 1
-  [ -f "$themes/preset-arina-hashimoto/theme.json" ] || exit 1
-  [ -f "$themes/preset-arina-hashimoto/background.jpg" ] || exit 1
-  [ -f "$themes/custom-keepme/theme.json" ] || exit 1
-  for id in $retired; do [ ! -e "$themes/$id" ] || exit 1; done
-  seeded="$(/usr/bin/find "$themes" -maxdepth 1 -type d -name "preset-*" | /usr/bin/wc -l | /usr/bin/tr -d " ")"
-  [ "$seeded" -eq 4 ] || exit 1
-' _ "$ROOT"
+# Fresh installs seed only the customized JPEG. Upgrades retain every user's
+# saved theme and active copy, including previously bundled presets.
+"$NODE" --test "$ROOT/tests/bundled-presets.test.mjs"
 
 run_signed_runtime_switch_test() {
   local switch_home="$TMP/switch-home"
   local switch_state="$switch_home/Library/Application Support/CodexDreamSkinStudio"
   /bin/mkdir -p "$switch_state/themes/preset-switch-fixture" "$switch_state/theme"
-  /bin/cp "$ROOT/assets/portal-hero.png" "$switch_state/themes/preset-switch-fixture/background.png"
+  /bin/cp "$ROOT/assets/dream-reference.jpg" "$switch_state/themes/preset-switch-fixture/background.jpg"
   /usr/bin/printf '%s\n' \
-    '{"schemaVersion":1,"id":"preset-switch-fixture","name":"切换测试","image":"background.png"}' \
+    '{"schemaVersion":1,"id":"preset-switch-fixture","name":"切换测试","image":"background.jpg"}' \
     > "$switch_state/themes/preset-switch-fixture/theme.json"
-  /usr/bin/printf '%s\n' '{"schemaVersion":1,"id":"old","name":"旧主题","image":"old.png"}' \
+  /usr/bin/printf '%s\n' '{"schemaVersion":1,"id":"old","name":"旧主题","image":"old.jpg"}' \
     > "$switch_state/theme/theme.json"
-  /bin/cp "$ROOT/assets/portal-hero.png" "$switch_state/theme/old.png"
+  /bin/cp "$ROOT/assets/dream-reference.jpg" "$switch_state/theme/old.jpg"
   /usr/bin/printf '%s\n' '[data-ds-part="root"] { color: var(--ds-theme-color-text); }' \
     > "$switch_state/theme/theme.css"
   /bin/mkdir "$switch_state/.community-apply-test"
@@ -499,8 +473,8 @@ run_signed_runtime_switch_test() {
   ' "$SNAPSHOT_OUTPUT")"
   /usr/bin/cmp -s "$switch_state/theme/theme.json" \
     "$switch_state/.community-apply-test/active-before/theme.json"
-  /usr/bin/cmp -s "$switch_state/theme/old.png" \
-    "$switch_state/.community-apply-test/active-before/old.png"
+  /usr/bin/cmp -s "$switch_state/theme/old.jpg" \
+    "$switch_state/.community-apply-test/active-before/old.jpg"
   /usr/bin/cmp -s "$switch_state/theme/theme.css" \
     "$switch_state/.community-apply-test/active-before/theme.css"
   if /usr/bin/env HOME="$switch_home" NODE="$NODE" \
@@ -593,9 +567,9 @@ run_signed_runtime_switch_test() {
   /usr/bin/env HOME="$switch_home" NODE="$NODE" \
     "$ROOT/scripts/switch-theme-macos.sh" --id preset-switch-fixture --no-apply \
     --expect-fingerprint "$EXPECTED_FINGERPRINT" >/dev/null
-  /usr/bin/cmp -s "$switch_state/theme/background.png" \
-    "$switch_state/themes/preset-switch-fixture/background.png"
-  [ ! -e "$switch_state/theme/old.png" ]
+  /usr/bin/cmp -s "$switch_state/theme/background.jpg" \
+    "$switch_state/themes/preset-switch-fixture/background.jpg"
+  [ ! -e "$switch_state/theme/old.jpg" ]
   [ ! -e "$switch_state/theme/theme.css" ]
   "$NODE" -e '
     const fs = require("fs");
@@ -931,9 +905,9 @@ else
 fi
 
 /bin/mkdir -p "$TMP/theme"
-/bin/cp "$ROOT/assets/portal-hero.png" "$TMP/theme/background.png"
+/bin/cp "$ROOT/assets/dream-reference.jpg" "$TMP/theme/background.jpg"
 "$NODE" "$ROOT/scripts/write-theme.mjs" custom --output-dir "$TMP/theme" \
-  --image background.png --name '测试主题' --tagline '测试口号' --quote 'TEST' \
+  --image background.jpg --name '测试主题' --tagline '测试口号' --quote 'TEST' \
   --accent '#11aa55' --secondary '#22bbcc' --highlight '#663399' >/dev/null
 PAYLOAD_JSON="$("$NODE" "$ROOT/scripts/injector.mjs" --check-payload --theme-dir "$TMP/theme")"
 "$NODE" -e '
@@ -945,15 +919,15 @@ PAYLOAD_JSON="$("$NODE" "$ROOT/scripts/injector.mjs" --check-payload --theme-dir
 "$NODE" -e '
   const value = JSON.parse(process.argv[1]);
   if (!value.pass || value.themeName !== "测试主题" || value.imageBytes < 1) process.exit(1);
-  if (value.artMetadata?.width !== 2168 || value.artMetadata?.height !== 725) process.exit(1);
-  if (!value.artMetadata.wide || value.artMetadata.aspect !== "ultrawide") process.exit(1);
+  if (value.artMetadata?.width !== 2560 || value.artMetadata?.height !== 1440) process.exit(1);
+  if (!value.artMetadata.wide || value.artMetadata.aspect !== "wide") process.exit(1);
   if (!Number.isFinite(value.timings?.buildMs) || value.timings.buildMs < 0) process.exit(1);
 ' "$PAYLOAD_JSON"
 
 /bin/mkdir -p "$TMP/explicit-theme"
-/bin/cp "$ROOT/assets/portal-hero.png" "$TMP/explicit-theme/background.png"
+/bin/cp "$ROOT/assets/dream-reference.jpg" "$TMP/explicit-theme/background.jpg"
 "$NODE" "$ROOT/scripts/write-theme.mjs" custom --output-dir "$TMP/explicit-theme" \
-  --image background.png --name '显式自适应主题' --appearance dark \
+  --image background.jpg --name '显式自适应主题' --appearance dark \
   --focus-x 0.12 --focus-y 0.88 --safe-area none --task-mode off >/dev/null
 EXPLICIT_PAYLOAD_JSON="$(
   "$NODE" "$ROOT/scripts/injector.mjs" --check-payload --theme-dir "$TMP/explicit-theme"
@@ -972,7 +946,7 @@ assert_write_theme_rejected() {
   local label="$1"
   shift
   if "$NODE" "$ROOT/scripts/write-theme.mjs" custom --output-dir "$TMP/explicit-theme" \
-    --image background.png "$@" >/dev/null 2>&1; then
+    --image background.jpg "$@" >/dev/null 2>&1; then
     printf 'write-theme unexpectedly accepted invalid %s.\n' "$label" >&2
     exit 1
   fi
@@ -986,7 +960,7 @@ assert_write_theme_rejected name-control --name $'unsafe\nname'
 assert_write_theme_rejected tagline-control --tagline $'unsafe\rtagline'
 assert_write_theme_rejected quote-control --quote $'unsafe\033quote'
 CONTROL_IMAGE=$'unsafe\nimage.jpg'
-/bin/cp "$TMP/explicit-theme/background.png" "$TMP/explicit-theme/$CONTROL_IMAGE"
+/bin/cp "$TMP/explicit-theme/background.jpg" "$TMP/explicit-theme/$CONTROL_IMAGE"
 if "$NODE" "$ROOT/scripts/write-theme.mjs" custom --output-dir "$TMP/explicit-theme" \
   --image "$CONTROL_IMAGE" >/dev/null 2>&1; then
   printf 'write-theme unexpectedly accepted a control-character image filename.\n' >&2
@@ -1047,11 +1021,11 @@ fi
 
 # A theme config or image symlink may resolve only inside its own theme root.
 /bin/mkdir -p "$TMP/symlink-outside" "$TMP/symlink-image-theme" "$TMP/symlink-config-theme"
-/bin/cp "$ROOT/assets/portal-hero.png" "$TMP/symlink-outside/background.png"
+/bin/cp "$ROOT/assets/dream-reference.jpg" "$TMP/symlink-outside/background.jpg"
 /usr/bin/printf '%s\n' \
-  '{"schemaVersion":1,"id":"symlink-image","name":"Symlink image","image":"background.png"}' \
+  '{"schemaVersion":1,"id":"symlink-image","name":"Symlink image","image":"background.jpg"}' \
   > "$TMP/symlink-image-theme/theme.json"
-/bin/ln -s "$TMP/symlink-outside/background.png" "$TMP/symlink-image-theme/background.png"
+/bin/ln -s "$TMP/symlink-outside/background.jpg" "$TMP/symlink-image-theme/background.jpg"
 if SYMLINK_IMAGE_OUTPUT="$(
   "$NODE" "$ROOT/scripts/injector.mjs" --check-payload --theme-dir "$TMP/symlink-image-theme" 2>&1
 )"; then
@@ -1061,7 +1035,7 @@ fi
 /usr/bin/printf '%s\n' "$SYMLINK_IMAGE_OUTPUT" | /usr/bin/grep -F -q \
   'Theme image must stay inside its theme directory'
 /usr/bin/printf '%s\n' \
-  '{"schemaVersion":1,"id":"symlink-config","name":"Symlink config","image":"background.png"}' \
+  '{"schemaVersion":1,"id":"symlink-config","name":"Symlink config","image":"background.jpg"}' \
   > "$TMP/symlink-outside/theme.json"
 /bin/ln -s "$TMP/symlink-outside/theme.json" "$TMP/symlink-config-theme/theme.json"
 if SYMLINK_CONFIG_OUTPUT="$(

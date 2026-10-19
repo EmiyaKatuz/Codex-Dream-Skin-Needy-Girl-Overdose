@@ -12,14 +12,13 @@
 
 | 你要做的事 | 应看的文件 | 说明 |
 |---|---|---|
-| 直接切换当前置顶主题 | macOS：`macos/presets/preset-arina-hashimoto/theme.json` + `background.jpg`；Windows：`windows/assets/theme.json` + `dream-reference.jpg`，以及 `theme-choten.json` + `codex-dream-skin-pixel-cafe.png` | macOS 保留既有预设；Windows 播种两套「超天酱 · INTERNET ANGEL」像素主题；它们都不是 `docs/images/presets/*-light/dark` 截图 |
+| 使用当前内置主题 | macOS：`macos/presets/preset-internet-angel-default/`；Windows：`windows/assets/theme.json` + `dream-reference.jpg` | 两端仅内置定制的「超天酱 · INTERNET ANGEL」JPEG 主题 |
 | 重新生成一张纯背景 | 本文件的通用模板或 [`reference-background-prompt-guide.md`](./reference-background-prompt-guide.md) | 输出应是独立的 `2560 × 1440`、16:9 图片，不是截图 |
 | 只看效果或找风格 | `docs/images/gallery/skin-01.jpg` ～ `skin-08.jpg` | 带 UI 的概念效果图，不能改名为 `background.jpg` 后导入 |
-| 查看当前主题在浅/暗色下的实机结果 | `docs/images/presets/arina-hashimoto-light.jpg`、`arina-hashimoto-dark.jpg` | 仅预览，包含真实控件，不能作为背景素材 |
 
-特别注意：`skin-01` 的粉色玫瑰方向与 `preset-arina-hashimoto` 有相近气质，但**不是同一文件、同一尺寸或同一资产**。`skin-01`～`skin-08` 只提供灵感；源码参考预设的配色与背景以 `macos/presets/preset-*` 中的文件为准；新主题包的制作与导出要求见下文。任何 `banner-*.png` / `generated-*.png` 实验图也不自动获得预设或发行资格；真人肖像和模型输出必须先完成权利核验。
+`skin-01`～`skin-08` 只提供历史概念方向，不属于当前内置主题。主题配色与背景以 `macos/presets/preset-internet-angel-default/` 中的文件为准；新主题包的制作与导出要求见下文。任何 `banner-*.png` / `generated-*.png` 实验图也不自动获得预设或发行资格；真人肖像和模型输出必须先完成权利核验。
 
-另外，`docs/images/hero-banner-red-white.png` 与 `macos/assets/portal-hero.png` 是旧的 3:1 首页横幅资源，不是这份文档推荐的 16:9 通用背景母版。
+`docs/images/hero-banner-red-white.png` 是历史 3:1 首页横幅参考，不是这份文档推荐的 16:9 通用背景母版。
 
 生成草稿建议先放在仓库外；通过统一检查后，将纯背景导入 [Studio](https://dreamskin.cc/studio)，调整配色、`theme.json` 和非空且通过 Safe CSS 校验的 `theme.css`，再导出含 `manifest.json` 和唯一背景图的完整 ZIP。只有背景图和 JSON 不构成完整的新主题包。`docs/images/` 只保存文档图和预览，不是运行时主题目录。
 
@@ -346,10 +345,7 @@ UI, UX, app interface, software window, desktop screenshot, mockup, title bar, m
 
 ## 当前仓库已有的纯背景
 
-- 用户提供的「桥本有菜」byte-identical 源图：`docs/images/presets/arina-hashimoto-source.png`（`1672 × 941` PNG）
-- macOS 实测精选可切换背景：`macos/presets/preset-arina-hashimoto/background.jpg`（由上述源 PNG 派生为 `2560 × 1440` JPEG；标准化尺寸不代表增加源图细节）
-- 对应浅/暗真实截图：`docs/images/presets/arina-hashimoto-light.jpg`、`arina-hashimoto-dark.jpg`（仅预览，禁止当背景导入）
-- 红白未来城市纯背景：`docs/images/hero-banner-red-white.png`（`2168 × 725`、约 3:1，仅适合首页横幅）
-- 红白未来城市运行时副本：`macos/assets/portal-hero.png`（同为 3:1，不是通用 16:9 母版）
+- 当前内置超天酱 JPEG 背景：`macos/presets/preset-internet-angel-default/dream-reference.jpg`，与 `windows/assets/dream-reference.jpg` 字节一致（`2560 × 1440`）。
+- 历史红白未来城市纯背景参考：`docs/images/hero-banner-red-white.png`（`2168 × 725`、约 3:1，仅适合首页横幅；不属于内置主题）。
 
-其余 `docs/images/gallery/skin-XX.jpg` 都是效果预览，不应直接导入主题。用户提供的 AI 示例不代表 OpenAI/Codex 官方视觉或背书；公开再分发前请确认肖像、模型输出和素材权利。
+`docs/images/gallery/skin-XX.jpg` 都是效果预览，不应直接导入主题。用户提供的 AI 示例不代表 OpenAI/Codex 官方视觉或背书；公开再分发前请确认肖像、模型输出和素材权利。

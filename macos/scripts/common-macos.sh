@@ -30,7 +30,7 @@ CODEX_APP_JOB_LABEL="com.openai.codex-dream-skin-studio.app"
 INJECTOR_JOB_LABEL="com.openai.codex-dream-skin-studio.injector"
 EXPECTED_CODEX_TEAM_ID="2DC432GLL2"
 EXPECTED_CODEX_REQUIREMENT="anchor apple generic and certificate leaf[subject.OU] = \"$EXPECTED_CODEX_TEAM_ID\""
-SKIN_VERSION="1.7.0"
+SKIN_VERSION="1.7.1"
 DREAM_SKIN_VALIDATED_RUNTIME_PID=""
 DREAM_SKIN_VALIDATED_RUNTIME_BUNDLE=""
 DREAM_SKIN_VALIDATED_RUNTIME_EXE=""
@@ -206,23 +206,18 @@ finish_client_operation() {
 
 # Seed bundled preset packs into the user's themes/ library so a fresh install
 # ships with ready-to-use skins. Idempotent (each preset is refreshed in place)
-# and scoped to preset-* ids, so user-made custom-* packs are never touched.
+# and limited to the customized bundled preset. Existing saved themes and the
+# active theme copy are preserved, including presets retired from the project.
 seed_bundled_presets() {
   local presets_root="$PROJECT_ROOT/presets"
   [ -d "$presets_root" ] || return 0
   local themes_root="$STATE_ROOT/themes"
   /bin/mkdir -p "$themes_root"
-  local retired
-  for retired in \
-    preset-midnight-aurora preset-sakura-dawn preset-amber-dusk \
-    preset-forest-mist preset-cyber-neon preset-romantic-rose; do
-    /bin/rm -rf "$themes_root/$retired"
-  done
   local src id dest entry
-  for src in "$presets_root"/preset-*/; do
+  for id in preset-internet-angel-default; do
+    src="$presets_root/$id/"
     [ -d "$src" ] || continue
     [ -f "${src}theme.json" ] || continue
-    id="$(/usr/bin/basename "$src")"
     dest="$themes_root/$id"
     /bin/rm -rf "$dest"
     /bin/mkdir -p "$dest"

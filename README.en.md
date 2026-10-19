@@ -13,11 +13,11 @@
   <img src="windows/assets/dream-reference.jpg" alt="INTERNET ANGEL theme background" width="900">
 </p>
 
-> Current version: `1.7.0`. Windows, macOS, and Linux share the same INTERNET ANGEL component classifier, overlay, and animation runtime.
+> Current version: `1.7.1`. Windows, macOS, and Linux share the same INTERNET ANGEL component classifier, overlay, and animation runtime.
 
 This independent fork builds on [Fei-Away/Codex-Dream-Skin](https://github.com/Fei-Away/Codex-Dream-Skin). Its focus is the INTERNET ANGEL visual system, cross-platform parity, launcher compatibility, and clear security boundaries.
 
-v1.7.0 integrates upstream compatibility, background transparency and native theme management, plus typing and navigation optimizations, while retaining the motion system. See the [release notes](docs/releases/v1.7.0-en.md).
+v1.7.1 keeps only the customized Internet Angel JPEG theme, retaining its visuals and motion. Upgrades preserve existing user themes and preferences. See the [release notes](docs/releases/v1.7.1-en.md).
 
 New in v1.6.0: unified motion settings. macOS Theme → Motion, the Windows tray Motion menu, and the Linux settings command offer System / Off / Subtle / Full modes and five effect switches. Effects include task and tool feedback, an independent pixel character, project arrival feedback and small star parallax. Decorations yield during scrolling, modal dialogs and crowded layouts. See the [motion system guide](docs/theme-motion.md) for behavior and verification limits.
 
@@ -25,7 +25,7 @@ New in v1.6.0: unified motion settings. macOS Theme → Motion, the Windows tray
 
 - Styles the home screen, sidebar, tasks, composer, settings, terminal, permissions, diffs, subagents, and status surfaces.
 - Synchronizes one component classifier, dedicated overlay, and animation layer from [`runtime/`](./runtime/) to Windows, macOS, and Linux. Theme switching cleans up old observers, listeners, and component marks.
-- Supports bundled themes, local images, theme ZIP archives, Safe CSS, saved themes, and live switching.
+- Bundles only the customized Internet Angel JPEG theme, with local images, theme ZIP archives, Safe CSS, saved themes, and live switching.
 - Provides Windows Setup, tray controls, Start menu entries, desktop shortcuts, update checks, pause, and restore.
 - Provides a macOS DMG and menu-bar app plus Linux install and release scripts.
 - Uses loopback-only CDP while leaving official Codex binaries, signatures, `WindowsApps` permissions, and `app.asar` unchanged.
@@ -107,4 +107,4 @@ The macOS regression entry point is `./macos/tests/run-tests.sh`. See [`docs/pla
 ## Credits
 
 - Original project: [Fei-Away/Codex-Dream-Skin](https://github.com/Fei-Away/Codex-Dream-Skin)
-- Gothic Void Crusade contributor: [@seansong-ideogram](https://github.com/seansong-ideogram)
+- Historical Gothic Void Crusade contributor (theme removed from current packages): [@seansong-ideogram](https://github.com/seansong-ideogram)

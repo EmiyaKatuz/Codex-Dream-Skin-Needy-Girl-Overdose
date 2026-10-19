@@ -132,8 +132,6 @@ try {
     'assets\theme-package-validator.mjs',
     'assets\theme-preferences.mjs',
     'assets\theme.json',
-    'presets\preset-gothic-void-crusade\background.jpg',
-    'presets\preset-gothic-void-crusade\theme.json',
     'scripts\apply-community-theme.ps1',
     'scripts\acrylic-window.ps1',
     'scripts\auto-launch-dream-skin.ps1',

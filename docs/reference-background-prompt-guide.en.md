@@ -22,14 +22,14 @@ Chinese guide: [`reference-background-prompt-guide.md`](./reference-background-p
 See [local theme management](./theme-management.md#english). The source presets and concept images below are references; use the Studio workflow above for ordinary theme creation and distribution.
 
 
-## Source-Only Reference: Arina Hashimoto (Excluded From Public Packages)
+## Current bundled theme
 
-- **Switchable theme:** macOS retains `macos/presets/preset-arina-hashimoto/`; Windows independently seeds two Internet Angel / Choten-chan variants: `windows/assets/theme.json` plus `dream-reference.jpg`, and `theme-choten.json` plus `codex-dream-skin-pixel-cafe.png`.
-- **User-supplied pure source:** `docs/images/presets/arina-hashimoto-source.png` (`1672 × 941`). The preset's `2560 × 1440` JPEG is a standardized release derivative and does not create additional source detail.
-- **Real runtime results:** `arina-hashimoto-light.jpg` and `arina-hashimoto-dark.jpg` are light/dark screenshots for preview only. They are not importable wallpapers.
-- **Relationship to earlier examples:** this is the current tested preset, not `docs/images/gallery/skin-01.jpg` and not one of the skin-01–08 concept mockups. skin-01 contributes only a related pink-rose direction and UI-copy reference.
-
-The user describes this material as an Arina Hashimoto reference version, and the maintainer explicitly directed that its source, switchable preset, and runtime previews be included in the repository. That records the intended reference and inclusion decision; it is not a likeness, generation, or redistribution license. `macos/NOTICE.md` excludes the listed files from the MIT software license, and users and downstream distributors must review the relevant rights independently. The public copy-ready prompt below still uses an original fictional adult.
+macOS and Windows bundle only the customized **超天酱 · INTERNET ANGEL** JPEG
+theme. `macos/presets/preset-internet-angel-default/` matches the Windows
+`windows/assets/theme.json` + `dream-reference.jpg` pair byte for byte.
+The `2560 × 1440` image is pure wallpaper. Fresh installs use this theme;
+upgrades preserve existing local themes. See `macos/NOTICE.md` for asset terms;
+repository inclusion is not a grant of third-party rights.
 
 ## Separate Presets, Source Art, Screenshots, And Concepts
 
@@ -37,17 +37,20 @@ The “effect” shown in a README is not automatically an importable wallpaper.
 
 | Type | Repository path | What it is | A complete theme? |
 |---|---|---|---|
-| **Current featured preset** | macOS: `macos/presets/preset-arina-hashimoto/`; Windows: `windows/assets/theme.json` + `dream-reference.jpg`, and `theme-choten.json` + `codex-dream-skin-pixel-cafe.png` | Platform-specific UI-free wallpapers; Windows seeds both Internet Angel / Choten-chan pixel variants | **Yes** |
-| **Pure source art** | `docs/images/presets/arina-hashimoto-source.png` | User-supplied source wallpaper around `1672 × 941`; no `theme.json` | **No**; it can be selected as an image, but is not a complete pack |
-| **Real injected previews** | `docs/images/presets/arina-hashimoto-light.jpg`, `arina-hashimoto-dark.jpg` | Light/dark Codex screenshots containing real controls | **No** |
+| **Current bundled preset** | macOS: `macos/presets/preset-internet-angel-default/`; Windows: `windows/assets/theme.json` + `dream-reference.jpg` | Customized Internet Angel JPEG wallpaper and metadata | Ready to use in the bundled client; new import ZIPs must still meet the complete-package contract |
+| **Pure wallpaper** | `windows/assets/dream-reference.jpg` | `2560 × 1440` JPEG without metadata or CSS | **No**, an image alone is not a complete pack |
 | **Concept gallery** | `docs/images/gallery/skin-01.jpg`–`skin-08.jpg` | UI effect mockups used only to communicate visual directions | **No** |
 | **Experimental/history images** | `docs/images/banner-*.png`, `docs/images/generated-*.png` | Unapproved local experiments or references | **No**; do not ship without rights/provenance review |
 
-`docs/images/hero-banner-red-white.png` and `macos/assets/portal-hero.png` are legacy 3:1 banner assets, not the current 16:9 universal-theme master. Do not substitute either for `preset-*/background.jpg` unless the output is intentionally homepage-banner-only.
+`docs/images/hero-banner-red-white.png` is a historical 3:1 banner reference,
+not the current 16:9 universal-theme master. Do not substitute it for a theme
+background unless the output is intentionally homepage-banner-only.
 
-Rule of thumb: **public installers default to Gothic Void Crusade; use the source-only reference preset locally only after a rights review.** Generate from this guide; study directions in `docs/images/gallery/`; inspect runtime results in `docs/images/presets/*-light.jpg` / `*-dark.jpg`. Source preset directories are implementation references; new theme imports and distribution also require non-empty validated `theme.css`, and formal ZIPs need a Studio-generated `manifest.json`; `docs/images/` is documentation/archive space, not a mirror of the theme library.
-
-Path classification is not a likeness or redistribution license. The current `preset-arina-hashimoto` contains user-provided human/AI portrait material included at the maintainer's direction. Public repository inclusion neither grants nor proves likeness, generation, commercial-use, or further-redistribution rights; see `macos/NOTICE.md` for the file-level boundary.
+Current installers bundle only the Internet Angel JPEG theme. Generate from
+this guide and study concept directions in `docs/images/gallery/`. New theme
+imports and distribution require non-empty validated `theme.css`, and formal
+ZIPs need a Studio-generated `manifest.json`; `docs/images/` is documentation
+space, not a mirror of the theme library.
 
 Save new generations outside the repository while drafting and run the acceptance checklist at the end. After checking it, load the **pure wallpaper** into Studio and export a complete theme ZIP using the workflow above. Do not place drafts, UI screenshots, or unverified human-likeness images in `docs/images/` and assume they become switchable themes.
 
@@ -67,7 +70,7 @@ Save new generations outside the repository while drafting and run the acceptanc
 
 This table does **not** claim that every field is implemented. Theme names are currently visible in the macOS menu-bar and Windows tray switchers; macOS shows `tagline` on the home route, while Windows does not yet render theme copy. Brand, subtitle, status, quote, signature, polaroid, and independently positioned decoration are outside the current visible runtime contract. Until corresponding schema and renderer support exists, omit those elements instead of flattening them into the background. If stickers are implemented later, keep each image as an independent `sticker-*.jpg` in the theme directory, render it through a pointer-events-free decoration layer, and hide or reposition it at homepage/task/narrow-window breakpoints. Do not treat it as a second background or let it cover the composer.
 
-Names, likenesses, and this copy belong to a specific preset and should not be copied into the generic templates. Without the required rights, use an original fictional adult and remove names, work titles, and identifying terms.
+Names, likenesses, and this copy belong to that historical concept image and should not be copied into the generic templates. Without the required rights, use an original fictional adult and remove names, work titles, and identifying terms.
 
 ## Fix The Role Of Each Reference
 

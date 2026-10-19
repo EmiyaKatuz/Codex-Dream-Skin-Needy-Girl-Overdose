@@ -1,27 +1,22 @@
 {
   "schemaVersion": 1,
-  "id": "custom-1784123441349",
-  "name": "Dream Skin",
-  "brandSubtitle": "CODEX DREAM SKIN",
-  "tagline": "把喜欢的画面变成可交互的 Codex 工作台。",
-  "projectPrefix": "选择项目 · ",
-  "projectLabel": "◉  选择项目",
-  "statusText": "THEME ONLINE",
-  "quote": "Make something wonderful",
-  "image": "portal-hero.png",
-  "colors": {
-    "background": "#F7F4F5",
-    "panel": "#FFFFFF",
-    "panelAlt": "#FFF7F8",
-    "accent": "#E25563",
-    "accentAlt": "#F07A86",
-    "secondary": "#F3A8AF",
-    "highlight": "#C93D4C",
-    "text": "#2B2224",
-    "muted": "#8A7A7D",
-    "line": "rgba(196, 120, 128, .22)"
+  "id": "preset-internet-angel-default",
+  "name": "超天酱 · INTERNET ANGEL",
+  "brandSubtitle": "CODEX // INTERNET ANGEL ♥",
+  "tagline": "今天也要做最可爱的互联网天使。",
+  "projectPrefix": "PROJECT CHANNEL // ",
+  "projectLabel": "✦ 选择项目",
+  "statusText": "INTERNET ANGEL // STREAM ONLINE",
+  "quote": "BLESS YOUR CODE ♥",
+  "image": "dream-reference.jpg",
+  "appearance": "auto",
+  "art": {
+    "focusX": 0.72,
+    "focusY": 0.42,
+    "safeArea": "left",
+    "taskMode": "ambient"
   },
-  "promoTitle": "感谢 Passion8 赞助",
-  "promoSub": "passion8.cc",
-  "promoUrl": "https://passion8.cc/register?aff=TuPe"
+  "palette": {
+    "accent": "#ff45c8"
+  }
 }

@@ -11,7 +11,7 @@ import { loadTheme } from "../scripts/injector.mjs";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const macosRoot = path.resolve(here, "..");
 const writer = path.join(macosRoot, "scripts", "write-theme.mjs");
-const fixtureImage = path.join(macosRoot, "assets", "portal-hero.png");
+const fixtureImage = path.join(macosRoot, "assets", "dream-reference.jpg");
 
 function run(command, args) {
   return new Promise((resolve, reject) => {
@@ -31,14 +31,14 @@ function run(command, args) {
 test("custom theme writer matches the injector text and task-mode contract", async () => {
   const output = await fs.mkdtemp(path.join(os.tmpdir(), "dreamskin-write-contract."));
   try {
-    await fs.copyFile(fixtureImage, path.join(output, "background.png"));
+    await fs.copyFile(fixtureImage, path.join(output, "background.jpg"));
     const longTagline = "界".repeat(130);
     const longQuote = "光".repeat(130);
     await run(process.execPath, [
       writer,
       "custom",
       "--output-dir", output,
-      "--image", "background.png",
+      "--image", "background.jpg",
       "--name", "Writer contract fixture",
       "--tagline", longTagline,
       "--quote", longQuote,

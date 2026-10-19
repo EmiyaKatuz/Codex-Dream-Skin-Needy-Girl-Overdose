@@ -10,7 +10,7 @@ const projectRoot = path.resolve(macosRoot, "..");
 const publisher = path.join(macosRoot, "scripts", "publish-theme-import.mjs");
 const recoveryWrapper = path.join(macosRoot, "scripts", "recover-theme-imports-macos.sh");
 const killHook = path.join(here, "theme-import-kill-hook.cjs");
-const fixtureImage = path.join(macosRoot, "assets", "portal-hero.png");
+const fixtureImage = path.join(macosRoot, "assets", "dream-reference.jpg");
 const crossPlatformFixtureImage = path.join(
   projectRoot,
   "docs",
@@ -77,7 +77,7 @@ function runCommand(command, args) {
 
 async function makeStage(name, id, extra = {}) {
   const stage = path.join(tempRoot, name);
-  const imageName = extra.imageName ?? "background.png";
+  const imageName = extra.imageName ?? "background.jpg";
   await fs.mkdir(stage);
   await fs.copyFile(extra.fixtureImage ?? fixtureImage, path.join(stage, imageName));
   await fs.writeFile(
@@ -104,14 +104,14 @@ async function makeStage(name, id, extra = {}) {
 async function writeSavedTheme(directoryName, id, extra = {}, destinationRoot = themesRoot) {
   const directory = path.join(destinationRoot, directoryName);
   await fs.mkdir(directory);
-  await fs.copyFile(fixtureImage, path.join(directory, "background.png"));
+  await fs.copyFile(fixtureImage, path.join(directory, "background.jpg"));
   await fs.writeFile(
     path.join(directory, "theme.json"),
     `${JSON.stringify({
       schemaVersion: 1,
       id,
       name: extra.displayName ?? "Imported Theme",
-      image: "background.png",
+      image: "background.jpg",
       appearance: "auto",
       art: { safeArea: "auto", taskMode: "auto" },
       ...extra.theme,
@@ -667,9 +667,9 @@ try {
   await fs.mkdir(linkedStage);
   await fs.writeFile(
     path.join(linkedStage, "theme.json"),
-    `${JSON.stringify({ schemaVersion: 1, id: "linked", image: "background.png" })}\n`,
+    `${JSON.stringify({ schemaVersion: 1, id: "linked", image: "background.jpg" })}\n`,
   );
-  await fs.symlink(fixtureImage, path.join(linkedStage, "background.png"));
+  await fs.symlink(fixtureImage, path.join(linkedStage, "background.jpg"));
   await assert.rejects(
     publish(linkedStage),
     process.platform === "win32" ? /require non-empty theme\.css/ : /symbolic link/,

@@ -4,7 +4,7 @@ Codex Dream Skin Studio is an **unofficial** customization project and is **not 
 
 ## Software license
 
-The MIT License in `LICENSE` applies to the **software source code** in this repository (scripts, CSS, injectors, docs that describe the software, and the abstract demo asset generated for this repo).
+The MIT License in `LICENSE` applies to the **software source code** in this repository (scripts, CSS, injectors, and docs that describe the software).
 
 It does **not** grant rights to:
 
@@ -13,28 +13,14 @@ It does **not** grant rights to:
 - Any user-supplied images or third-party artwork you drop into a theme
 - Character likenesses, franchise art, or celebrity imagery
 
-## Demo artwork
-
-`assets/portal-hero.png` is original abstract geometric art generated for this open-source repository (no characters). Replace it with your own image before shipping a branded theme to customers.
-
-## Gothic Void Crusade
-
-`presets/preset-gothic-void-crusade/background.jpg` was created and contributed
-by [seansong-ideogram](https://github.com/seansong-ideogram) through pull request
-[#134](https://github.com/Fei-Away/Codex-Dream-Skin/pull/134) for inclusion in
-this MIT-licensed project. It is the redistributable default artwork included in
-the public macOS and Windows installers. Its name and artwork do not imply
-OpenAI/Codex affiliation or endorsement.
-
 ## Internet Angel theme artwork
 
 The following byte-identical macOS and Windows theme assets are bundled at the
 maintainer's direction but are excluded from the MIT software license:
 
 - `presets/preset-internet-angel-default/dream-reference.jpg`
-- `presets/preset-internet-angel/codex-dream-skin-pixel-cafe.png`
+- `assets/dream-reference.jpg`
 - `../windows/assets/dream-reference.jpg`
-- `../windows/assets/codex-dream-skin-pixel-cafe.png`
 
 The theme names and artwork do not imply affiliation with or endorsement by
 OpenAI/Codex or any character rights holder. Repository inclusion and DMG
@@ -42,24 +28,17 @@ packaging do not certify or grant third-party character, model-output, or
 redistribution rights. Downstream public or commercial redistribution requires
 an independent rights review.
 
-## Arina Hashimoto reference material
+## Retired artwork history
 
-The following user/maintainer-supplied files are excluded from the MIT software license:
-
-- `presets/preset-arina-hashimoto/background.jpg`
-- `../docs/images/presets/arina-hashimoto-source.png`
-- `../docs/images/presets/arina-hashimoto-light.jpg`
-- `../docs/images/presets/arina-hashimoto-dark.jpg`
-
-They are included in the source repository at the maintainer's direction as a
-local reference preset, source archive, and real runtime previews. They are
-excluded from the public v1.3+ DMG and Setup.exe assets. They are not official
-OpenAI/Codex artwork. The preset name is a maintainer label and does not imply
-the named person's participation, approval, or endorsement. Their repository
-inclusion does not certify or grant third-party likeness, model-output, or
-redistribution rights. Downstream redistribution and commercial use require an
-independent rights review; the two runtime screenshots are documentation
-previews and must never be imported as wallpapers.
+Earlier revisions included Gothic Void Crusade, contributed by
+[seansong-ideogram](https://github.com/seansong-ideogram) through upstream pull
+request [#134](https://github.com/Fei-Away/Codex-Dream-Skin/pull/134), an abstract
+demo hero, an Internet Angel PNG variant, and Arina Hashimoto reference material.
+These are no longer included in the current source inventory or new installers.
+Existing local user themes are preserved during upgrades. License exclusions
+for third-party character and likeness material continue to apply to copies
+obtained from older revisions; their former inclusion never granted likeness,
+model-output, commercial-use, or redistribution rights.
 
 ## Runtime
 
