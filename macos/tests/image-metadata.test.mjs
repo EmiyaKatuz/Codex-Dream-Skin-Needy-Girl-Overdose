@@ -13,33 +13,22 @@ import {
 const here = path.dirname(fileURLToPath(import.meta.url));
 const macosRoot = path.resolve(here, "..");
 
-const portal = await fs.readFile(path.join(macosRoot, "assets", "portal-hero.png"));
-assert.deepEqual(readImageMetadata(portal, ".png"), {
-  width: 2168,
-  height: 725,
-  ratio: 2168 / 725,
-  wide: true,
-  aspect: "ultrawide",
-  taskMode: "banner",
-});
-const malformedPng = Buffer.from(portal);
-malformedPng[0] = 0;
-assert.equal(readImageMetadata(malformedPng, ".png"), null);
-
-const gothic = await fs.readFile(path.join(
-  macosRoot,
-  "presets",
-  "preset-gothic-void-crusade",
-  "background.jpg",
-));
-assert.deepEqual(readImageMetadata(gothic, ".jpg"), {
-  width: 2560,
-  height: 1440,
-  ratio: 2560 / 1440,
-  wide: true,
-  aspect: "wide",
+// A tiny generated PNG keeps format coverage independent of bundled artwork.
+const png = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jZLkAAAAASUVORK5CYII=",
+  "base64",
+);
+assert.deepEqual(readImageMetadata(png, ".png"), {
+  width: 1,
+  height: 1,
+  ratio: 1,
+  wide: false,
+  aspect: "square",
   taskMode: "ambient",
 });
+const malformedPng = Buffer.from(png);
+malformedPng[0] = 0;
+assert.equal(readImageMetadata(malformedPng, ".png"), null);
 
 const internetAngel = await fs.readFile(path.join(
   macosRoot,
@@ -51,21 +40,6 @@ assert.deepEqual(readImageMetadata(internetAngel, ".jpg"), {
   width: 2560,
   height: 1440,
   ratio: 2560 / 1440,
-  wide: true,
-  aspect: "wide",
-  taskMode: "ambient",
-});
-
-const pixelCafe = await fs.readFile(path.join(
-  macosRoot,
-  "presets",
-  "preset-internet-angel",
-  "codex-dream-skin-pixel-cafe.png",
-));
-assert.deepEqual(readImageMetadata(pixelCafe, ".png"), {
-  width: 1672,
-  height: 941,
-  ratio: 1672 / 941,
   wide: true,
   aspect: "wide",
   taskMode: "ambient",
@@ -137,7 +111,11 @@ assert.equal(readImageMetadata(new Uint8Array([0, 1, 2, 3]), ".png"), null);
 
 // readRawDimensions returns real pixel dimensions even beyond the safety caps,
 // so a preflight can reject decompression bombs before anything decodes them.
-assert.deepEqual(readRawDimensions(portal, ".png"), { width: 2168, height: 725 });
+assert.deepEqual(readRawDimensions(png, ".png"), { width: 1, height: 1 });
+assert.deepEqual(classifyImageDimensions({ width: 2168, height: 725 }), {
+  width: 2168, height: 725, ratio: 2168 / 725, wide: true,
+  aspect: "ultrawide", taskMode: "banner",
+});
 const oversized = new Uint8Array(24);
 oversized.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a], 0);
 oversized.set([0x00, 0x00, 0x00, 0x0d], 8); // IHDR chunk length

@@ -39,10 +39,6 @@ done
   printf 'Required concept gallery is missing: %s\n' "$DOCS_SOURCE/images/gallery" >&2
   exit 1
 }
-[ -d "$DOCS_SOURCE/images/presets" ] || {
-  printf 'Required preset previews are missing: %s\n' "$DOCS_SOURCE/images/presets" >&2
-  exit 1
-}
 [ -f "$DOCS_SOURCE/images/hero-banner-red-white.png" ] || {
   printf 'Required prompt reference image is missing: %s\n' \
     "$DOCS_SOURCE/images/hero-banner-red-white.png" >&2
@@ -59,14 +55,6 @@ done
   "$DOCS_SOURCE/background-generation-prompts.md" \
   "$DOCS_TARGET/"
 /bin/cp -R "$DOCS_SOURCE/images/gallery" "$DOCS_TARGET/images/"
-/bin/mkdir -p "$DOCS_TARGET/images/presets"
-for image in "$DOCS_SOURCE/images/presets"/*; do
-  [ -f "$image" ] || continue
-  case "$(/usr/bin/basename "$image")" in
-    arina-hashimoto-*) continue ;;
-  esac
-  /bin/cp "$image" "$DOCS_TARGET/images/presets/"
-done
 /bin/cp "$DOCS_SOURCE/images/hero-banner-red-white.png" "$DOCS_TARGET/images/"
 if [ -f "$DOCS_SOURCE/images/sponsor-passion8.png" ]; then
   /bin/cp "$DOCS_SOURCE/images/sponsor-passion8.png" "$DOCS_TARGET/images/"

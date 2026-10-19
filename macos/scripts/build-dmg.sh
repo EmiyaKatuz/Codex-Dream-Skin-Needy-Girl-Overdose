@@ -74,19 +74,18 @@ MOUNTED_ICON="$MOUNTED_APP/Contents/Resources/${MOUNTED_ICON_NAME%.icns}.icns"
   || { printf 'Mounted app icon is missing or empty: %s\n' "$MOUNTED_ICON" >&2; exit 1; }
 
 for required_preset_file in \
-  "preset-gothic-void-crusade/theme.json" \
-  "preset-gothic-void-crusade/background.jpg" \
   "preset-internet-angel-default/theme.json" \
-  "preset-internet-angel-default/dream-reference.jpg" \
-  "preset-internet-angel/theme.json" \
-  "preset-internet-angel/codex-dream-skin-pixel-cafe.png"; do
+  "preset-internet-angel-default/dream-reference.jpg"; do
   [ -f "$MOUNTED_APP/Contents/Resources/engine/presets/$required_preset_file" ] \
     || { printf 'Mounted app is missing bundled preset file: %s\n' \
       "$required_preset_file" >&2; exit 1; }
 done
-[ ! -e "$MOUNTED_APP/Contents/Resources/engine/presets/preset-arina-hashimoto" ] \
-  || { printf 'Mounted app contains a rights-restricted preset.\n' >&2; exit 1; }
+[ "$(/usr/bin/find "$MOUNTED_APP/Contents/Resources/engine/presets" -mindepth 1 -maxdepth 1 -type d | /usr/bin/wc -l | /usr/bin/tr -d ' ')" -eq 1 ] \
+  || { printf 'Mounted app must contain only the customized Internet Angel JPEG preset.\n' >&2; exit 1; }
 MOUNTED_ENGINE="$MOUNTED_APP/Contents/Resources/engine"
+/usr/bin/cmp -s "$ROOT/assets/theme.json" "$MOUNTED_ENGINE/assets/theme.json" \
+  && /usr/bin/cmp -s "$ROOT/assets/dream-reference.jpg" "$MOUNTED_ENGINE/assets/dream-reference.jpg" \
+  || { printf 'Mounted default theme differs from the customized Internet Angel JPEG preset.\n' >&2; exit 1; }
 [ -f "$MOUNTED_ENGINE/assets/selectors.json" ] \
   || { printf 'Mounted app is missing the selector contract.\n' >&2; exit 1; }
 for motion_asset in theme-motion.js theme-motion.css motion-settings.mjs motion-payload.mjs \

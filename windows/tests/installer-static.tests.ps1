@@ -156,27 +156,17 @@ foreach ($requiredBuilderContract in @(
   'Get-NormalizedReleaseTextSha256',
   'Copy-ZipEntry -Archive $zip -EntryName "$($manifest.nodeEntry)"',
   'Copy-ZipEntry -Archive $zip -EntryName "$($manifest.licenseEntry)"',
-  '$publicPresetImageSha256',
-  '$publicPresetThemeSha256',
   '$defaultThemeImageSha256',
   '$defaultThemeSha256',
-  '$pixelThemeImageSha256',
-  '$pixelThemeSha256',
   '$innoChineseLanguageSha256',
   '$innoSetupLicenseSha256',
   'Copy-Item -LiteralPath $innoChineseLanguagePath',
-  "'preset-gothic-void-crusade'",
-  "'presets\preset-gothic-void-crusade'",
-  "'assets\codex-dream-skin-pixel-cafe.png'",
-  "'assets\theme-choten.json'",
   "'assets\internet-angel-tray.ico'",
   "'assets\internet-angel-tray.png'",
   '$stagedDefaultImageHash',
   '$stagedDefaultThemeHash',
-  '$stagedPixelImageHash',
-  '$stagedPixelThemeHash',
-  '$stagedPublicImageHash',
-  'Staged installer payload did not retain the reviewed Internet Angel themes and Gothic preset.',
+  'Staged installer payload did not retain the reviewed Internet Angel JPEG theme.',
+  'Installer payload contains a removed bundled theme:',
   "'assets\theme-package-validator.mjs'",
   "'assets\theme-preferences.mjs'",
   "'assets\safe-css-policy.json'",
@@ -194,8 +184,10 @@ foreach ($requiredBuilderContract in @(
   }
 }
 
-if ($builder.Contains("`$publicPresetTheme.image = 'dream-reference.jpg'")) {
-  throw 'Windows release builder must preserve the bundled Internet Angel theme as the default.'
+foreach ($unexpectedBundledPreset in @('preset-gothic-void-crusade', 'preset-arina-hashimoto')) {
+  if ($builder.Contains($unexpectedBundledPreset) -or $bootstrap.Contains($unexpectedBundledPreset)) {
+    throw "Installer paths must not bundle or require the removed preset: $unexpectedBundledPreset"
+  }
 }
 
 foreach ($requiredRepairContract in @(
@@ -211,7 +203,6 @@ foreach ($requiredRepairContract in @(
   'scripts\apply-community-theme.ps1',
   'scripts\patch-dream-skin.ps1',
   'scripts\localization-windows.ps1',
-  'presets\preset-gothic-void-crusade\theme.json',
   'scripts\start-dream-skin.ps1',
   'scripts\check-update.ps1',
   'runtime\node\node.exe',

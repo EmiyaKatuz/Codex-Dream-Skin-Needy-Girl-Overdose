@@ -22,14 +22,13 @@ English guide: [`reference-background-prompt-guide.en.md`](./reference-backgroun
 完整操作见[本机主题管理](./theme-management.md)。以下源码预设与概念图用于参考；日常制作和分发使用上面的 Studio 流程。
 
 
-## 当前源码参考：桥本有菜（不随公开安装包提供）
+## 当前内置主题
 
-- **实际可切换主题**：macOS 保留 `macos/presets/preset-arina-hashimoto/`；Windows 独立播种两套「超天酱 · INTERNET ANGEL」像素主题：`windows/assets/theme.json` + `dream-reference.jpg`，以及 `theme-choten.json` + `codex-dream-skin-pixel-cafe.png`。
-- **用户提供的纯背景源图**：`docs/images/presets/arina-hashimoto-source.png`（`1672 × 941`）；preset 中的 `2560 × 1440` JPEG 是标准化发行副本，不会凭空增加源图细节。
-- **真实运行效果**：`arina-hashimoto-light.jpg` 与 `arina-hashimoto-dark.jpg` 是浅色/暗色实机截图，只用于预览，不能导入为背景。
-- **与历史示例的关系**：它是当前实际预设，不是 `docs/images/gallery/skin-01.jpg`，也不是 skin-01～08 的概念效果图。skin-01 只提供相近的粉色玫瑰视觉方向和 UI 文案参考。
-
-该素材由用户说明为桥本有菜参考版，并按维护者明确要求作为源图、可切换预设和实机预览随仓库收录；这只记录素材指向与收录决定，不构成肖像、生成或再分发授权声明。`macos/NOTICE.md` 已将相关文件排除在 MIT 软件许可之外，使用者与下游分发者仍需独立核验相应权利。下面的公共可复制提示词继续使用原创虚构成年人物。
+macOS 与 Windows 仅内置定制的「超天酱 · INTERNET ANGEL」JPEG 主题：
+macOS 的 `macos/presets/preset-internet-angel-default/` 与 Windows 的
+`windows/assets/theme.json` + `dream-reference.jpg` 保持字节一致。
+图片为 `2560 × 1440` 纯背景；首次安装默认启用，升级保留已有的本机主题。
+素材许可边界见 `macos/NOTICE.md`；仓库收录不代表第三方权利授权。
 
 ## 先分清：实际预设、纯背景、效果图和提示词
 
@@ -37,17 +36,14 @@ README 里的“效果图”不等于可以导入的背景。下面这些文件�
 
 | 类型 | 仓库路径 | 作用 | 能否直接作为完整主题导入 |
 |---|---|---|---|
-| **实际可切换预设（当前置顶）** | macOS：`macos/presets/preset-arina-hashimoto/`；Windows：`windows/assets/theme.json` + `dream-reference.jpg`，以及 `theme-choten.json` + `codex-dream-skin-pixel-cafe.png` | macOS 保留既有预设；Windows 播种两套「超天酱 · INTERNET ANGEL」像素主题 | **可以** |
-| **纯背景源图** | `docs/images/presets/arina-hashimoto-source.png` | 用户提供的原始纯背景，约 `1672 × 941`；只有图片，没有 `theme.json` | **不能作为完整主题**；可手动换图，但应先检查比例和裁切 |
-| **真实实机效果预览** | `docs/images/presets/arina-hashimoto-light.jpg`、`arina-hashimoto-dark.jpg` | 浅色/暗色 Codex 注入截图，包含真实侧栏、卡片和输入框 | **不可以** |
+| **当前内置预设** | macOS：`macos/presets/preset-internet-angel-default/`；Windows：`windows/assets/theme.json` + `dream-reference.jpg` | 定制的超天酱 JPEG 主题，纯背景与主题元数据配套 | 内置客户端可直接使用；新导入 ZIP 仍需满足完整包合同 |
+| **纯背景素材** | `windows/assets/dream-reference.jpg` | `2560 × 1440` JPEG；只有图片，没有主题元数据或 CSS | **不能单独作为完整主题** |
 | **概念效果图** | `docs/images/gallery/skin-01.jpg` ～ `skin-08.jpg` | 只表达八种视觉方向的带 UI 示例；配套的 `background-generation-prompts.md` 按这些方向拆解 | **不可以** |
 | **实验/历史图片** | `docs/images/banner-*.png`、`docs/images/generated-*.png` | 尚未批准的本地实验图或参考图；不属于任何 preset pack | **不可以**，也不要未经权利核验放进发行包 |
 
-`docs/images/hero-banner-red-white.png` 与 `macos/assets/portal-hero.png` 是旧的 3:1 横幅资源，不是当前 16:9 通用主题母版；除非明确只做首页横幅，否则不要拿它们替代 `preset-*/background.jpg`。
+`docs/images/hero-banner-red-white.png` 是历史 3:1 横幅参考，不是当前 16:9 通用主题母版；除非明确只做首页横幅，否则不要拿它替代主题背景。
 
-一句话判断：**公开安装包的默认主题是 Gothic Void Crusade；源码中的参考主题仅在完成权利核验后本地切换。** 要生成新图看本指南；要看视觉方向看 `docs/images/gallery/`；要看真实运行结果看 `docs/images/presets/*-light.jpg` / `*-dark.jpg`。源码预设目录用于实现参考；新主题导入和分发还必须有通过校验的非空 `theme.css`，正式 ZIP 还需由 Studio 生成 `manifest.json`；`docs/images/` 是文档/归档目录，不是主题库的镜像。
-
-路径分类不代表肖像或再分发许可。当前 `preset-arina-hashimoto` 含维护者指示收录的用户提供真人/AI 肖像素材；仓库公开包含这些文件并不授予或证明肖像、生成、商业使用或再次分发权利，具体边界以 `macos/NOTICE.md` 为准。
+当前安装包仅内置超天酱 JPEG 主题。要生成新图看本指南；要看概念方向看 `docs/images/gallery/`。新主题导入和分发必须包含通过校验的非空 `theme.css`，正式 ZIP 还需由 Studio 生成 `manifest.json`；`docs/images/` 是文档目录，不是主题库的镜像。
 
 生成新图时先在仓库外保存草稿并按文末清单验收；通过后，将**纯背景**导入 Studio，按上面的流程导出完整主题 ZIP。不要把草稿、带 UI 的截图或未核验真人图放进 `docs/images/` 再误以为它会成为可切换主题。
 
@@ -67,7 +63,7 @@ README 里的“效果图”不等于可以导入的背景。下面这些文件�
 
 这张表**不表示仓库已经支持所有字段**。当前主题名只稳定显示在 macOS 菜单栏 / Windows 托盘等切换入口；macOS 首页支持 `tagline`，但顶部品牌、副标题、状态、quote、签名、拍立得和独立装饰都不在当前可见运行时契约内，Windows 也暂不渲染主题文案。没有对应 schema 与 renderer 能力时，宁可不显示，也不要把文字或小照片拼进背景图。若以后实现 sticker，照片应作为主题目录里的独立 `sticker-*.jpg`，由装饰层在首页/任务页按断点显示，并设置 `pointer-events: none`；不要把它当成第二个背景或让它遮住 composer。
 
-人物姓名、肖像和这组文案都属于特定预设的内容，不应复制到“通用模板”里。没有相应授权时，改用原创虚构成年人物，并删除姓名、作品名和可识别身份词。
+人物姓名、肖像和这组文案都属于该历史概念图的内容，不应复制到“通用模板”里。没有相应授权时，改用原创虚构成年人物，并删除姓名、作品名和可识别身份词。
 
 ## 先固定 Image 1 / 2 / 3 的职责
 
@@ -119,7 +115,7 @@ Dream Skin 使用 `cover` 铺满窗口，因此 16:10、4:3 和超宽窗口必�
 
 ## 公共通用基线：柔光玫瑰纯背景（原创虚构成年人物）
 
-这段不包含姓名、签名、小照片、文案或任何 UI，可以直接生成当前精选预设同方向的背景：
+这段不包含姓名、签名、小照片、文案或任何 UI，可以生成 skin-01 概念图所示柔光玫瑰方向的背景：
 
 ```text
 Use case: photorealistic-natural

@@ -15,7 +15,7 @@ const validator = path.join(macosRoot, "assets", "theme-package-validator.mjs");
 const macosInjector = path.join(macosRoot, "scripts", "injector.mjs");
 const windowsInjector = path.join(projectRoot, "windows", "scripts", "injector.mjs");
 const importer = path.join(macosRoot, "scripts", "import-theme-zip-macos.sh");
-const fixtureImage = path.join(macosRoot, "assets", "portal-hero.png");
+const fixtureImage = path.join(macosRoot, "assets", "dream-reference.jpg");
 const tempRoot = await fs.mkdtemp(path.join("/tmp", "codex-dream-skin-package-contract-"));
 
 const colors = {
@@ -70,7 +70,7 @@ async function makeOfficial(name, options = {}) {
     schemaVersion: 1,
     id: options.themeId ?? "studio.contract-theme",
     name: options.themeName ?? "Studio Contract Theme",
-    image: options.themeImage ?? "background.png",
+    image: options.themeImage ?? "background.jpg",
     appearance: "auto",
     art: { focusX: 0.7, focusY: 0.5, safeArea: "left", taskMode: "full" },
     colors,
@@ -79,7 +79,7 @@ async function makeOfficial(name, options = {}) {
   const themeData = jsonBytes(theme);
   const files = [
     fileEntry("theme.json", "application/json", themeData),
-    fileEntry("background.png", "image/png", image),
+    fileEntry("background.jpg", "image/jpeg", image),
   ];
   const capabilities = ["background", "tokens"];
   const extraFiles = new Map();
@@ -114,12 +114,12 @@ async function makeOfficial(name, options = {}) {
   if (options.mutateManifest) options.mutateManifest(manifest);
   await fs.writeFile(path.join(source, "manifest.json"), jsonBytes(manifest));
   await fs.writeFile(path.join(source, "theme.json"), themeData);
-  await fs.writeFile(path.join(source, "background.png"), image);
+  await fs.writeFile(path.join(source, "background.jpg"), image);
   for (const [fileName, bytes] of extraFiles) await fs.writeFile(path.join(source, fileName), bytes);
   if (options.mutateImageAfterManifest) {
     const tampered = Buffer.from(image);
     tampered[tampered.length - 1] ^= 0x01;
-    await fs.writeFile(path.join(source, "background.png"), tampered);
+    await fs.writeFile(path.join(source, "background.jpg"), tampered);
   }
   if (options.unknownFile) await fs.writeFile(path.join(source, "notes.txt"), "not registered\n");
   return { source, manifest, theme };
@@ -160,13 +160,13 @@ try {
   const windows = await validate(base.source, "windows", "official-windows");
   assert.deepEqual(macos.output, {
     format: "official",
-    image: "background.png",
+    image: "background.jpg",
     safeCssStatus: "validated",
     signatureIgnored: false,
   });
   assert.deepEqual(windows.output, macos.output);
   assert.deepEqual((await fs.readdir(macos.stage)).sort(), [
-    "background.png",
+    "background.jpg",
     "manifest.json",
     "theme.css",
     "theme.json",
@@ -287,7 +287,7 @@ try {
   assert.equal(optionalResult.output.signatureIgnored, true);
   assert.deepEqual((await fs.readdir(optionalResult.stage)).sort(), [
     "LICENSE.txt",
-    "background.png",
+    "background.jpg",
     "manifest.json",
     "manifest.sig",
     "theme.css",
@@ -296,12 +296,12 @@ try {
 
   const simpleSource = path.join(tempRoot, "simple-source");
   await fs.mkdir(simpleSource);
-  await fs.copyFile(fixtureImage, path.join(simpleSource, "custom-background.png"));
+  await fs.copyFile(fixtureImage, path.join(simpleSource, "custom-background.jpg"));
   await fs.writeFile(path.join(simpleSource, "theme.json"), jsonBytes({
     schemaVersion: 1,
     id: "local_simple",
     name: "Local Simplified Theme",
-    image: "custom-background.png",
+    image: "custom-background.jpg",
     art: { safeArea: "auto", taskMode: "auto" },
   }));
   await fs.writeFile(
@@ -313,7 +313,7 @@ try {
   assert.equal(simple.output.safeCssStatus, "validated");
   const simpleWithoutCss = path.join(tempRoot, "simple-without-css");
   await fs.mkdir(simpleWithoutCss);
-  await fs.copyFile(fixtureImage, path.join(simpleWithoutCss, "custom-background.png"));
+  await fs.copyFile(fixtureImage, path.join(simpleWithoutCss, "custom-background.jpg"));
   await fs.copyFile(path.join(simpleSource, "theme.json"), path.join(simpleWithoutCss, "theme.json"));
   await expectRejected(
     simpleWithoutCss,
@@ -340,7 +340,7 @@ try {
   await expectRejected(wrongPlatform.source, "windows", /does not support windows/, "wrong-platform");
   const wrongId = await makeOfficial("wrong-id", { manifestThemeId: "different.theme" });
   await expectRejected(wrongId.source, "macos", /themeId does not match/, "wrong-id");
-  const wrongImage = await makeOfficial("wrong-image", { themeImage: "background.jpg" });
+  const wrongImage = await makeOfficial("wrong-image", { themeImage: "background.png" });
   await expectRejected(wrongImage.source, "macos", /image does not match/, "wrong-image");
   const unknown = await makeOfficial("unknown-file", { unknownFile: true });
   await expectRejected(unknown.source, "macos", /unregistered file notes\.txt/, "unknown-file");
@@ -353,10 +353,10 @@ try {
     const active = path.join(importHome, "Library", "Application Support", "CodexDreamSkinStudio", "theme");
     await fs.mkdir(active, { recursive: true });
     await fs.copyFile(path.join(base.source, "theme.json"), path.join(active, "theme.json"));
-    await fs.copyFile(path.join(base.source, "background.png"), path.join(active, "background.png"));
+    await fs.copyFile(path.join(base.source, "background.jpg"), path.join(active, "background.jpg"));
     const activeBefore = await Promise.all([
       fs.readFile(path.join(active, "theme.json")),
-      fs.readFile(path.join(active, "background.png")),
+      fs.readFile(path.join(active, "background.jpg")),
     ]);
     const oversizedArchive = path.join(tempRoot, "oversized-source.zip");
     const oversizedHandle = await fs.open(oversizedArchive, "wx");
@@ -388,7 +388,7 @@ try {
     assert.equal(firstResult.safeCssStatus, "validated");
     assert.equal(firstResult.signatureIgnored, true);
     const saved = path.join(savedThemesRoot, firstResult.id);
-    assert.deepEqual((await fs.readdir(saved)).sort(), ["LICENSE.txt", "background.png", "theme.css", "theme.json"]);
+    assert.deepEqual((await fs.readdir(saved)).sort(), ["LICENSE.txt", "background.jpg", "theme.css", "theme.json"]);
     const secondImport = JSON.parse((await run(importer, ["--file", archive], {
       env: { ...process.env, HOME: importHome, LC_ALL: "C", LANG: "C" },
     })).stdout);
@@ -420,7 +420,7 @@ try {
       "LICENSE.txt",
     ), "utf8"), "MIT\n");
     assert.deepEqual(await fs.readFile(path.join(active, "theme.json")), activeBefore[0]);
-    assert.deepEqual(await fs.readFile(path.join(active, "background.png")), activeBefore[1]);
+    assert.deepEqual(await fs.readFile(path.join(active, "background.jpg")), activeBefore[1]);
 
     console.log("PASS: Studio manifest ZIPs validate on macOS/Windows and import without changing active theme.");
   } else if (process.platform === "darwin") {

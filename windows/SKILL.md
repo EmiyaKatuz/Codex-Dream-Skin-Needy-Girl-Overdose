@@ -9,7 +9,7 @@ Apply a reversible renderer skin through Chromium DevTools Protocol while launch
 
 ## Workflow
 
-1. Install Node.js 22 or newer, close Codex, then run `scripts/install-dream-skin.ps1` once. The installer preserves the user's native appearance settings, seeds the Internet Angel / 超天酱 JPEG default, its lossless PNG saved variant, and Gothic Void Crusade, copies the runtime to `%LOCALAPPDATA%\CodexDreamSkin\engine`, and creates launch/restore/tray shortcuts that do not depend on the source checkout.
+1. Install Node.js 22 or newer, close Codex, then run `scripts/install-dream-skin.ps1` once. The installer preserves the user's native appearance settings, seeds only the customized Internet Angel / 超天酱 JPEG default without deleting existing saved, imported, or active themes, copies the runtime to `%LOCALAPPDATA%\CodexDreamSkin\engine`, and creates launch/restore/tray shortcuts that do not depend on the source checkout.
 2. Use the `Codex Dream Skin` shortcut, or run `%LOCALAPPDATA%\CodexDreamSkin\engine\scripts\start-dream-skin.ps1`. The shortcut asks before restarting an already-open Codex app; CLI callers must explicitly add `-RestartExisting`.
 3. Run `scripts/verify-dream-skin.ps1 -ScreenshotPath <absolute-path>` after launch. Treat a missing continuous wallpaper, home shell, native composer, sidebar layer, or injection marker as failure. The native suggestion count is responsive and may be two to four.
 4. To add a complete downloaded pack, use the tray's “导入主题 ZIP…”. Accept ordinary `.zip` only. Every new official Studio pack contains `manifest.json`, non-empty `theme.json`, non-empty locally validated `theme.css`, exactly one registered background, and optional license/signature files; the trusted local simplified format contains exactly `theme.json`, `theme.css`, and its referenced image. Import into saved themes without changing the active theme. A manually extracted complete three-file directory may instead be moved into the saved themes folder. Previously saved legacy themes without CSS remain switchable but inject no extra CSS.
@@ -57,9 +57,8 @@ node --check assets\renderer-inject.js
 - `assets/dream-skin.css`: full visual layer.
 - `assets/renderer-inject.js`: idempotent DOM integration and cleanup.
 - `assets/dream-reference.jpg`: pure 2560 × 1440 Internet Angel / 超天酱 pixel wallpaper seeded as the Windows default and as a saved theme; it contains no Codex UI.
-- `assets/codex-dream-skin-pixel-cafe.png`: lossless 1672 × 941 Pixel Cafe variant, registered as a second saved Internet Angel theme.
 - `assets/internet-angel-tray.png` and `assets/internet-angel-tray.ico`: transparent pixel source and validated multi-size Windows application/tray icon derived from the Internet Angel heart-glasses/halo silhouette.
-- `assets/theme.json` and `assets/theme-choten.json`: adaptive contracts for the default JPEG and lossless PNG presets.
+- `assets/theme.json`: adaptive contract for the bundled Internet Angel JPEG theme.
 - `scripts/theme-windows.ps1`: persistent active/saved theme store, safe image import, pause state, and preset seeding.
 - `scripts/apply-community-theme.ps1`: fixed-origin, confirmed community download, integrity verification, strict ZIP import, apply, and rollback orchestration.
 - `scripts/tray-dream-skin.ps1`: Windows Forms tray for apply, pause, import, save, switch, and complete restore.

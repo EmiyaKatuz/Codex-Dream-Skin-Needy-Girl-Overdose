@@ -27,20 +27,10 @@ $innoChineseLanguagePath = Join-Path $innoLanguageRoot 'ChineseSimplified.isl'
 $innoSetupLicensePath = Join-Path $innoLanguageRoot 'Inno-Setup-License.txt'
 $innoChineseLanguageSha256 = '7d544b9bb1d142cfa11f2e5d3cc8abe2e55f8e066c5124e3772675aa236e1278'
 $innoSetupLicenseSha256 = '0c81595601bce47eeef8d865d5da7f9ca2c6a12235b7482b29f5ab23ed02ee5a'
-$publicPresetRoot = Join-Path (Join-Path (Join-Path $repositoryRoot 'macos') 'presets') `
-  'preset-gothic-void-crusade'
-$publicPresetImagePath = Join-Path $publicPresetRoot 'background.jpg'
-$publicPresetThemePath = Join-Path $publicPresetRoot 'theme.json'
-$publicPresetImageSha256 = 'b76a7cbe2ff9d923846e931984d243a7ba1f25de8d190b5c6412c809c41aee42'
-$publicPresetThemeSha256 = '8316c6ad29e3b84806358ab4a730c7e063b261e379179b9608cf751c282d66a7'
 $defaultThemeImagePath = Join-Path $windowsRoot 'assets\dream-reference.jpg'
 $defaultThemePath = Join-Path $windowsRoot 'assets\theme.json'
 $defaultThemeImageSha256 = '4858200d0c5714091d3d15cfa6a07f237b543e1c07d02c599be3fc11353b72c3'
 $defaultThemeSha256 = 'e7f18ca3e535da6e5e4a9c81c48aef3d2e2f7c58eb3d0c4fd4c4b09ed2b96384'
-$pixelThemeImagePath = Join-Path $windowsRoot 'assets\codex-dream-skin-pixel-cafe.png'
-$pixelThemePath = Join-Path $windowsRoot 'assets\theme-choten.json'
-$pixelThemeImageSha256 = 'd78177458da6c805d5ef55ea65cf4352a80aba921f4770029f15384bdcdbdea5'
-$pixelThemeSha256 = '0ba8d94c7974b01aa3b05886e65afc3323591996f2db7f2d759236019797c430'
 
 function Read-ReleaseTextFile {
   param([Parameter(Mandatory = $true)][string]$Path)
@@ -228,31 +218,10 @@ $innoSetupLicenseHash = (Get-FileHash -LiteralPath $innoSetupLicensePath -Algori
 if ($innoSetupLicenseHash -cne $innoSetupLicenseSha256) {
   throw "The pinned Inno Setup license changed. Expected $innoSetupLicenseSha256, found $innoSetupLicenseHash."
 }
-$publicPresetTheme = (Read-ReleaseTextFile -Path $publicPresetThemePath) | ConvertFrom-Json
-if ("$($publicPresetTheme.id)" -cne 'preset-gothic-void-crusade' -or
-  "$($publicPresetTheme.image)" -cne 'background.jpg') {
-  throw 'The public Windows release preset metadata is unexpected.'
-}
-if (-not (Test-Path -LiteralPath $publicPresetImagePath -PathType Leaf)) {
-  throw "The public Windows release preset image is missing: $publicPresetImagePath"
-}
-$publicPresetImageHash = (Get-FileHash -LiteralPath $publicPresetImagePath -Algorithm SHA256).Hash.ToLowerInvariant()
-if ($publicPresetImageHash -cne $publicPresetImageSha256) {
-  throw "The reviewed public preset image changed. Expected $publicPresetImageSha256, found $publicPresetImageHash."
-}
-$publicPresetThemeHash = Get-NormalizedReleaseTextSha256 -Path $publicPresetThemePath
-if ($publicPresetThemeHash -cne $publicPresetThemeSha256) {
-  throw "The reviewed public preset metadata changed. Expected $publicPresetThemeSha256, found $publicPresetThemeHash."
-}
 $defaultTheme = (Read-ReleaseTextFile -Path $defaultThemePath) | ConvertFrom-Json
 if ("$($defaultTheme.id)" -cne 'preset-internet-angel-default' -or
   "$($defaultTheme.image)" -cne 'dream-reference.jpg') {
   throw 'The default Internet Angel theme metadata is unexpected.'
-}
-$pixelTheme = (Read-ReleaseTextFile -Path $pixelThemePath) | ConvertFrom-Json
-if ("$($pixelTheme.id)" -cne 'preset-internet-angel' -or
-  "$($pixelTheme.image)" -cne 'codex-dream-skin-pixel-cafe.png') {
-  throw 'The Pixel Cafe Internet Angel theme metadata is unexpected.'
 }
 $reviewedThemeFiles = @(
   @{
@@ -265,18 +234,6 @@ $reviewedThemeFiles = @(
     Path = $defaultThemePath
     ExpectedSha256 = $defaultThemeSha256
     Label = 'default Internet Angel metadata'
-    NormalizeText = $true
-  },
-  @{
-    Path = $pixelThemeImagePath
-    ExpectedSha256 = $pixelThemeImageSha256
-    Label = 'Pixel Cafe Internet Angel image'
-    NormalizeText = $false
-  },
-  @{
-    Path = $pixelThemePath
-    ExpectedSha256 = $pixelThemeSha256
-    Label = 'Pixel Cafe Internet Angel metadata'
     NormalizeText = $true
   }
 )
@@ -341,8 +298,6 @@ try {
   New-Item -ItemType Directory -Path $languageRoot | Out-Null
   Copy-ReleaseDirectory -Source (Join-Path $windowsRoot 'assets') -Destination (Join-Path $payloadRoot 'assets')
   Copy-ReleaseDirectory -Source (Join-Path $windowsRoot 'scripts') -Destination (Join-Path $payloadRoot 'scripts')
-  Copy-ReleaseDirectory -Source $publicPresetRoot `
-    -Destination (Join-Path $payloadRoot 'presets\preset-gothic-void-crusade')
   [System.IO.File]::WriteAllText(
     (Join-Path $payloadRoot 'VERSION'),
     "$version`r`n",
@@ -371,7 +326,6 @@ try {
   $expectedPayloadFiles = @(
     'VERSION',
     'assets\dream-reference.jpg',
-    'assets\codex-dream-skin-pixel-cafe.png',
     'assets\dream-skin.css',
     'assets\internet-angel-acrylic.css',
     'assets\internet-angel-extension.css',
@@ -389,11 +343,8 @@ try {
     'assets\selectors.json',
     'assets\theme-package-validator.mjs',
     'assets\theme-preferences.mjs',
-    'assets\theme-choten.json',
     'assets\theme.json',
     'assets\codex-dream-skin.ico',
-    'presets\preset-gothic-void-crusade\background.jpg',
-    'presets\preset-gothic-void-crusade\theme.json',
     'scripts\apply-community-theme.ps1',
     'scripts\acrylic-window.ps1',
     'scripts\auto-launch-dream-skin.ps1',
@@ -427,30 +378,18 @@ try {
   $stagedDefaultThemePath = Join-Path (Join-Path $payloadRoot 'assets') 'theme.json'
   $stagedDefaultThemeHash = Get-NormalizedReleaseTextSha256 -Path $stagedDefaultThemePath
   $stagedDefaultTheme = (Read-ReleaseTextFile -Path $stagedDefaultThemePath) | ConvertFrom-Json
-  $stagedPixelImage = Join-Path (Join-Path $payloadRoot 'assets') 'codex-dream-skin-pixel-cafe.png'
-  $stagedPixelImageHash = (Get-FileHash -LiteralPath $stagedPixelImage -Algorithm SHA256).Hash.ToLowerInvariant()
-  $stagedPixelThemePath = Join-Path (Join-Path $payloadRoot 'assets') 'theme-choten.json'
-  $stagedPixelThemeHash = Get-NormalizedReleaseTextSha256 -Path $stagedPixelThemePath
-  $stagedPixelTheme = (Read-ReleaseTextFile -Path $stagedPixelThemePath) | ConvertFrom-Json
-  $stagedPublicThemePath = Join-Path (Join-Path $payloadRoot 'presets') `
-    'preset-gothic-void-crusade\theme.json'
-  $stagedPublicImagePath = Join-Path (Join-Path $payloadRoot 'presets') `
-    'preset-gothic-void-crusade\background.jpg'
-  $stagedPublicImageHash = (Get-FileHash -LiteralPath $stagedPublicImagePath -Algorithm SHA256).Hash.ToLowerInvariant()
-  $stagedPublicThemeHash = Get-NormalizedReleaseTextSha256 -Path $stagedPublicThemePath
   if ($stagedDefaultImageHash -cne $defaultThemeImageSha256 -or
     $stagedDefaultThemeHash -cne $defaultThemeSha256 -or
     "$($stagedDefaultTheme.id)" -cne 'preset-internet-angel-default' -or
-    "$($stagedDefaultTheme.image)" -cne 'dream-reference.jpg' -or
-    $stagedPixelImageHash -cne $pixelThemeImageSha256 -or
-    $stagedPixelThemeHash -cne $pixelThemeSha256 -or
-    "$($stagedPixelTheme.id)" -cne 'preset-internet-angel' -or
-    "$($stagedPixelTheme.image)" -cne 'codex-dream-skin-pixel-cafe.png' -or
-    $stagedPublicImageHash -cne $publicPresetImageSha256 -or
-    $stagedPublicThemeHash -cne $publicPresetThemeSha256 -or
-    "$($publicPresetTheme.id)" -cne 'preset-gothic-void-crusade' -or
-    "$($publicPresetTheme.image)" -cne 'background.jpg') {
-    throw 'Staged installer payload did not retain the reviewed Internet Angel themes and Gothic preset.'
+    "$($stagedDefaultTheme.image)" -cne 'dream-reference.jpg') {
+    throw 'Staged installer payload did not retain the reviewed Internet Angel JPEG theme.'
+  }
+  foreach ($removedThemePath in @(
+    'presets', 'assets\codex-dream-skin-pixel-cafe.png', 'assets\theme-choten.json'
+  )) {
+    if (Test-Path -LiteralPath (Join-Path $payloadRoot $removedThemePath)) {
+      throw "Installer payload contains a removed bundled theme: $removedThemePath"
+    }
   }
 
   $arguments = @(

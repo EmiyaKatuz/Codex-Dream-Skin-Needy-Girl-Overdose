@@ -95,15 +95,16 @@ seed_bundled_presets
 if [ ! -f "$THEME_DIR/theme.json" ]; then
   "$SCRIPT_DIR/switch-theme-macos.sh" --id preset-internet-angel-default --no-apply >/dev/null
 else
-  # Re-stage official presets so metadata upgrades (e.g. the #183 appearance
-  # pin) reach an active copy staged by an older engine.
+  # Re-stage the bundled preset so its metadata upgrades reach older active
+  # copies. Previously saved or retired presets remain exactly as the user left them.
   ACTIVE_THEME_ID="$("$NODE" -e '
 const fs = require("node:fs");
 let id = "";
 try { id = String(JSON.parse(fs.readFileSync(process.argv[1], "utf8")).id ?? ""); } catch {}
 process.stdout.write(/^preset-[A-Za-z0-9_-]{1,72}$/.test(id) ? id : "");
 ' "$THEME_DIR/theme.json")"
-  if [ -n "$ACTIVE_THEME_ID" ] && [ -d "$STATE_ROOT/themes/$ACTIVE_THEME_ID" ]; then
+  if [ "$ACTIVE_THEME_ID" = "preset-internet-angel-default" ] &&
+     [ -d "$STATE_ROOT/themes/$ACTIVE_THEME_ID" ]; then
     "$SCRIPT_DIR/switch-theme-macos.sh" --id "$ACTIVE_THEME_ID" --no-apply >/dev/null
   fi
 fi

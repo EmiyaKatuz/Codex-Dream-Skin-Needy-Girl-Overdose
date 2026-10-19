@@ -13,11 +13,11 @@
   <img src="windows/assets/dream-reference.jpg" alt="超天酱 INTERNET ANGEL 主题背景" width="900">
 </p>
 
-> 当前版本：`1.7.0`。Windows、macOS 与 Linux 共用超天酱组件识别、覆盖层和动画运行时。
+> 当前版本：`1.7.1`。Windows、macOS 与 Linux 共用超天酱组件识别、覆盖层和动画运行时。
 
 本项目是基于 [Fei-Away/Codex-Dream-Skin](https://github.com/Fei-Away/Codex-Dream-Skin) 持续开发的独立 fork，主要维护超天酱视觉、跨平台一致性、启动兼容性与安全边界。
 
-v1.7.0 整合上游兼容性、背景透明度与原生主题管理，并合并输入和导航性能优化，保留统一动效。详见[更新说明](docs/releases/v1.7.0.md)。
+v1.7.1 精简内置主题，仅保留超天酱默认 JPEG 定制版，延续原有视觉与统一动效；升级保留用户已有主题和设置。详见[更新说明](docs/releases/v1.7.1.md)。
 
 v1.6.0 新增统一动效设置：macOS 菜单栏的「主题 → 动态效果」、Windows 托盘的「动态效果」及 Linux 配置命令提供跟随系统 / 关闭 / 轻量 / 完整四档和五类效果开关。包含任务与工具状态反馈、独立像素角色、项目行入场和小范围星点视差；装饰在滚动、模态窗口和空间不足时避让。适配条件与验证范围见[统一动效系统](docs/theme-motion.md)。
 
@@ -25,7 +25,7 @@ v1.6.0 新增统一动效设置：macOS 菜单栏的「主题 → 动态效果�
 
 - 超天酱主题覆盖首页、侧栏、任务、输入区、设置、终端、权限、差异、子代理与状态提示等界面。
 - Windows、macOS 与 Linux 从 [`runtime/`](./runtime/) 同步同一套组件分类、专属覆盖层和动画；切换主题时会清理旧监听器与标记。
-- 支持预置主题、本地图片、主题 ZIP、Safe CSS、主题保存与切换。
+- 仅内置定制的「超天酱 · INTERNET ANGEL」JPEG 主题，支持本地图片、主题 ZIP、Safe CSS、主题保存与切换。
 - Windows 提供 Setup、托盘、开始菜单、桌面快捷方式、更新检查、暂停与恢复入口。
 - macOS 提供 DMG 与菜单栏 App；Linux 提供脚本安装和发行归档。
 - 主题运行时使用本机回环 CDP，不改动官方 Codex 二进制、应用签名、`WindowsApps` 权限或 `app.asar`。
@@ -107,4 +107,4 @@ macOS 回归入口为 `./macos/tests/run-tests.sh`。平台结构与主题格式
 ## 致谢
 
 - 原始项目：[Fei-Away/Codex-Dream-Skin](https://github.com/Fei-Away/Codex-Dream-Skin)
-- Gothic Void Crusade 主题贡献者：[@seansong-ideogram](https://github.com/seansong-ideogram)
+- 历史 Gothic Void Crusade 主题贡献者（该主题已从当前发行包移除）：[@seansong-ideogram](https://github.com/seansong-ideogram)

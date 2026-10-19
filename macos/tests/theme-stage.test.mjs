@@ -7,7 +7,7 @@ import { spawn } from "node:child_process";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const macosRoot = path.resolve(here, "..");
 const stageScript = path.join(macosRoot, "scripts", "stage-theme.mjs");
-const fixtureAsset = path.join(macosRoot, "assets", "portal-hero.png");
+const fixtureAsset = path.join(macosRoot, "assets", "dream-reference.jpg");
 const tempRoot = await fs.mkdtemp(path.join("/tmp", "codex-dream-skin-stage-"));
 
 function runStage(source, stage) {
@@ -32,29 +32,29 @@ try {
   const stage = path.join(tempRoot, "stage");
   await fs.mkdir(source, { recursive: true });
   await fs.mkdir(stage);
-  await fs.copyFile(fixtureAsset, path.join(source, "background-a.png"));
+  await fs.copyFile(fixtureAsset, path.join(source, "background-a.jpg"));
   await fs.writeFile(
     path.join(source, "theme.json"),
-    `${JSON.stringify({ schemaVersion: 1, id: "preset-race", name: "A", image: "background-a.png" })}\n`,
+    `${JSON.stringify({ schemaVersion: 1, id: "preset-race", name: "A", image: "background-a.jpg" })}\n`,
   );
 
   const stagedIdentity = JSON.parse(await runStage(source, stage));
-  assert.equal(stagedIdentity.image, "background-a.png");
+  assert.equal(stagedIdentity.image, "background-a.jpg");
   assert.match(stagedIdentity.contentFingerprint, /^[0-9a-f]{64}$/);
   const stagedConfig = JSON.parse(await fs.readFile(path.join(stage, "theme.json"), "utf8"));
-  assert.equal(stagedConfig.image, "background-a.png");
-  const stagedBeforeMutation = await fs.readFile(path.join(stage, "background-a.png"));
+  assert.equal(stagedConfig.image, "background-a.jpg");
+  const stagedBeforeMutation = await fs.readFile(path.join(stage, "background-a.jpg"));
 
   // A source edit after staging must not change the pair that is about to be
   // published. This is the regression for switch-theme's old copy-after-
   // validation TOCTOU window.
-  await fs.copyFile(fixtureAsset, path.join(source, "background-b.png"));
+  await fs.copyFile(fixtureAsset, path.join(source, "background-b.jpg"));
   await fs.writeFile(
     path.join(source, "theme.json"),
-    `${JSON.stringify({ schemaVersion: 1, id: "preset-race", name: "B", image: "background-b.png" })}\n`,
+    `${JSON.stringify({ schemaVersion: 1, id: "preset-race", name: "B", image: "background-b.jpg" })}\n`,
   );
-  await fs.writeFile(path.join(source, "background-a.png"), Buffer.from("changed-after-stage"));
-  assert.deepEqual(await fs.readFile(path.join(stage, "background-a.png")), stagedBeforeMutation);
+  await fs.writeFile(path.join(source, "background-a.jpg"), Buffer.from("changed-after-stage"));
+  assert.deepEqual(await fs.readFile(path.join(stage, "background-a.jpg")), stagedBeforeMutation);
   assert.equal(JSON.parse(await fs.readFile(path.join(stage, "theme.json"), "utf8")).name, "A");
 
   const secondStage = path.join(tempRoot, "stage-second");
@@ -70,13 +70,13 @@ try {
   const cssIdentity = JSON.parse(await runStage(stage, cssStage));
   assert.notEqual(cssIdentity.contentFingerprint, stagedIdentity.contentFingerprint);
 
-  const outside = path.join(tempRoot, "outside.png");
+  const outside = path.join(tempRoot, "outside.jpg");
   await fs.copyFile(fixtureAsset, outside);
   const traversal = path.join(tempRoot, "traversal");
   await fs.mkdir(traversal);
   await fs.writeFile(
     path.join(traversal, "theme.json"),
-    `${JSON.stringify({ schemaVersion: 1, id: "bad", image: "../outside.png" })}\n`,
+    `${JSON.stringify({ schemaVersion: 1, id: "bad", image: "../outside.jpg" })}\n`,
   );
   const traversalStage = path.join(tempRoot, "traversal-stage");
   await fs.mkdir(traversalStage);
@@ -84,10 +84,10 @@ try {
 
   const symlink = path.join(tempRoot, "symlink");
   await fs.mkdir(symlink);
-  await fs.symlink(outside, path.join(symlink, "background.png"));
+  await fs.symlink(outside, path.join(symlink, "background.jpg"));
   await fs.writeFile(
     path.join(symlink, "theme.json"),
-    `${JSON.stringify({ schemaVersion: 1, id: "bad-link", image: "background.png" })}\n`,
+    `${JSON.stringify({ schemaVersion: 1, id: "bad-link", image: "background.jpg" })}\n`,
   );
   const symlinkStage = path.join(tempRoot, "symlink-stage");
   await fs.mkdir(symlinkStage);

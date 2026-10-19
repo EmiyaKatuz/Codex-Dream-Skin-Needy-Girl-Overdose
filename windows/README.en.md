@@ -145,7 +145,7 @@ direct entry without that three-second grace and normally minimizes stock flash.
 Open `Codex Dream Skin - Tray` to:
 
 - Recognize the managed skin at a glance through its custom Internet Angel pixel icon.
-- Start with three saved themes: the default Internet Angel JPEG, the lossless Pixel Cafe variant, and Gothic Void Crusade.
+- Start with only the customized Internet Angel JPEG theme. Upgrades retain existing saved, imported, and active themes.
 - Import a PNG, JPEG, or WebP background.
 - Import an ordinary `.zip` theme pack into Saved Themes (`.dreamskin` is not supported).
 - Save the active theme and switch through saved themes.

@@ -635,13 +635,7 @@ function Initialize-DreamSkinThemeStore {
   }
   $null = Update-DreamSkinLegacyManagedActiveThemeSchema `
     -ThemeDirectory $paths.Active -ManagedRoot $paths.Root
-  foreach ($retiredPresetId in @('preset-romantic-rose', 'preset-arina-hashimoto')) {
-    $retiredPresetDirectory = Join-Path $paths.Saved $retiredPresetId
-    Assert-DreamSkinNoReparseComponents -Path $retiredPresetDirectory
-    if (Test-Path -LiteralPath $retiredPresetDirectory) {
-      Remove-Item -LiteralPath $retiredPresetDirectory -Recurse -Force
-    }
-  }
+  # Retired bundled themes already saved by users remain available after upgrades.
   $presetDirectory = Join-Path $paths.Saved $bundledPresetId
   $presetTheme = Join-Path $presetDirectory 'theme.json'
   Assert-DreamSkinNoReparseComponents -Path $presetDirectory
@@ -656,52 +650,6 @@ function Initialize-DreamSkinThemeStore {
   Assert-DreamSkinImageFile -Path $presetImage
   Assert-DreamSkinNoReparseComponents -Path $presetTheme
   Copy-Item -LiteralPath (Join-Path $assetRoot 'theme.json') -Destination $presetTheme -Force
-  # Bundled Gothic Void Crusade (same pack as macOS presets/).
-  $gothicSource = Join-Path $SkillRoot 'presets\preset-gothic-void-crusade'
-  $gothicDirectory = Join-Path $paths.Saved 'preset-gothic-void-crusade'
-  $gothicTheme = Join-Path $gothicDirectory 'theme.json'
-  $gothicSourceTheme = Join-Path $gothicSource 'theme.json'
-  $gothicSourceImage = Join-Path $gothicSource 'background.jpg'
-  Assert-DreamSkinNoReparseComponents -Path $gothicDirectory
-  Assert-DreamSkinNoReparseComponents -Path $gothicTheme
-  if ((Test-Path -LiteralPath $gothicSourceTheme -PathType Leaf) -and
-    (Test-Path -LiteralPath $gothicSourceImage -PathType Leaf)) {
-    Ensure-DreamSkinManagedDirectory -Path $gothicDirectory -Root $paths.Root
-    $gothicImage = Join-Path $gothicDirectory 'background.jpg'
-    Assert-DreamSkinNoReparseComponents -Path $gothicImage
-    Assert-DreamSkinImageFile -Path $gothicSourceImage
-    Copy-Item -LiteralPath $gothicSourceImage -Destination $gothicImage -Force
-    Assert-DreamSkinNoReparseComponents -Path $gothicImage
-    Assert-DreamSkinImageFile -Path $gothicImage
-    Assert-DreamSkinNoReparseComponents -Path $gothicTheme
-    Copy-Item -LiteralPath $gothicSourceTheme -Destination $gothicTheme -Force
-  }
-  # Bundled lossless Internet Angel Pixel Cafe variant.
-  $pixelPresetDirectory = Join-Path $paths.Saved 'preset-internet-angel'
-  $pixelPresetTheme = Join-Path $pixelPresetDirectory 'theme.json'
-  $pixelPresetSourceImage = Join-Path $assetRoot 'codex-dream-skin-pixel-cafe.png'
-  $pixelPresetSourceTheme = Join-Path $assetRoot 'theme-choten.json'
-  Assert-DreamSkinNoReparseComponents -Path $pixelPresetDirectory
-  Assert-DreamSkinNoReparseComponents -Path $pixelPresetTheme
-  $hasPixelImage = Test-Path -LiteralPath $pixelPresetSourceImage -PathType Leaf
-  $hasPixelTheme = Test-Path -LiteralPath $pixelPresetSourceTheme -PathType Leaf
-  if ($hasPixelImage -ne $hasPixelTheme) {
-    throw 'The bundled Internet Angel Pixel Cafe preset is incomplete.'
-  }
-  if ($hasPixelImage) {
-    Assert-DreamSkinImageFile -Path $pixelPresetSourceImage
-    if (-not (Test-Path -LiteralPath $pixelPresetTheme -PathType Leaf)) {
-      Ensure-DreamSkinManagedDirectory -Path $pixelPresetDirectory -Root $paths.Root
-      $pixelPresetImage = Join-Path $pixelPresetDirectory 'codex-dream-skin-pixel-cafe.png'
-      Assert-DreamSkinNoReparseComponents -Path $pixelPresetImage
-      Copy-Item -LiteralPath $pixelPresetSourceImage -Destination $pixelPresetImage -Force
-      Assert-DreamSkinNoReparseComponents -Path $pixelPresetImage
-      Assert-DreamSkinImageFile -Path $pixelPresetImage
-      Copy-Item -LiteralPath $pixelPresetSourceTheme -Destination $pixelPresetTheme -Force
-    }
-    $null = Read-DreamSkinTheme -ThemeDirectory $pixelPresetDirectory
-  }
-
   # Refresh the staged active copy of official presets too; otherwise metadata
   # staged by an older engine (e.g. pre-#183 appearance "auto") keeps steering
   # the appearanceTheme pin after upgrades.
@@ -712,8 +660,6 @@ function Initialize-DreamSkinThemeStore {
     } catch {}
     $refreshSource = $null
     if ($activeId -ceq $bundledPresetId) { $refreshSource = $assetRoot }
-    elseif ($activeId -ceq 'preset-gothic-void-crusade' -and
-      (Test-Path -LiteralPath $gothicSourceTheme -PathType Leaf)) { $refreshSource = $gothicSource }
     if ($null -ne $refreshSource) {
       $sourcePack = Read-DreamSkinTheme -ThemeDirectory $refreshSource
       $sourceJson = Read-DreamSkinUtf8File -Path $sourcePack.ThemePath

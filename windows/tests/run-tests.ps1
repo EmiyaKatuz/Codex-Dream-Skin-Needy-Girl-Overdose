@@ -43,6 +43,14 @@ if (-not $updateScript.Contains(
   throw 'Windows update checks must use this fork canonical GitHub repository.'
 }
 
+foreach ($removedThemePath in @(
+  'presets', 'assets\codex-dream-skin-pixel-cafe.png', 'assets\theme-choten.json'
+)) {
+  if (Test-Path -LiteralPath (Join-Path $Root $removedThemePath)) {
+    throw "Windows source contains a removed bundled theme: $removedThemePath"
+  }
+}
+
 $temporaryRoot = Join-Path ([System.IO.Path]::GetTempPath()) "codex-dream-skin-tests-$PID-$([guid]::NewGuid().ToString('N'))"
 New-Item -ItemType Directory -Path $temporaryRoot | Out-Null
 
@@ -52,7 +60,7 @@ try {
   $runtimeStateRoot = Join-Path $temporaryRoot 'runtime-state'
   New-Item -ItemType Directory -Path $runtimeSourceRoot | Out-Null
   Copy-Item -LiteralPath (Join-Path $Root 'VERSION') -Destination $runtimeSourceRoot -Force
-  foreach ($directoryName in @('assets', 'scripts', 'presets')) {
+  foreach ($directoryName in @('assets', 'scripts')) {
     Copy-Item -LiteralPath (Join-Path $Root $directoryName) -Destination $runtimeSourceRoot `
       -Recurse -Force -ErrorAction Stop
   }
@@ -114,13 +122,13 @@ try {
   $sourcePrefix = $runtimeSourceRoot.TrimEnd('\') + '\'
   $runtimeSourceFiles = @((Get-Item -LiteralPath (Join-Path $runtimeSourceRoot 'VERSION'))) + @(
     Get-ChildItem -LiteralPath (Join-Path $runtimeSourceRoot 'assets'), `
-      (Join-Path $runtimeSourceRoot 'scripts'), (Join-Path $runtimeSourceRoot 'presets'), `
+      (Join-Path $runtimeSourceRoot 'scripts'), `
       (Join-Path $runtimeSourceRoot 'runtime') `
       -Recurse -File -Force
   )
   $runtimeEngineFiles = @((Get-Item -LiteralPath $engine.Version)) + @(
     Get-ChildItem -LiteralPath (Join-Path $engine.Root 'assets'), `
-      (Join-Path $engine.Root 'scripts'), (Join-Path $engine.Root 'presets'), `
+      (Join-Path $engine.Root 'scripts'), `
       (Join-Path $engine.Root 'runtime') `
       -Recurse -File -Force
   )
@@ -1148,9 +1156,9 @@ args = [
   [System.IO.File]::WriteAllText((Join-Path $legacyPresetDirectory 'retired-marker'), 'retired', $utf8NoBom)
   [System.IO.File]::WriteAllText((Join-Path $customThemeDirectory 'keep-marker'), 'keep', $utf8NoBom)
   $themePaths = Initialize-DreamSkinThemeStore -SkillRoot $Root -StateRoot $themeStateRoot
-  if ((Test-Path -LiteralPath $legacyPresetDirectory) -or
+  if (-not (Test-Path -LiteralPath (Join-Path $legacyPresetDirectory 'retired-marker')) -or
     -not (Test-Path -LiteralPath (Join-Path $customThemeDirectory 'keep-marker'))) {
-    throw 'Theme-store migration did not retire the old preset ID while preserving custom themes.'
+    throw 'Theme-store initialization must preserve existing saved presets and custom themes.'
   }
   $initialTheme = Read-DreamSkinTheme -ThemeDirectory $themePaths.Active
   if ($initialTheme.Theme.id -cne 'preset-internet-angel-default' -or
@@ -1163,28 +1171,54 @@ args = [
   }
   $preseededThemes = @(Get-DreamSkinSavedThemes -StateRoot $themeStateRoot)
   $preseededIds = @($preseededThemes | ForEach-Object { $_.Id } | Sort-Object)
-  if ($preseededThemes.Count -ne 3 -or
-    $preseededIds -notcontains 'preset-internet-angel' -or
-    $preseededIds -notcontains 'preset-internet-angel-default' -or
-    $preseededIds -notcontains 'preset-gothic-void-crusade') {
-    throw 'Windows did not preseed both Internet Angel variants and Gothic Void Crusade.'
+  if ($preseededThemes.Count -ne 1 -or
+    $preseededIds[0] -cne 'preset-internet-angel-default') {
+    throw 'Windows must preseed only the customized Internet Angel JPEG theme.'
   }
   $internetAngelDefault = $preseededThemes | Where-Object {
     $_.Id -ceq 'preset-internet-angel-default'
   } | Select-Object -First 1
-  $internetAngelPixel = $preseededThemes | Where-Object {
-    $_.Id -ceq 'preset-internet-angel'
-  } | Select-Object -First 1
   if ($null -eq $internetAngelDefault -or
-    $internetAngelDefault.Name -cne '超天酱 · INTERNET ANGEL' -or
-    $null -eq $internetAngelPixel -or
-    $internetAngelPixel.Name -cne '超天酱 · INTERNET ANGEL · Pixel Cafe') {
-    throw 'Both Internet Angel wallpaper variants were not preseeded with distinct display names.'
+    $internetAngelDefault.Name -cne '超天酱 · INTERNET ANGEL') {
+    throw 'The customized Internet Angel JPEG theme was not preseeded with its display name.'
   }
-  $gothicSeed = $preseededThemes | Where-Object { $_.Id -ceq 'preset-gothic-void-crusade' } | Select-Object -First 1
-  if ($null -eq $gothicSeed -or $gothicSeed.Name -cne 'Gothic Void Crusade') {
-    throw 'Gothic Void Crusade was not preseeded with the expected display name.'
+  $upgradeStateRoot = Join-Path $temporaryRoot 'preserved-upgrade-theme-state'
+  $upgradePaths = Initialize-DreamSkinThemeStore -SkillRoot $Root -StateRoot $upgradeStateRoot
+  $preservedUpgradeFiles = @{}
+  foreach ($existingId in @('preset-gothic-void-crusade', 'gothic-void-crusade', 'preset-internet-angel', 'custom-imported-keepme')) {
+    $existingDirectory = Join-Path $upgradePaths.Saved $existingId
+    New-Item -ItemType Directory -Force -Path $existingDirectory | Out-Null
+    $existingContract = [pscustomobject]@{
+      schemaVersion = 1; id = $existingId; name = "Existing $existingId"
+      image = 'background.jpg'; appearance = 'dark'
+    }
+    Write-DreamSkinTheme -ThemeDirectory $existingDirectory -Theme $existingContract
+    Copy-Item -LiteralPath (Join-Path $Root 'assets\dream-reference.jpg') `
+      -Destination (Join-Path $existingDirectory 'background.jpg') -Force
+    Write-DreamSkinUtf8FileAtomically -Path (Join-Path $existingDirectory 'theme.css') `
+      -Content '[data-ds-part="composer"] { color: #f3ead7; }'
   }
+  $null = Use-DreamSkinSavedTheme `
+    -ThemeDirectory (Join-Path $upgradePaths.Saved 'preset-gothic-void-crusade') `
+    -StateRoot $upgradeStateRoot
+  foreach ($existingFile in Get-ChildItem -LiteralPath $upgradePaths.Saved, $upgradePaths.Active -Recurse -File) {
+    if ($existingFile.FullName -match 'preset-internet-angel-default') { continue }
+    $preservedUpgradeFiles[$existingFile.FullName] = (Get-FileHash -LiteralPath $existingFile.FullName -Algorithm SHA256).Hash
+  }
+  $null = Initialize-DreamSkinThemeStore -SkillRoot $Root -StateRoot $upgradeStateRoot
+  $null = Initialize-DreamSkinThemeStore -SkillRoot $Root -StateRoot $upgradeStateRoot
+  foreach ($existingFilePath in $preservedUpgradeFiles.Keys) {
+    if (-not (Test-Path -LiteralPath $existingFilePath -PathType Leaf) -or
+      (Get-FileHash -LiteralPath $existingFilePath -Algorithm SHA256).Hash -cne $preservedUpgradeFiles[$existingFilePath]) {
+      throw "Theme cleanup changed an existing active, saved or imported theme: $existingFilePath"
+    }
+  }
+  $upgradedActive = Read-DreamSkinTheme -ThemeDirectory $upgradePaths.Active
+  if ($upgradedActive.Theme.id -cne 'preset-gothic-void-crusade' -or
+    @(Get-DreamSkinSavedThemes -StateRoot $upgradeStateRoot).Count -ne 5) {
+    throw 'Theme cleanup changed an existing selection or saved-theme library.'
+  }
+
   $updatedTheme = Set-DreamSkinActiveTheme -ImagePath (Join-Path $Root 'assets\dream-reference.jpg') `
     -Theme $null -Name '测试主题' -StateRoot $themeStateRoot
   if ($updatedTheme.Theme.name -cne '测试主题' -or
@@ -1236,7 +1270,7 @@ args = [
   $null = Initialize-DreamSkinThemeStore -SkillRoot $Root -StateRoot $themeStateRoot
   $idempotentTheme = Read-DreamSkinTheme -ThemeDirectory $themePaths.Active
   $afterReinitCount = @(Get-DreamSkinSavedThemes -StateRoot $themeStateRoot).Count
-  if ($idempotentTheme.Theme.id -cne 'preserved-theme' -or $afterReinitCount -ne 3) {
+  if ($idempotentTheme.Theme.id -cne 'preserved-theme' -or $afterReinitCount -ne 1) {
     throw 'Theme-store initialization overwrote the active custom theme or duplicated its bundled presets.'
   }
 
@@ -1413,14 +1447,11 @@ args = [
   $releaseFixtureRoot = Join-Path $temporaryRoot 'release-theme-fixture'
   $releaseFixtureAssets = Join-Path $releaseFixtureRoot 'assets'
   $releaseFixtureScripts = Join-Path $releaseFixtureRoot 'scripts'
-  $releaseFixturePresets = Join-Path $releaseFixtureRoot 'presets'
-  $releaseFixturePresetDirectory = Join-Path $releaseFixturePresets 'preset-gothic-void-crusade'
   $releaseFixtureState = Join-Path $temporaryRoot 'release-theme-state'
-  $repositoryRoot = Split-Path -Parent $Root
-  $publicPresetRoot = Join-Path $repositoryRoot 'macos\presets\preset-gothic-void-crusade'
-  New-Item -ItemType Directory -Path $releaseFixtureAssets, $releaseFixtureScripts, $releaseFixturePresetDirectory -Force | Out-Null
+  New-Item -ItemType Directory -Path $releaseFixtureAssets, $releaseFixtureScripts -Force | Out-Null
   Copy-Item -LiteralPath (Join-Path $Root 'VERSION') -Destination $releaseFixtureRoot -Force
   foreach ($releaseAsset in @(
+    'dream-reference.jpg', 'theme.json',
     'dream-skin.css', 'internet-angel-acrylic.css', 'internet-angel-extension.css',
     'internet-angel-extension.js', 'css-predicate-cache.mjs', 'renderer-inject.js', 'safe-css-policy.json', 'safe-css-validator.mjs', 'selectors.json',
     'theme-package-validator.mjs', 'theme-preferences.mjs', 'theme-motion.js', 'theme-motion.css', 'motion-settings.mjs', 'motion-payload.mjs'
@@ -1448,34 +1479,39 @@ args = [
   Copy-Item -LiteralPath (Join-Path $Root 'scripts\tray-dream-skin.ps1') -Destination $releaseFixtureScripts -Force
   Copy-Item -LiteralPath (Join-Path $Root 'scripts\validate-safe-css-file.mjs') -Destination $releaseFixtureScripts -Force
   Copy-Item -LiteralPath (Join-Path $Root 'scripts\verify-dream-skin.ps1') -Destination $releaseFixtureScripts -Force
-  Copy-Item -LiteralPath (Join-Path $publicPresetRoot 'background.jpg') `
-    -Destination $releaseFixturePresetDirectory -Force
-  Copy-Item -LiteralPath (Join-Path $publicPresetRoot 'theme.json') `
-    -Destination $releaseFixturePresetDirectory -Force
-  Copy-Item -LiteralPath (Join-Path $publicPresetRoot 'background.jpg') `
-    -Destination (Join-Path $releaseFixtureAssets 'dream-reference.jpg') -Force
-  $releaseFixtureTheme = (Read-DreamSkinUtf8File -Path (Join-Path $publicPresetRoot 'theme.json')) |
-    ConvertFrom-Json
-  $releaseFixtureTheme.image = 'dream-reference.jpg'
-  Write-DreamSkinUtf8FileAtomically -Path (Join-Path $releaseFixtureAssets 'theme.json') `
-    -Content (($releaseFixtureTheme | ConvertTo-Json -Depth 8) + "`r`n")
   $releaseThemePaths = Initialize-DreamSkinThemeStore -SkillRoot $releaseFixtureRoot `
     -StateRoot $releaseFixtureState
   $releaseActiveTheme = Read-DreamSkinTheme -ThemeDirectory $releaseThemePaths.Active
   $releaseSavedThemes = @(Get-DreamSkinSavedThemes -StateRoot $releaseFixtureState)
-  if ($releaseActiveTheme.Theme.id -cne 'preset-gothic-void-crusade' -or
+  $releaseSavedIds = @($releaseSavedThemes | ForEach-Object { $_.Id })
+  if ($releaseActiveTheme.Theme.id -cne 'preset-internet-angel-default' -or
     $releaseSavedThemes.Count -ne 1 -or
-    $releaseSavedThemes[0].Id -cne 'preset-gothic-void-crusade') {
-    throw 'Release-safe bundled theme did not seed dynamically by its validated preset id.'
+    $releaseSavedIds[0] -cne 'preset-internet-angel-default') {
+    throw 'Release-shaped payload must seed only the customized Internet Angel JPEG theme.'
   }
   $releaseEngine = Install-DreamSkinRuntimeEngine -SkillRoot $releaseFixtureRoot `
     -StateRoot (Join-Path $temporaryRoot 'release-engine-state')
-  if (-not (Test-Path -LiteralPath (Join-Path $releaseEngine.Root 'presets\preset-gothic-void-crusade\theme.json') -PathType Leaf)) {
-    throw 'Release-shaped payload could not stage its public Gothic preset into the managed engine.'
+  foreach ($releaseThemeAsset in @(
+    'dream-reference.jpg', 'theme.json'
+  )) {
+    $sourceAsset = Join-Path $releaseFixtureAssets $releaseThemeAsset
+    $installedAsset = Join-Path (Join-Path $releaseEngine.Root 'assets') $releaseThemeAsset
+    if (-not (Test-Path -LiteralPath $installedAsset -PathType Leaf) -or
+      (Get-FileHash -LiteralPath $sourceAsset -Algorithm SHA256).Hash -cne
+      (Get-FileHash -LiteralPath $installedAsset -Algorithm SHA256).Hash) {
+      throw "Release-shaped payload did not retain its customized theme asset: $releaseThemeAsset"
+    }
+  }
+  foreach ($removedThemePath in @(
+    'presets', 'assets\codex-dream-skin-pixel-cafe.png', 'assets\theme-choten.json'
+  )) {
+    if (Test-Path -LiteralPath (Join-Path $releaseEngine.Root $removedThemePath)) {
+      throw "Release-shaped runtime contains a removed bundled theme: $removedThemePath"
+    }
   }
 
   $savedTheme = Save-DreamSkinCurrentTheme -Name '已保存主题' -StateRoot $themeStateRoot
-  if ($savedTheme.Theme.name -cne '已保存主题' -or @(Get-DreamSkinSavedThemes -StateRoot $themeStateRoot).Count -ne 4) {
+  if ($savedTheme.Theme.name -cne '已保存主题' -or @(Get-DreamSkinSavedThemes -StateRoot $themeStateRoot).Count -ne 2) {
     throw 'Saved theme creation or discovery failed.'
   }
   $null = Use-DreamSkinSavedTheme -ThemeDirectory $savedTheme.Directory -StateRoot $themeStateRoot

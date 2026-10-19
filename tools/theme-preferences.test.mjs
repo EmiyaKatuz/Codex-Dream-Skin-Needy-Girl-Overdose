@@ -37,9 +37,9 @@ try {
   assert.ok(warnings.every((message) => !message.includes("DO_NOT_LOG")));
   const themeDir = path.join(temp, "theme");
   await fs.mkdir(themeDir);
-  await fs.copyFile(path.join(root, "macos/assets/portal-hero.png"), path.join(themeDir, "background.png"));
+  await fs.copyFile(path.join(root, "macos/presets/preset-internet-angel-default/dream-reference.jpg"), path.join(themeDir, "background.jpg"));
   await fs.writeFile(path.join(themeDir, "theme.json"), JSON.stringify({
-    schemaVersion: 1, id: "test", image: "background.png", userTransparency: 99,
+    schemaVersion: 1, id: "test", image: "background.jpg", userTransparency: 99,
   }));
   for (const [name, api] of [["macOS", mac], ["Windows", windows]]) {
     await write({});

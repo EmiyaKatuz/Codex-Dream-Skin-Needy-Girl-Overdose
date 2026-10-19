@@ -743,7 +743,7 @@ for (const [platform, loadPayload] of [
   ["linux", loadLinuxPayload],
 ]) {
   const loaded = await loadPayload(
-    path.join(projectRoot, "macos", "presets", "preset-internet-angel"),
+    path.join(projectRoot, "macos", "presets", "preset-internet-angel-default"),
   );
   assert.equal(loaded.internetAngelExtension, true, `${platform} must enable the shared extension`);
   assert.ok(
@@ -758,7 +758,7 @@ const windowsPreset = path.join(
   projectRoot,
   "macos",
   "presets",
-  "preset-internet-angel",
+  "preset-internet-angel-default",
 );
 const windowsSystem = await loadWindowsPayload(windowsPreset, null, "system");
 assert.equal(
