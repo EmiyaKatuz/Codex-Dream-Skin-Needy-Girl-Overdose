@@ -63,6 +63,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
     "assets/css-predicate-cache.mjs",
     "assets/dream-reference.jpg",
     "assets/renderer-inject.js",
+    "assets/retired-theme-catalog.json",
+    "assets/retired-theme-migration.mjs",
     "assets/safe-css-policy.json",
     "assets/safe-css-validator.mjs",
     "assets/selectors.json",
@@ -88,6 +90,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
     "scripts/load-image-theme-macos.sh",
     "scripts/localization-macos.sh",
     "scripts/motion-settings-macos.sh",
+    "scripts/migrate-retired-themes-macos.sh",
     "scripts/pause-dream-skin-macos.sh",
     "scripts/publish-theme-import.mjs",
     "scripts/recover-theme-imports-macos.sh",
@@ -1807,6 +1810,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, UNUser
           message: self.copy.text(.recoveryFailedMessage)
         )
       }
+      self.refreshStatus()
       self.rebuildMenu()
       completion?(result.succeeded)
     }

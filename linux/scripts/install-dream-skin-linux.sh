@@ -51,6 +51,9 @@ if [ ! -f "$THEME_DIR/theme.json" ] || [ "$replace_legacy_default" = true ]; the
   chmod 600 "$THEME_DIR/"*
 fi
 "$NODE" "$INSTALL_ROOT/scripts/injector.mjs" --check-payload --theme-dir "$THEME_DIR" >/dev/null
+"$NODE" "$INSTALL_ROOT/assets/retired-theme-migration.mjs" \
+  --state-root "$STATE_ROOT" --active-name theme \
+  --default-theme-dir "$INSTALL_ROOT/assets" >/dev/null
 
 desktop_dir="${XDG_DATA_HOME:-$HOME/.local/share}/applications"
 desktop_file="$desktop_dir/Codex.desktop"

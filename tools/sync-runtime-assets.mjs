@@ -146,6 +146,10 @@ const outputs = [
     content: await fs.readFile(path.join(projectRoot, "runtime", "theme-preferences.mjs"), "utf8"),
     paths: ["macos/assets/theme-preferences.mjs", "windows/assets/theme-preferences.mjs", "linux/assets/theme-preferences.mjs"],
   },
+  ...await Promise.all(["retired-theme-migration.mjs", "retired-theme-catalog.json"].map(async (name) => ({
+    content: await fs.readFile(path.join(projectRoot, "runtime", name), "utf8"),
+    paths: ["macos", "windows", "linux"].map((platform) => `${platform}/assets/${name}`),
+  }))),
   ...await Promise.all(["theme-motion.css", "theme-motion.js", "motion-settings.mjs", "motion-payload.mjs"].map(async (name) => ({
     content: await fs.readFile(path.join(projectRoot, "runtime", name), "utf8"),
     paths: ["macos", "windows", "linux"].map((platform) => `${platform}/assets/${name}`),

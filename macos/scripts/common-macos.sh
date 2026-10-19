@@ -30,7 +30,7 @@ CODEX_APP_JOB_LABEL="com.openai.codex-dream-skin-studio.app"
 INJECTOR_JOB_LABEL="com.openai.codex-dream-skin-studio.injector"
 EXPECTED_CODEX_TEAM_ID="2DC432GLL2"
 EXPECTED_CODEX_REQUIREMENT="anchor apple generic and certificate leaf[subject.OU] = \"$EXPECTED_CODEX_TEAM_ID\""
-SKIN_VERSION="1.7.1"
+SKIN_VERSION="1.7.2"
 DREAM_SKIN_VALIDATED_RUNTIME_PID=""
 DREAM_SKIN_VALIDATED_RUNTIME_BUNDLE=""
 DREAM_SKIN_VALIDATED_RUNTIME_EXE=""
@@ -206,8 +206,8 @@ finish_client_operation() {
 
 # Seed bundled preset packs into the user's themes/ library so a fresh install
 # ships with ready-to-use skins. Idempotent (each preset is refreshed in place)
-# and limited to the customized bundled preset. Existing saved themes and the
-# active theme copy are preserved, including presets retired from the project.
+# and limited to the customized bundled preset. The separate upgrade migration
+# archives recognized unchanged retired presets and preserves user themes.
 seed_bundled_presets() {
   local presets_root="$PROJECT_ROOT/presets"
   [ -d "$presets_root" ] || return 0

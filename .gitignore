@@ -24,6 +24,8 @@ runtime/*
 !runtime/safe-css-validator.mjs
 !runtime/theme-package-validator.mjs
 !runtime/theme-preferences.mjs
+!runtime/retired-theme-migration.mjs
+!runtime/retired-theme-catalog.json
 !runtime/validate-safe-css-file.mjs
 
 # local agent context

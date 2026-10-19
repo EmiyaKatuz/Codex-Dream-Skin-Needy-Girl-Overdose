@@ -448,6 +448,7 @@ fi
 # Fresh installs seed only the customized JPEG. Upgrades retain every user's
 # saved theme and active copy, including previously bundled presets.
 "$NODE" --test "$ROOT/tests/bundled-presets.test.mjs"
+"$NODE" --test "$ROOT/tests/retired-theme-migration-entry.test.mjs" "$ROOT/tests/runtime-dependency-inventory.test.mjs"
 
 run_signed_runtime_switch_test() {
   local switch_home="$TMP/switch-home"

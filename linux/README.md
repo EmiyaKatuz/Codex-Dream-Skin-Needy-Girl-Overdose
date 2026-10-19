@@ -16,7 +16,7 @@ Close Codex first, then run:
 ./linux/scripts/install-dream-skin-linux.sh
 ```
 
-The engine bundles only the customized Internet Angel JPEG theme and is copied to `~/.codex/codex-dream-skin-linux`; state, logs, and the active theme are kept in `${XDG_STATE_HOME:-~/.local/state}/CodexDreamSkin`. Upgrades preserve the existing active theme and user data.
+The engine bundles only the customized Internet Angel JPEG theme and is copied to `~/.codex/codex-dream-skin-linux`; state, logs, and the active theme are kept in `${XDG_STATE_HOME:-~/.local/state}/CodexDreamSkin`. Upgrades archive unchanged retired built-ins and their saved copies under `retired-themes/`, replacing a retired active theme with the JPEG default. Personal themes and preferences are preserved.
 The installer creates a user-level `Codex.desktop` override, refreshes the desktop-entry cache, and associates `codex://` links with it. The usual OpenAI Codex app icon then starts the themed CDP session. Fully quit Codex before installing; if GNOME still holds an old dock launcher after installation, log out and back in once so Shell reloads its launcher metadata. Restore removes only the marked entry.
 
 ## Daily commands

@@ -23,7 +23,10 @@ const themesRoot = path.join(tempRoot, "themes");
 const activeRoot = path.join(tempRoot, "theme");
 
 const recoveryWrapperSource = await fs.readFile(recoveryWrapper, "utf8");
-assert.match(recoveryWrapperSource, /\nensure_node_runtime\n/);
+assert.match(recoveryWrapperSource, /"\$SCRIPT_DIR\/migrate-retired-themes-macos\.sh"/);
+const migrationWrapperSource = await fs.readFile(path.join(macosRoot, "scripts", "migrate-retired-themes-macos.sh"), "utf8");
+assert.match(migrationWrapperSource, /\nensure_node_runtime\n/);
+assert.doesNotMatch(migrationWrapperSource, /discover_codex_bundle/);
 assert.doesNotMatch(recoveryWrapperSource, /discover_codex_bundle/);
 
 function runPublisher(args, extraEnvironment = {}) {
