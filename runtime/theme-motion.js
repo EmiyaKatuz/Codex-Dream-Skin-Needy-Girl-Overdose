@@ -263,10 +263,14 @@
       && node.getAttribute("data-state") !== "closed")) return;
     let samples = 0;
     const checked = new Map();
-    const free = (x, y, width, height) => {
+    const occupied = [];
+    const free = (x, y, width, height, limit) => {
       if (x < 8 || y < 8 || x + width > innerWidth - 8 || y + height > innerHeight - 8) return false;
+      if (occupied.some((rect) => x < rect.x + rect.width && x + width > rect.x
+        && y < rect.y + rect.height && y + height > rect.y)) return false;
       for (let dx = 0; dx <= width; dx += 6) for (let dy = 0; dy <= height; dy += 6) {
-        if (++samples > 1600) return false;
+        if (samples >= limit) return false;
+        samples += 1;
         const hit = document.elementFromPoint(x + dx, y + dy);
         if (!hit) return false;
         if (hit.closest?.(`[${OWNED}]`)) continue;
@@ -285,19 +289,39 @@
       }
       return true;
     };
+    const findPlacement = (preferred, width, height, limit = 1600) => {
+      // Sidebars and diff panes can occupy every viewport edge. Check a small
+      // interior grid as well, with the same content exclusions and budget.
+      const interior = [0.5, 0.25, 0.75].flatMap((fx) => [0.25, 0.5, 0.75].map((fy) => [
+        Math.round(8 + Math.max(0, innerWidth - width - 16) * fx),
+        Math.round(8 + Math.max(0, innerHeight - height - 16) * fy),
+      ]));
+      for (const [x, y] of [...preferred, ...interior]) {
+        if (samples >= limit) break;
+        if (!free(x, y, width, height, limit)) continue;
+        occupied.push({ x, y, width, height });
+        return [x, y];
+      }
+      return null;
+    };
     if (statusNode || characterNode) {
-      for (const [x, y] of [[innerWidth - 88, innerHeight - 88], [innerWidth - 88, 72], [innerWidth - 88, Math.floor(innerHeight / 2)], [16, innerHeight - 88]]) {
-        if (!free(x - 4, y - 4, 80, 76)) continue;
-        for (const [node, left, top] of [[statusNode, x, y + 40], [characterNode, x + 24, y]]) {
+      // Reserve enough of the shared 1600 samples for an ambient rectangle.
+      const placement = findPlacement([[innerWidth - 92, innerHeight - 92], [innerWidth - 92, 68],
+        [innerWidth - 92, Math.floor(innerHeight / 2) - 4], [12, innerHeight - 92]], 80, 76, ambientNode ? 1200 : 1600);
+      if (placement) {
+        const [x, y] = placement;
+        for (const [node, left, top] of [[statusNode, x + 4, y + 44], [characterNode, x + 28, y + 4]]) {
           if (node) { node.style.setProperty("left", `${left}px`); node.style.setProperty("top", `${top}px`); node.style.setProperty("right", "auto"); node.style.setProperty("bottom", "auto"); node.style.setProperty("visibility", "visible"); }
         }
-        break;
       }
     }
-    if (ambientNode && free(innerWidth - 172, 92, 76, 112)) {
-      ambientNode.style.setProperty("left", `${innerWidth - 168}px`); ambientNode.style.setProperty("top", "96px");
-      ambientNode.style.setProperty("right", "auto"); ambientNode.style.setProperty("bottom", "auto");
-      ambientNode.style.setProperty("visibility", "visible");
+    if (ambientNode) {
+      const placement = findPlacement([[innerWidth - 172, 92]], 76, 112);
+      if (placement) {
+        ambientNode.style.setProperty("left", `${placement[0] + 4}px`); ambientNode.style.setProperty("top", `${placement[1] + 4}px`);
+        ambientNode.style.setProperty("right", "auto"); ambientNode.style.setProperty("bottom", "auto");
+        ambientNode.style.setProperty("visibility", "visible");
+      }
     }
   };
   const reconcileOwned = () => {

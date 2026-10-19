@@ -738,9 +738,97 @@ test("a new parent run clears previous terminal feedback and route navigation re
   page.global.location.search = "?initialRoute=%2Flocal%2Fother"; page.global.dispatch("popstate"); page.finish("completed", "run-2"); assert.equal(page.state.inspect().state, "unknown"); page.state.cleanup();
 });
 
+function sidePanelPlacementScene() {
+  const page = fixture({ home: true });
+  page.global.innerWidth = 1354; page.global.innerHeight = 970;
+  page.main.computed.visibility = "hidden";
+  const pane = page.add(page.node("div", { "data-app-shell-pane-frame": "true" }), page.body);
+  const header = pane.appendChild(page.node("div"));
+  const diff = pane.appendChild(page.node("diffs-container"));
+  const rail = page.add(page.node("div"), page.body); rail.computed.overflowY = "auto";
+  const hit = (x, y) => x <= 45 ? rail : x >= 838 ? (y < 136 ? header : diff) : page.surface;
+  return { page, hit };
+}
+
+function assertInteriorDecorations(page) {
+  for (const role of ["status", "character", "ambient"]) {
+    assert.equal(motionRole(page, role).style.getPropertyValue("visibility"), "visible", `${role} should find the free main area`);
+  }
+  const status = motionRole(page, "status"), ambient = motionRole(page, "ambient");
+  const group = { x: parseFloat(status.style.getPropertyValue("left")) - 4,
+    y: parseFloat(status.style.getPropertyValue("top")) - 44, width: 80, height: 76 };
+  const stars = { x: parseFloat(ambient.style.getPropertyValue("left")) - 4,
+    y: parseFloat(ambient.style.getPropertyValue("top")) - 4, width: 76, height: 112 };
+  for (const rect of [group, stars]) {
+    assert.ok(rect.x > 45 && rect.x + rect.width < 838, "decorations must stay outside the scrolling rail and diff pane");
+    assert.ok(rect.y >= 8 && rect.y + rect.height <= 962, "the full sampled rectangle must fit inside the viewport");
+  }
+  assert.ok(group.x + group.width <= stars.x || stars.x + stars.width <= group.x
+    || group.y + group.height <= stars.y || stars.y + stars.height <= group.y,
+    "fallback star and character/status rectangles must not overlap");
+}
+
+test("decorations find an interior gap when the right diff pane and left scroll rail occupy the edges", () => {
+  const { page, hit } = sidePanelPlacementScene(); page.document.elementFromPoint = hit;
+  page.install(configuration("full")); page.intersect(page.main, true);
+  assert.equal(page.state.inspect().paused, false);
+  assertInteriorDecorations(page);
+  page.state.cleanup();
+});
+
+test("placement rechecks new obstacles and hides when no interior gap remains", () => {
+  const { page, hit } = sidePanelPlacementScene();
+  page.install(configuration("full")); page.intersect(page.main, true);
+  const initialLeft = motionRole(page, "character").style.getPropertyValue("left");
+  page.document.elementFromPoint = hit; page.global.dispatch("resize"); page.flush();
+  assertInteriorDecorations(page);
+  assert.notEqual(motionRole(page, "character").style.getPropertyValue("left"), initialLeft);
+  page.document.elementFromPoint = () => page.composer; page.global.dispatch("resize"); page.flush();
+  for (const role of ["status", "character", "ambient"]) {
+    assert.equal(motionRole(page, role).style.getPropertyValue("visibility"), "hidden");
+  }
+  page.state.cleanup();
+});
+
+test("interior fallback performs no hit testing or layout reads during IME composition", () => {
+  const { page, hit } = sidePanelPlacementScene(); let hits = 0;
+  page.document.elementFromPoint = (x, y) => { hits += 1; return hit(x, y); };
+  page.install(configuration("full")); page.intersect(page.main, true);
+  page.global.dispatch("compositionstart");
+  const reads = page.reads; hits = 0;
+  page.global.dispatch("resize"); page.document.dispatch("scroll"); page.advance(121); page.flush();
+  assert.equal(hits, 0); assert.deepEqual(page.reads, reads);
+  page.global.dispatch("compositionend");
+  assertInteriorDecorations(page);
+  page.state.cleanup();
+});
+
+test("interior candidate search keeps the total hit-test budget at 1600", () => {
+  const page = fixture({ home: true }); let hits = 0;
+  page.document.elementFromPoint = () => ++hits % 182 === 181 ? page.composer : page.surface;
+  page.install(configuration("full"));
+  assert.ok(hits <= 1600, "additional candidates must share the existing global sample limit");
+  for (const role of ["status", "character", "ambient"]) {
+    assert.equal(motionRole(page, role).style.getPropertyValue("visibility"), "hidden");
+  }
+  page.state.cleanup();
+});
+
+test("interior fallback stays hidden without hit testing when even the decoration box cannot fit", () => {
+  const page = fixture({ home: true }); let hits = 0;
+  page.global.innerWidth = 90; page.global.innerHeight = 70;
+  page.document.elementFromPoint = () => { hits += 1; return page.surface; };
+  page.install(configuration("full"));
+  for (const role of ["status", "character"]) assert.equal(motionRole(page, role).style.getPropertyValue("visibility"), "hidden");
+  assert.equal(motionRole(page, "ambient"), null);
+  assert.equal(hits, 0);
+  page.state.cleanup();
+});
+
 test("ambient placement checks its full 104px height plus parallax margins", () => {
   const page = fixture({ home: true }); const obstacle = page.add(page.node("button"));
-  page.document.elementFromPoint = (x, y) => y >= 180 && x < 1200 ? obstacle : page.main;
+  // Only an 88px-high strip is clear; no alternative can fit all 112px.
+  page.document.elementFromPoint = (x, y) => x >= 1108 && x <= 1184 && y >= 92 && y < 180 ? page.main : obstacle;
   page.install(configuration("full"));
   assert.equal(motionRole(page, "ambient").style.getPropertyValue("visibility"), "hidden"); page.state.cleanup();
 });
