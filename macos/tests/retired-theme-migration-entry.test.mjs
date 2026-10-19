@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
-import { cp, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, readFile, readdir, realpath, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -12,7 +12,7 @@ const shellAvailable = process.platform !== "win32";
 const digest = (bytes) => createHash("sha256").update(bytes).digest("hex");
 
 async function fixture(t) {
-  const root = await mkdtemp(path.join(os.tmpdir(), "dreamskin-macos-retired-entry-"));
+  const root = await realpath(await mkdtemp(path.join(os.tmpdir(), "dreamskin-macos-retired-entry-")));
   t.after(() => rm(root, { recursive: true, force: true }));
   const scripts = path.join(root, "scripts");
   const assets = path.join(root, "assets");

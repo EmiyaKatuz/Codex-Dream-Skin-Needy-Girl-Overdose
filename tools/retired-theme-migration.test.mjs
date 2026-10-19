@@ -14,7 +14,7 @@ const oldTheme = { ...structuredClone(production.templates[0].theme), image: "ar
 const catalog = { ...production, templates: [{ key: "fixture-pixel-cafe", theme: oldTheme, imageSha256: hash(png) }] };
 
 async function fixture(t, activeName = "active-theme") {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), "dream-retired-test-"));
+  const root = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), "dream-retired-test-")));
   t.after(() => fs.rm(root, { recursive: true, force: true }));
   const stateRoot = path.join(root, "state");
   const defaultThemeDir = path.join(root, "assets");
