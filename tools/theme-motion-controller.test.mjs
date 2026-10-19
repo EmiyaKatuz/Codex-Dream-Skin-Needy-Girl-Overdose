@@ -245,6 +245,106 @@ test("hidden, offscreen and IME suspend feedback without scanning token changes"
   page.state.cleanup();
 });
 
+test("a replaced main anchor resumes motion after the detached anchor pauses it", () => {
+  const page = fixture({ home: true }); page.install(configuration("full"));
+  page.intersect(page.main, false);
+  assert.equal(page.state.inspect().paused, true);
+  const replacement = page.node("main", { "data-ds-part": "main" });
+  replacement.appendChild(page.surface);
+  page.main.remove();
+  page.add(replacement, page.body);
+  page.mutate([{ type: "childList", target: page.body, addedNodes: [], removedNodes: [page.main] }]);
+  page.flush();
+  assert.equal(page.state.inspect().paused, false, "a removed anchor must not keep its visible replacement paused");
+  assert.equal(page.state.inspect().ownedNodes, 3);
+  assert.equal(page.intersections[0].targets.has(page.main), false);
+  assert.equal(page.intersections[0].targets.has(replacement), true);
+  page.intersect(replacement, false);
+  assert.equal(page.state.inspect().paused, true, "a live anchor outside the viewport must still pause motion");
+  page.intersections[0].callback([{ target: page.main, isIntersecting: true }]); page.flush();
+  assert.equal(page.state.inspect().paused, true, "late entries for the retired anchor cannot resume the new anchor");
+  page.intersect(replacement, true);
+  assert.equal(page.state.inspect().paused, false);
+  page.state.cleanup();
+});
+
+test("anchor removal can fall back to the body and bind a later main without retaining the old observer", () => {
+  const page = fixture({ home: true }); page.install(configuration("full"));
+  page.intersect(page.main, false);
+  page.main.remove();
+  page.mutate([{ type: "childList", target: page.body, addedNodes: [], removedNodes: [page.main] }]);
+  page.flush();
+  assert.equal(page.state.inspect().paused, false);
+  assert.equal(page.intersections[0].targets.has(page.main), false);
+  assert.equal(page.intersections[0].targets.has(page.body), true);
+  const replacement = page.node("main", { "data-ds-part": "main" });
+  page.add(replacement, page.body); page.flush();
+  assert.equal(page.intersections[0].targets.has(replacement), true);
+  assert.equal(page.intersections[0].targets.has(page.body), false);
+  page.intersect(page.body, false);
+  assert.equal(page.state.inspect().paused, false);
+  page.state.cleanup();
+});
+
+test("main replacement during IME waits for composition end before reading layout or resuming", () => {
+  const page = fixture({ home: true }); page.install(configuration("full"));
+  page.intersect(page.main, false);
+  page.global.dispatch("compositionstart");
+  const reads = page.reads;
+  const replacement = page.node("main", { "data-ds-part": "main" });
+  replacement.appendChild(page.surface);
+  page.main.remove();
+  page.add(replacement, page.body);
+  page.global.dispatch("resize"); page.flush();
+  assert.deepEqual(page.reads, reads, "anchor recovery must not read styles or layout while composing");
+  assert.equal(page.state.inspect().paused, true);
+  page.global.dispatch("compositionend");
+  assert.equal(page.state.inspect().paused, false);
+  assert.equal(page.intersections[0].targets.has(page.main), false);
+  assert.equal(page.intersections[0].targets.has(replacement), true);
+  page.state.cleanup();
+});
+
+test("a replacement anchor retains an offscreen result observed before it becomes the anchor", () => {
+  const page = fixture({ home: true }); page.install(configuration("full"));
+  const replacement = page.node("main", { "data-ds-part": "main" });
+  page.add(replacement, page.body); page.flush();
+  page.intersect(replacement, false);
+  page.intersect(page.main, false);
+  replacement.appendChild(page.surface);
+  page.main.remove();
+  page.mutate([{ type: "childList", target: page.body, addedNodes: [], removedNodes: [page.main] }]);
+  page.flush();
+  assert.equal(page.state.inspect().paused, true, "an already observed offscreen main must not resume prematurely");
+  assert.equal(page.intersections[0].targets.has(replacement), true);
+  page.intersect(replacement, true);
+  assert.equal(page.state.inspect().paused, false);
+  page.state.cleanup();
+});
+
+test("a full tracking budget does not prevent recovery when the entire main surface is replaced", () => {
+  const page = fixture({ home: true });
+  for (let index = 0; index < 280; index += 1) page.surface.appendChild(page.node("button", { "aria-busy": "false" }));
+  page.install(configuration("full"));
+  assert.equal(page.state.inspect().trackedNodes, 256);
+  page.intersect(page.main, false);
+  const replacement = page.node("main", { "data-ds-part": "main" });
+  const home = page.node("section", { "data-ds-part": "home" });
+  replacement.appendChild(home);
+  page.main.remove();
+  page.body.appendChild(replacement);
+  page.mutate([{ type: "childList", target: page.body, addedNodes: [replacement], removedNodes: [page.main] }]);
+  page.flush();
+  assert.equal(page.state.inspect().paused, false);
+  assert.equal(page.state.inspect().route, "home");
+  assert.equal(page.state.inspect().trackedNodes, 2);
+  assert.equal(page.intersections[0].targets.has(replacement), true);
+  assert.equal(page.intersections[0].targets.has(page.main), false);
+  page.intersect(replacement, false);
+  assert.equal(page.state.inspect().paused, true);
+  page.state.cleanup();
+});
+
 test("only local busy semantics and an explicitly open modal alertdialog affect native state", () => {
   const page = fixture(); page.install();
   const unrelated = page.add(page.node("button", { "aria-busy": "true" }), page.body); page.flush();
