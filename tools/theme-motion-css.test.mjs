@@ -37,9 +37,9 @@ test("native composer pseudo-elements and content geometry are not motion surfac
   assert.doesNotMatch(css, /\bwill-change\s*:/, "No permanent compositor promotion");
 });
 
-test("three full-mode timelines are bounded by role, route, state and pause", () => {
+test("four shared full-mode timelines are bounded by role, route, state and pause", () => {
   const loops = leafRules.filter(({ body }) => /animation\s*:[^;]*\binfinite\b/.test(body));
-  assert.equal(loops.length, 3, "Home has only status, character and ambient channels");
+  assert.equal(loops.length, 4, "Shared channels are status, badge, wallpaper eyelids and ambient");
   for (const { selector, body } of loops) {
     assert.ok(selector.includes('[data-dream-motion="full"]'));
     assert.ok(selector.includes('[data-dream-motion-paused="false"]'));

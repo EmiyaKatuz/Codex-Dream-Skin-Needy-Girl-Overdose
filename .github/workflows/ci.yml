@@ -164,6 +164,32 @@ jobs:
           node windows/scripts/injector.mjs --check-payload >/dev/null
           node linux/scripts/injector.mjs --check-payload >/dev/null
 
+  motion-playback:
+    name: Motion playback (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+      - name: Install pinned browser test runtime
+        shell: bash
+        run: |
+          npm install --prefix "$RUNNER_TEMP/dream-motion-browser" --no-save --ignore-scripts playwright@1.62.1
+          node "$RUNNER_TEMP/dream-motion-browser/node_modules/playwright/cli.js" install --with-deps chromium
+      - name: Verify rendered Windows motion timelines and frames
+        shell: bash
+        env:
+          DREAM_SKIN_MOTION_BROWSER: "1"
+          PLAYWRIGHT_MODULE_PATH: ${{ runner.temp }}/dream-motion-browser/node_modules/playwright
+        run: node --test tools/motion-playback.browser.test.mjs
+
   windows-tests:
     name: Windows (${{ matrix.name }})
     runs-on: windows-latest

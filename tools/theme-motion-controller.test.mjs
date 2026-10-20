@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import fs from "node:fs/promises";
 import vm from "node:vm";
 import test from "node:test";
@@ -117,7 +118,7 @@ function fixture({ home = false, bodyless = false, reduced = false } = {}) {
     document, location: { protocol: "app:", pathname: "/index.html", search: "?initialRoute=%2Ftask%2Fone", hash: "" },
     URL, URLSearchParams, innerWidth: 1280, innerHeight: 800,
     Date: { now: () => now },
-    getComputedStyle(node) { styleReads += 1; return { display: "block", visibility: node.style.getPropertyValue("visibility") || "visible", opacity: "1", animationName: "none", ...node.computed }; },
+    getComputedStyle(node, pseudo) { styleReads += 1; return { display: "block", visibility: node.style.getPropertyValue("visibility") || "visible", opacity: "1", animationName: "none", ...(pseudo ? node.pseudoComputed?.[pseudo] : node.computed) }; },
     matchMedia: () => media,
     requestAnimationFrame(callback) { const id = ++nextId; frames.set(id, callback); return id; },
     cancelAnimationFrame(id) { frames.delete(id); },
@@ -532,6 +533,144 @@ function nativeFixture({ host = "local", home = false, route = null } = {}) {
   return page;
 }
 const motionRole = (page, role) => page.document.querySelector(`[data-dream-motion-role="${role}"]`);
+
+const wallpaperConfig = (mode = "full", overrides = {}) => configuration(mode, {
+  artKey: "4858200d0c5714091d3d", artMetadata: { width: 2560, height: 1440 }, ...overrides,
+});
+function wallpaperFixture() {
+  const page = fixture({ home: true });
+  page.body.computed = { backgroundImage: 'url("blob:app://old-art")', backgroundAttachment: "fixed",
+    backgroundSize: "cover", backgroundPositionX: "72%", backgroundPositionY: "42%" };
+  return page;
+}
+
+test("wallpaper eyelids are bound to the shipped JPEG and follow its fixed-cover geometry on each platform", async () => {
+  const bytes = await fs.readFile(new URL("../windows/assets/dream-reference.jpg", import.meta.url));
+  assert.equal(createHash("sha256").update(bytes).digest("hex").slice(0, 20), wallpaperConfig().artKey);
+  for (const platform of ["windows", "macos", "linux"]) {
+    const page = wallpaperFixture(); page.install(wallpaperConfig("full", { platform }));
+    const art = motionRole(page, "background-character");
+    assert.ok(art?.querySelector("[data-dream-motion-eyelid]"));
+    assert.equal(art.getAttribute("data-dream-motion-art-visible"), "true");
+    assert.equal(art.style.getPropertyValue("left"), "725.33px");
+    assert.equal(art.style.getPropertyValue("top"), "280.80px");
+    assert.equal(art.style.getPropertyValue("width"), "187.73px");
+    assert.equal(art.style.getPropertyValue("height"), "85.60px");
+    page.global.innerWidth = 1920; page.global.innerHeight = 1080;
+    page.global.dispatch("resize"); page.flush();
+    assert.equal(art.style.getPropertyValue("left"), "1117.44px");
+    assert.equal(art.style.getPropertyValue("top"), "379.08px");
+    page.state.cleanup(); assert.equal(art.isConnected, false);
+  }
+});
+
+test("wallpaper animation is opt-in and does not attach to replaced images or non-home routes", () => {
+  for (const config of [wallpaperConfig("system"), wallpaperConfig("subtle"), wallpaperConfig("off"),
+    wallpaperConfig("full", { artKey: "custom-art" }), wallpaperConfig("full", { themeId: "custom" }),
+    wallpaperConfig("full", { artMetadata: { width: 800, height: 600 } })]) {
+    const page = wallpaperFixture(); page.install(config);
+    assert.equal(motionRole(page, "background-character"), null); page.state.cleanup();
+  }
+  const page = fixture(); page.install(wallpaperConfig());
+  assert.equal(motionRole(page, "background-character"), null); page.state.cleanup();
+  const disabled = wallpaperFixture(); const config = wallpaperConfig(); config.settings.effects.character = false;
+  disabled.install(config); assert.equal(motionRole(disabled, "background-character"), null); disabled.state.cleanup();
+});
+
+test("Windows Acrylic eyelids match the translucent fixed pseudo-wallpaper below native glass", () => {
+  const page = wallpaperFixture(); page.body.computed.backgroundImage = "none";
+  page.body.pseudoComputed = { "::before": { position: "fixed", left: "0px", right: "0px", top: "0px", bottom: "0px",
+    backgroundImage: 'linear-gradient(135deg, rgb(10 8 38 / .14), transparent), url("blob:app://old-art")',
+    backgroundPositionX: "50%, 72%", backgroundPositionY: "50%, 42%", backgroundSize: "cover, cover", opacity: ".18" } };
+  page.install(wallpaperConfig("full", { platform: "windows" }));
+  const art = motionRole(page, "background-character");
+  assert.equal(art.getAttribute("data-dream-motion-art-visible"), "true");
+  assert.equal(art.style.getPropertyValue("left"), "725.33px");
+  assert.equal(art.style.getPropertyValue("top"), "280.80px");
+  const scene = motionRole(page, "background-scene");
+  assert.equal(art.parentElement, scene, "image and eyelids must be in the same opacity group");
+  assert.equal(art.style.getPropertyValue("opacity"), "", "eyelids occlude the original irises before alpha blending");
+  assert.equal(scene.style.getPropertyValue("opacity"), "0.18");
+  assert.equal(scene.style.getPropertyValue("background-image"), page.body.pseudoComputed["::before"].backgroundImage);
+  assert.equal(page.document.documentElement.getAttribute("data-dream-motion-wallpaper"), "acrylic");
+  page.body.pseudoComputed["::before"].left = "12px";
+  page.global.dispatch("resize"); page.flush();
+  assert.equal(art.getAttribute("data-dream-motion-art-visible"), "false", "unregistered pseudo geometry must fail closed");
+  assert.equal(scene.style.getPropertyValue("visibility"), "hidden");
+  assert.equal(page.document.documentElement.getAttribute("data-dream-motion-wallpaper"), null, "restore the original pseudo wallpaper when not animating");
+  page.state.cleanup();
+  assert.equal(scene.isConnected, false);
+  assert.equal(page.document.documentElement.getAttribute("data-dream-motion-wallpaper"), null);
+});
+
+test("wallpaper eyelids hide under controls, unknown projections, IME and scroll, then recover", () => {
+  const page = wallpaperFixture(); page.install(wallpaperConfig());
+  const art = motionRole(page, "background-character");
+  const obstacle = page.add(page.node("button"));
+  page.document.elementFromPoint = () => obstacle;
+  page.global.dispatch("resize"); page.flush();
+  assert.equal(art.getAttribute("data-dream-motion-art-visible"), "false");
+  page.document.elementFromPoint = () => page.main;
+  page.body.computed.backgroundSize = "contain";
+  page.global.dispatch("resize"); page.flush();
+  assert.equal(art.getAttribute("data-dream-motion-art-visible"), "false");
+  page.body.computed.backgroundSize = "cover";
+  page.global.dispatch("resize"); page.flush();
+  assert.equal(art.getAttribute("data-dream-motion-art-visible"), "true");
+  page.global.dispatch("compositionstart"); const reads = page.reads;
+  page.global.dispatch("resize"); page.flush(); assert.deepEqual(page.reads, reads);
+  assert.equal(art.getAttribute("data-dream-motion-art-visible"), "false");
+  page.global.dispatch("compositionend");
+  assert.equal(art.getAttribute("data-dream-motion-art-visible"), "true");
+  page.document.dispatch("scroll"); assert.equal(art.getAttribute("data-dream-motion-art-visible"), "false");
+  page.advance(121); page.flush(); assert.equal(art.getAttribute("data-dream-motion-art-visible"), "true");
+  page.state.cleanup();
+});
+
+test("wallpaper hit testing stays bounded at maximized display sizes", () => {
+  const page = wallpaperFixture(); page.global.innerWidth = 3840; page.global.innerHeight = 2160;
+  let hits = 0; page.document.elementFromPoint = () => { hits += 1; return page.main; };
+  page.install(wallpaperConfig());
+  assert.equal(motionRole(page, "background-character").getAttribute("data-dream-motion-art-visible"), "true");
+  for (const role of ["status", "character", "ambient"]) {
+    assert.equal(motionRole(page, role).style.getPropertyValue("visibility"), "visible");
+  }
+  assert.ok(hits <= 1600); page.state.cleanup();
+});
+
+test("new native leaf controls and visibility changes recheck wallpaper without widening scans", () => {
+  const page = wallpaperFixture(); page.install(wallpaperConfig());
+  const art = motionRole(page, "background-character"); const scans = page.state.metrics.scans;
+  const button = page.add(page.node("button")); page.document.elementFromPoint = () => button;
+  page.mutate([{ type: "childList", target: page.main, addedNodes: [button], removedNodes: [] }]); page.flush();
+  assert.equal(art.getAttribute("data-dream-motion-art-visible"), "false");
+  assert.equal(page.state.metrics.scans, scans);
+  page.document.elementFromPoint = () => page.main; page.attribute(button, "hidden", ""); page.flush();
+  assert.equal(art.getAttribute("data-dream-motion-art-visible"), "true");
+  button.removeAttribute("hidden"); page.document.elementFromPoint = () => button;
+  page.mutate([{ type: "attributes", target: button, attributeName: "hidden" }]); page.flush();
+  assert.equal(art.getAttribute("data-dream-motion-art-visible"), "false");
+  button.remove(); page.document.elementFromPoint = () => page.main;
+  page.mutate([{ type: "childList", target: page.main, addedNodes: [], removedNodes: [button] }]); page.flush();
+  assert.equal(art.getAttribute("data-dream-motion-art-visible"), "true"); page.state.cleanup();
+});
+
+test("wallpaper collision checks retain a dense grid around small controls on 4K displays", () => {
+  const page = wallpaperFixture(); page.global.innerWidth = 3840; page.global.innerHeight = 2160;
+  const button = page.add(page.node("button"));
+  page.document.elementFromPoint = (x, y) => x >= 2281 && x <= 2297 && y >= 826 && y <= 842 ? button : page.main;
+  page.install(wallpaperConfig());
+  assert.equal(motionRole(page, "background-character").getAttribute("data-dream-motion-art-visible"), "false");
+  page.state.cleanup();
+});
+
+test("wallpaper hides rather than weakening collision checks when the pixel budget is exhausted", () => {
+  const page = wallpaperFixture(); page.global.innerWidth = 7680; page.global.innerHeight = 4320;
+  let hits = 0; page.document.elementFromPoint = () => { hits += 1; return page.main; };
+  page.install(wallpaperConfig());
+  assert.equal(motionRole(page, "background-character").getAttribute("data-dream-motion-art-visible"), "false");
+  assert.ok(hits <= 1600); page.state.cleanup();
+});
 const agentRow = (page, id = "child", host = "local") => page.add(page.node("button", {
   "data-app-action-sidebar-thread-row": "", "data-app-action-sidebar-thread-kind": "local",
   "data-app-action-sidebar-thread-id": `local:${id}`, "data-app-action-sidebar-thread-host-id": host,
