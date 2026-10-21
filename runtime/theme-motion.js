@@ -265,18 +265,26 @@
     svg.setAttribute("preserveAspectRatio", "none");
     svg.setAttribute("aria-hidden", "true");
     svg.setAttribute("focusable", "false");
-    const frame = document.createElementNS("http://www.w3.org/2000/svg", "g");
-    frame.setAttribute("data-dream-motion-eyelid", "");
-    const paths = [
+    // Preserve v1.3.4's hand-authored half/closed pixel frames. Their original
+    // gesture now shares the controller's verified projection and lifecycle.
+    const frames = { half: [
+      ["#b5a8d3", "M23 27H47V29H55V31H59V33H63V35H67V39H69V43H71V47H73V49H69V47H63V49H57V51H47V49H39V47H33V45H29V43H25V39H21V35H19V31H17V29H21V27Z"],
+      ["#b5a8d3", "M151 33H173V35H181V37H187V39H191V41H195V43H199V45H201V49H197V47H189V49H181V51H173V53H159V51H151V49H143V47H137V45H131V43H127V41H129V39H133V37H143V35H151Z"],
+      ["#281277", "M19 31h4v4h-4zM23 35h6v4h-6zM29 39h6v4h-6zM35 43h6v4h-6zM41 47h8v4h-8zM49 49h8v4h-8zM57 51h6v4h-6zM63 49h6v4h-6zM69 47h4v4h-4zM127 41h4v4h-4zM131 43h6v4h-6zM137 45h6v4h-6zM143 47h8v4h-8zM151 49h8v4h-8zM159 51h14v4h-14zM173 53h8v4h-8zM181 51h8v4h-8zM189 49h8v4h-8zM197 47h4v4h-4z"],
+    ], closed: [
       ["#b5a8d3", "M23 27H47V29H55V31H59V33H63V35H67V39H69V43H71V47H73V61H71V67H69V71H67V75H65V79H61V81H55V79H51V75H47V71H43V67H39V63H35V59H33V55H31V51H29V47H27V43H23V39H21V35H19V31H17V29H21V27Z"],
-      ["#b5a8d3", "M151 33H173V35H181V37H187V39H191V41H195V43H199V45H201V49H199V61H197V65H195V69H193V73H189V77H185V81H181V83H177V85H163V83H157V81H153V77H147V73H141V69H139V65H137V61H133V57H133V53H131V49H129V45H127V41H127V39H129V37H133V35H143V33Z"],
+      ["#b5a8d3", "M151 33H173V35H181V37H187V39H191V41H195V43H199V45H201V49H199V57H199V61H197V65H195V69H193V73H189V77H185V81H181V83H177V85H163V83H157V81H153V77H147V73H141V69H139V65H137V61H133V57H133V53H131V49H129V45H127V41H127V39H129V37H133V35H143V33Z"],
       ["#281277", "M19 39h4v4h-4zM23 43h6v4h-6zM29 47h6v4h-6zM35 51h6v4h-6zM41 55h8v4h-8zM49 59h8v4h-8zM57 61h6v4h-6zM63 59h6v4h-6zM69 55h4v4h-4zM127 47h4v4h-4zM131 49h6v4h-6zM137 53h6v4h-6zM143 57h8v4h-8zM151 61h8v4h-8zM159 65h18v4h-18zM177 63h8v4h-8zM185 59h8v4h-8zM193 55h8v4h-8z"],
-    ];
-    for (const [fill, d] of paths) {
-      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-      path.setAttribute("fill", fill); path.setAttribute("d", d); frame.appendChild(path);
+    ] };
+    for (const [name, paths] of Object.entries(frames)) {
+      const frame = document.createElementNS("http://www.w3.org/2000/svg", "g");
+      frame.setAttribute("data-dream-motion-eyelid", name);
+      for (const [fill, d] of paths) {
+        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        path.setAttribute("fill", fill); path.setAttribute("d", d); frame.appendChild(path);
+      }
+      svg.appendChild(frame);
     }
-    svg.appendChild(frame);
     return svg;
   };
   const hideDecorations = () => {

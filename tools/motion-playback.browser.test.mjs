@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
-import {mkdtemp, rm, writeFile} from 'node:fs/promises';
+import {mkdtemp, realpath, rm, writeFile} from 'node:fs/promises';
 import {createRequire} from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import {loadPayload} from '../windows/scripts/injector.mjs';
+import {readMotionSettings} from '../windows/assets/motion-settings.mjs';
 
 // This suite deliberately loads the shipped Windows payload, including its
 // cascade and material-specific sheets. DOM/controller mocks cannot detect a
@@ -27,7 +28,10 @@ const fixture = `<!doctype html><html><head><title>Dream Skin motion playback fi
 
 async function launch(t, material = 'system') {
   const {chromium} = createRequire(import.meta.url)(process.env.PLAYWRIGHT_MODULE_PATH || 'playwright');
-  const directory = await mkdtemp(path.join(os.tmpdir(), 'dream-motion-browser-'));
+  // Windows runners may expose TEMP with an 8.3 alias. The production reader
+  // deliberately rejects redirected/noncanonical ancestors, so hand it the
+  // canonical spelling of our own fixture directory rather than weakening it.
+  const directory = await realpath(await mkdtemp(path.join(os.tmpdir(), 'dream-motion-browser-')));
   t.after(() => rm(directory, {recursive:true, force:true}));
   const browser = await chromium.launch({headless:true,
     ...(process.env.DREAM_SKIN_BROWSER_EXECUTABLE ? {executablePath:process.env.DREAM_SKIN_BROWSER_EXECUTABLE} : {})});
@@ -44,9 +48,17 @@ async function launch(t, material = 'system') {
   const preferences = path.join(directory, 'motion.json');
   const install = async (value = settings()) => {
     await writeFile(preferences, JSON.stringify(value));
+    assert.deepEqual(await readMotionSettings(preferences), value,
+      'the fixture preferences must pass the same strict reader used by the injector');
     const loaded = await loadPayload(undefined, null, material, {motionSettingsPath:preferences});
+    assert.equal(loaded.motionSettingsRejected, false, 'fixture preferences must not fall back to motion off');
+    assert.deepEqual(loaded.motionSettings, value, 'the assembled payload must use the requested fixture preferences');
     await page.evaluate(loaded.payload);
     await page.waitForFunction(() => window.__CODEX_DREAM_SKIN_MOTION_STATE__);
+    const actual = await page.evaluate(() => ({mode:window.__CODEX_DREAM_SKIN_MOTION_STATE__.inspect().mode,
+      reduced:matchMedia('(prefers-reduced-motion: reduce)').matches}));
+    const expected = actual.reduced || value.mode === 'off' ? 'off' : value.mode === 'full' ? 'full' : 'subtle';
+    assert.equal(actual.mode, expected, 'the renderer must resolve the requested mode before playback assertions');
     return loaded;
   };
   await install();
@@ -127,7 +139,7 @@ async function assertAcrylicComposition(page, active) {
 }
 
 async function assertWallpaperBlinkPaints(page, material) {
-  const eyelid = `${role('background-character')} [data-dream-motion-eyelid]`;
+  const eyelid = `${role('background-character')} [data-dream-motion-eyelid="closed"]`;
   await page.waitForFunction(() => document.querySelector('[data-dream-motion-role="background-character"]')
     ?.getAttribute('data-dream-motion-art-visible') === 'true');
   if (material === 'acrylic') await assertAcrylicComposition(page, true);
@@ -135,25 +147,38 @@ async function assertWallpaperBlinkPaints(page, material) {
   // composited eye region. A CSS property changing behind an opaque native
   // panel must fail this pixel comparison.
   await page.evaluate(() => {for (const animation of document.getAnimations()) animation.pause();});
-  await page.locator(eyelid).evaluate(async (node) => {
-    const animation = node.getAnimations().find((entry) => entry.animationName === 'dream-motion-wallpaper-blink');
-    await animation.ready;
-    animation.currentTime = 0;
-  });
+  const seekBlink = async (time) => page.locator(role('background-character')).evaluate(async (node, time) => {
+    const animations = node.getAnimations({subtree:true}).filter((entry) => /^dream-motion-wallpaper-blink(?:-half)?$/.test(entry.animationName));
+    if (animations.length !== 2) throw new Error('The inherited blink requires both half and closed frame timelines');
+    await Promise.all(animations.map((animation) => animation.ready));
+    for (const animation of animations) animation.currentTime = time;
+  }, time);
+  await seekBlink(0);
   const evidence = process.env.DREAM_SKIN_MOTION_EVIDENCE;
   const open = await page.locator(role('background-character')).screenshot(evidence ? {path:path.join(evidence, `${material}-wallpaper-open.png`)} : {});
   if (evidence) await page.screenshot({path:path.join(evidence, `${material}-wallpaper-open-scene.png`)});
-  await page.locator(eyelid).evaluate((node) => {
-    node.getAnimations().find((entry) => entry.animationName === 'dream-motion-wallpaper-blink').currentTime = 3000;
-  });
+  // Keep the inherited short gesture with a halved 5.7s interval: half at
+  // 87..87.6%, closed at 87.8..90.2%, then half again at 90.4..91%.
+  // Seek both frame animations together so an
+  // independently frozen frame cannot accidentally satisfy the pixel proof.
+  await seekBlink(4975);
+  const half = await page.locator(role('background-character')).screenshot(evidence ? {path:path.join(evidence, `${material}-wallpaper-half.png`)} : {});
+  if (evidence) await page.screenshot({path:path.join(evidence, `${material}-wallpaper-half-scene.png`)});
+  await seekBlink(5073);
   const closed = await page.locator(role('background-character')).screenshot(evidence ? {path:path.join(evidence, `${material}-wallpaper-closed.png`)} : {});
   if (evidence) await page.screenshot({path:path.join(evidence, `${material}-wallpaper-closed-scene.png`)});
   assert.ok(!open.equals(closed), 'the actual wallpaper eye pixels must change between open and closed frames');
-  const before = await page.locator(eyelid).evaluate((node) => {
-    const animation = node.getAnimations().find((entry) => entry.animationName === 'dream-motion-wallpaper-blink');
-    animation.currentTime = 2980;
-    const paint = [getComputedStyle(node).opacity];
-    animation.play();
+  assert.ok(!open.equals(half), 'the inherited half-closed frame must visibly change the original eyes');
+  assert.ok(!half.equals(closed), 'the half-closed and fully closed frames must paint distinct eye shapes');
+  await seekBlink(5175);
+  const reopening = await page.locator(role('background-character')).screenshot();
+  assert.ok(reopening.equals(half), 'the inherited opening half-frame must match its closing half-frame');
+  const before = await page.locator(role('background-character')).evaluate((node) => {
+    const animations = node.getAnimations({subtree:true}).filter((entry) => /^dream-motion-wallpaper-blink(?:-half)?$/.test(entry.animationName));
+    for (const animation of animations) animation.currentTime = 5073;
+    const animation = animations.find((entry) => entry.animationName === 'dream-motion-wallpaper-blink');
+    const paint = [getComputedStyle(node.querySelector('[data-dream-motion-eyelid="closed"]')).opacity];
+    for (const timeline of animations) timeline.play();
     return {time:animation.currentTime, state:animation.playState, visible:true, paint};
   });
   await assertPlaying(page, eyelid, 'dream-motion-wallpaper-blink', ['opacity'], null, before);
@@ -179,7 +204,7 @@ for (const material of ['system', 'acrylic']) {
     await page.setViewportSize({width:1600,height:1000});
     await page.waitForFunction(() => document.querySelector('[data-dream-motion-role="background-character"]')
       ?.getAttribute('data-dream-motion-art-visible') === 'false');
-    assert.equal(await page.locator(`${role('background-character')} [data-dream-motion-eyelid]`)
+    assert.equal(await page.locator(`${role('background-character')} [data-dream-motion-eyelid="closed"]`)
       .evaluate((node) => getComputedStyle(node).animationPlayState), 'paused');
     if (material === 'acrylic') await assertAcrylicComposition(page, false);
     await page.setViewportSize({width:1280,height});
@@ -238,6 +263,38 @@ for (const material of ['system', 'acrylic']) {
     const {page} = await launch(t, material);
     await assertPlaying(page, role('character'), 'dream-motion-character', ['translate']);
     await assertPlaying(page, role('ambient'), 'dream-motion-ambient', ['opacity']);
+    await assertPlaying(page, role('ambient'), 'dream-signal-pulse', ['opacity', 'translate'], '::before');
+    await assertPlaying(page, `${role('ambient')} > [data-dream-motion-index="1"]`,
+      'dream-chat-drift', ['opacity', 'translate'], '::after');
+    await assertPlaying(page, `${role('ambient')} > [data-dream-motion-index="0"]`,
+      'dream-record-spin', ['rotate'], '::before');
+    await assertPlaying(page, `${role('ambient')} > [data-dream-motion-index="0"]`,
+      'dream-equalizer', ['transform'], '::after');
+    await assertPlaying(page, role('ambient'), 'dream-heartbeat-scan', ['opacity'], '::after');
+    await assertPlaying(page, role('character'), 'dream-angel-orbit-spin', ['rotate'], '::before');
+    assert.equal(await page.evaluate(() => {
+      const ambient = document.querySelector('[data-dream-motion-role="ambient"]');
+      const bounds = ambient.getBoundingClientRect();
+      const within = (node, pseudo, maxScale = 1, rotating = false) => {
+        const box = node.getBoundingClientRect(), style = getComputedStyle(node, pseudo);
+        const width = parseFloat(style.width), height = parseFloat(style.height);
+        const x = box.left - bounds.left + parseFloat(style.left), y = box.top - bounds.top + parseFloat(style.top);
+        if (rotating) {
+          const radius = Math.hypot(width, height) / 2;
+          return x + width / 2 - radius >= 0 && y + height / 2 - radius >= 0
+            && x + width / 2 + radius <= bounds.width && y + height / 2 + radius <= bounds.height;
+        }
+        return x >= 0 && y - (maxScale - 1) * height >= 0
+          && x + width <= bounds.width && y + height <= bounds.height;
+      };
+      const star = ambient.querySelector('[data-dream-motion-index="0"]');
+      return within(ambient, '::before') && within(ambient, '::after')
+        && within(star, '::before', 1, true) && within(star, '::after', 1.5);
+    }), true, 'migrated broadcast animations fit inside the existing collision-checked envelope throughout playback');
+    if (process.env.DREAM_SKIN_MOTION_EVIDENCE) {
+      await page.locator(role('ambient')).screenshot({path:path.join(process.env.DREAM_SKIN_MOTION_EVIDENCE, `${material}-compact-broadcast.png`)});
+      await page.screenshot({path:path.join(process.env.DREAM_SKIN_MOTION_EVIDENCE, `${material}-compact-broadcast-scene.png`)});
+    }
     await beginTask(page);
     await assertPlaying(page, role('status'), 'dream-motion-signal', ['opacity', 'scale'], '::after');
     await assertPlaying(page, '#native-spinner', 'native-fixture-spin', ['transform']);

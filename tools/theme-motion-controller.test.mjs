@@ -544,6 +544,30 @@ function wallpaperFixture() {
   return page;
 }
 
+test("shared half/closed eyelids preserve the legacy pixel artwork", async () => {
+  const legacy = await fs.readFile(new URL("../windows/assets/renderer-inject.js", import.meta.url), "utf8");
+  const page = wallpaperFixture(); page.install(wallpaperConfig());
+  const art = motionRole(page, "background-character");
+  assert.equal(art.querySelectorAll("[data-dream-motion-eyelid]").length, 2);
+  for (const name of ["half", "closed"]) {
+    const start = legacy.indexOf(`<g class="dream-blink-frame dream-blink-${name}">`);
+    const end = name === "half" ? legacy.indexOf('<g class="dream-blink-frame dream-blink-closed">', start) : legacy.indexOf("</svg>", start);
+    assert.ok(start > 0 && end > start);
+    const original = legacy.slice(start, end);
+    const frame = art.querySelector(`[data-dream-motion-eyelid="${name}"]`);
+    const paths = frame.querySelectorAll("path");
+    assert.deepEqual(paths.slice(0, 2).map((path) => path.getAttribute("d")),
+      [...original.matchAll(/<path class="dream-blink-pixel-skin" d="([^"]+)"/g)].map((match) => match[1]));
+    const originalPixels = [...original.matchAll(/<rect x="(\d+)" y="(\d+)" width="(\d+)" height="(\d+)"/g)]
+      .map((match) => match.slice(1));
+    const sharedPixels = [...paths[2].getAttribute("d").matchAll(/M(\d+) (\d+)h(\d+)v(\d+)h-\d+z/g)]
+      .map((match) => match.slice(1));
+    assert.ok(originalPixels.length > 0);
+    assert.deepEqual(sharedPixels, originalPixels, `${name} eyelashes retain every original pixel rectangle`);
+  }
+  page.state.cleanup();
+});
+
 test("wallpaper eyelids are bound to the shipped JPEG and follow its fixed-cover geometry on each platform", async () => {
   const bytes = await fs.readFile(new URL("../windows/assets/dream-reference.jpg", import.meta.url));
   assert.equal(createHash("sha256").update(bytes).digest("hex").slice(0, 20), wallpaperConfig().artKey);
