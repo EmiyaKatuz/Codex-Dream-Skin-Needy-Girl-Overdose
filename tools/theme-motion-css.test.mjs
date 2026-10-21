@@ -37,9 +37,9 @@ test("native composer pseudo-elements and content geometry are not motion surfac
   assert.doesNotMatch(css, /\bwill-change\s*:/, "No permanent compositor promotion");
 });
 
-test("three full-mode timelines are bounded by role, route, state and pause", () => {
+test("shared full-mode timelines are bounded by role, route, state and pause", () => {
   const loops = leafRules.filter(({ body }) => /animation\s*:[^;]*\binfinite\b/.test(body));
-  assert.equal(loops.length, 3, "Home has only status, character and ambient channels");
+  assert.equal(loops.length, 11, "Shared motion is bounded to five base timelines and six compact legacy details");
   for (const { selector, body } of loops) {
     assert.ok(selector.includes('[data-dream-motion="full"]'));
     assert.ok(selector.includes('[data-dream-motion-paused="false"]'));
@@ -56,6 +56,34 @@ test("three full-mode timelines are bounded by role, route, state and pause", ()
   for (const { selector, body } of leafRules.filter(({ selector }) => /^(?:from|to|[\d%, ]+)$/.test(selector))) {
     assert.doesNotMatch(body, /(?:filter|box-shadow|backdrop-filter|background-position|height|width)\s*:/,
       `Keyframes must not continuously repaint expensive native surfaces: ${selector}`);
+  }
+});
+
+test("shared eyelids halve the interval while preserving original half/closed gesture durations", () => {
+  const legacy = read("windows/assets/dream-skin.css");
+  const frames = (sheet, name) => sheet.match(new RegExp(`@keyframes ${name}\\s*\\{((?:[^{}]|\\{[^{}]*\\})*)\\}`))?.[1].replace(/\s/g, "");
+  const points = (frames) => [...frames.matchAll(/([\d%,.]+)\{opacity:([01]);\}/g)]
+    .flatMap((match) => match[1].split(",").map((value) => [parseFloat(value), Number(match[2])]))
+    .filter(([time]) => time > 0 && time < 100).sort((a, b) => a[0] - b[0]);
+  for (const [original, shared] of [["dream-choten-blink-half", "dream-motion-wallpaper-blink-half"],
+    ["dream-choten-blink-closed", "dream-motion-wallpaper-blink"]]) {
+    assert.ok(frames(legacy, original));
+    const originalDuration = Number(legacy.match(new RegExp(`animation:\\s*${original} ([\\d.]+)s`))?.[1]);
+    const rule = leafRules.find(({body}) => body.includes(`animation: ${shared} `));
+    const sharedDuration = Number(rule.body.match(/animation:\s*\S+ ([\d.]+)s/)?.[1]);
+    assert.equal(sharedDuration, originalDuration / 2, "the interval must be exactly 50% shorter");
+    const before = points(frames(legacy, original)), after = points(frames(css, shared));
+    assert.equal(after.length, before.length);
+    assert.ok(after.length > 1);
+    for (let index = 0; index < before.length; index += 1) {
+      assert.equal(after[index][1], before[index][1]);
+      if (index === 0) continue;
+      assert.ok(Math.abs((after[index][0] - after[index - 1][0]) * sharedDuration
+        - (before[index][0] - before[index - 1][0]) * originalDuration) < .00001,
+      "half and closed phases must retain their original durations");
+    }
+    assert.match(rule.body, /5\.7s steps\(1, end\) infinite/);
+    assert.match(rule.body, /animation-play-state:\s*paused/);
   }
 });
 

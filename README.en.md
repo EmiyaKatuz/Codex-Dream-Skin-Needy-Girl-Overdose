@@ -13,11 +13,11 @@
   <img src="windows/assets/dream-reference.jpg" alt="INTERNET ANGEL theme background" width="900">
 </p>
 
-> Current version: `1.7.4`. Windows, macOS, and Linux share the same INTERNET ANGEL component classifier, overlay, and animation runtime.
+> Current version: `1.8.0`. Windows, macOS, and Linux share the same INTERNET ANGEL component classifier, overlay, and animation runtime.
 
 This independent fork builds on [Fei-Away/Codex-Dream-Skin](https://github.com/Fei-Away/Codex-Dream-Skin). Its focus is the INTERNET ANGEL visual system, cross-platform parity, launcher compatibility, and clear security boundaries.
 
-v1.7.4 fixes running animations remaining hidden when sidebars and diff panes occupy the window edges. Decorations now search additional interior gaps while avoiding native content, controls, and each other. See the [release notes](docs/releases/v1.7.4-en.md).
+v1.8.0 adds blinking to the bundled wallpaper character and fixes shared styles freezing existing decorative animations in Full mode. Choose Full under Motion effects and enable character motion to use the new animation on Home; the system reduced-motion setting still takes precedence. See the [release notes](docs/releases/v1.8.0-en.md).
 
 New in v1.6.0: unified motion settings. macOS Theme → Motion, the Windows tray Motion menu, and the Linux settings command offer System / Off / Subtle / Full modes and five effect switches. Effects include task and tool feedback, an independent pixel character, project arrival feedback and small star parallax. Decorations yield during scrolling, modal dialogs and crowded layouts. See the [motion system guide](docs/theme-motion.md) for behavior and verification limits.
 

@@ -17,20 +17,156 @@ html:root[data-dream-motion] {
   html:root[data-dream-motion="full"] { --ds-theme-motion-level: full !important; }
 }
 
-/* The old decorative timelines are replaced by the three bounded channels
-   below. These IDs contain skin-owned art only, never native spinners. The
-   precise SVG selector also retires Linux's costly per-subagent glow loop. */
-html:root[data-dream-motion] :is(#codex-dream-skin-chrome, #chatgpt-internet-angel-hud, #chatgpt-internet-angel-sidebar, #codex-dream-sidebar-ornaments),
-html:root[data-dream-motion] :is(#codex-dream-skin-chrome, #chatgpt-internet-angel-hud, #chatgpt-internet-angel-sidebar, #codex-dream-sidebar-ornaments) *,
-html:root[data-dream-motion] :is(#codex-dream-skin-chrome, #chatgpt-internet-angel-hud, #chatgpt-internet-angel-sidebar, #codex-dream-sidebar-ornaments) *::before,
-html:root[data-dream-motion] :is(#codex-dream-skin-chrome, #chatgpt-internet-angel-hud, #chatgpt-internet-angel-sidebar, #codex-dream-sidebar-ornaments) *::after,
+/* The existing broadcast decorations keep their original timelines in a
+   visible, full-mode Home scene. Their platform layout rules still decide
+   which decorations fit; enabling motion never overrides those rules. These
+   IDs contain only owned artwork, never native progress indicators. */
+html:root[data-dream-motion]:not([data-dream-motion="full"][data-dream-motion-paused="false"][data-dream-motion-route="home"][data-dream-motion-ambient="on"]) :is(#codex-dream-skin-chrome, #chatgpt-internet-angel-hud, #chatgpt-internet-angel-sidebar, #codex-dream-sidebar-ornaments),
+html:root[data-dream-motion]:not([data-dream-motion="full"][data-dream-motion-paused="false"][data-dream-motion-route="home"][data-dream-motion-ambient="on"]) :is(#codex-dream-skin-chrome, #chatgpt-internet-angel-hud, #chatgpt-internet-angel-sidebar, #codex-dream-sidebar-ornaments) *,
+html:root[data-dream-motion]:not([data-dream-motion="full"][data-dream-motion-paused="false"][data-dream-motion-route="home"][data-dream-motion-ambient="on"]) :is(#codex-dream-skin-chrome, #chatgpt-internet-angel-hud, #chatgpt-internet-angel-sidebar, #codex-dream-sidebar-ornaments) *::before,
+html:root[data-dream-motion]:not([data-dream-motion="full"][data-dream-motion-paused="false"][data-dream-motion-route="home"][data-dream-motion-ambient="on"]) :is(#codex-dream-skin-chrome, #chatgpt-internet-angel-hud, #chatgpt-internet-angel-sidebar, #codex-dream-sidebar-ornaments) *::after,
+/* The costly per-subagent filter/shadow loop stays retired in every mode. */
 html:root[data-dream-motion] :is(.dream-subagent-row-live, .dream-subagent-scroller > section:first-child > [class~="relative"][class~="z-10"] > button[class~="items-start"]) > svg:first-child {
   animation: none !important;
 }
 
-/* A stopped eyelid timeline must not leave a closed frame over the wallpaper. */
+/* Wallpaper animation belongs to the artwork-verified shared character layer.
+   Retire the old Chrome eyelids so they cannot duplicate that layer, or leave
+   a stopped closed frame over a different imported wallpaper. */
 html:root[data-dream-motion] #codex-dream-skin-chrome .dream-blink-frame {
+  animation: none !important;
   opacity: 0 !important;
+}
+
+/* The preserved wallpaper orbit follows the character preference too. */
+html:root[data-dream-motion][data-dream-motion-character="off"] #codex-dream-skin-chrome .dream-angel-face-orbit {
+  display: none !important;
+}
+
+html:root[data-dream-motion][data-dream-motion-character="off"] #codex-dream-skin-chrome .dream-angel-face-orbit::before {
+  animation: none !important;
+}
+
+/* Keep restored Windows decoration loops on small opacity/transform surfaces;
+   their old keyframes also animated layout or brightness filters. */
+@keyframes dream-chat-drift {
+  0%, 100% { translate: 0 0; opacity: .42; }
+  50% { translate: 0 -3px; opacity: .72; }
+}
+@keyframes dream-signal-pulse {
+  0%, 100% { opacity: .44; }
+  50% { opacity: .82; }
+}
+@keyframes angel-signal {
+  0%, 100% { opacity: .42; }
+  50% { opacity: .82; }
+}
+@keyframes dream-heartbeat-scan {
+  0%, 100% { opacity: .52; }
+  42% { opacity: 1; }
+}
+
+/* Also stop legacy timelines during the media-query/controller change race. */
+@media (prefers-reduced-motion: reduce) {
+  html:root[data-dream-motion] :is(#codex-dream-skin-chrome, #chatgpt-internet-angel-hud, #chatgpt-internet-angel-sidebar, #codex-dream-sidebar-ornaments),
+  html:root[data-dream-motion] :is(#codex-dream-skin-chrome, #chatgpt-internet-angel-hud, #chatgpt-internet-angel-sidebar, #codex-dream-sidebar-ornaments) *,
+  html:root[data-dream-motion] :is(#codex-dream-skin-chrome, #chatgpt-internet-angel-hud, #chatgpt-internet-angel-sidebar, #codex-dream-sidebar-ornaments) *::before,
+  html:root[data-dream-motion] :is(#codex-dream-skin-chrome, #chatgpt-internet-angel-hud, #chatgpt-internet-angel-sidebar, #codex-dream-sidebar-ornaments) *::after {
+    animation: none !important;
+  }
+}
+
+/* Restore the v1.3.4 broadcast signal and floating +1 reaction (c83abd7) in
+   the modern Home's existing collision-checked 68x104 ambient box. The old
+   viewport coordinates stay retired; both shapes and their motion fit inside
+   that box, including the reaction's 3px upward drift. */
+html:root[data-dream-motion="full"][data-dream-motion-paused="false"][data-dream-motion-ambient="on"][data-dream-motion-route="home"] [data-dream-motion-owned][data-dream-motion-role="ambient"]::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 20px;
+  width: 5px;
+  height: 64px;
+  background: linear-gradient(180deg, var(--dream-motion-accent), var(--dream-motion-attention));
+  clip-path: polygon(42% 0, 58% 0, 58% 17%, 100% 20%, 58% 23%, 58% 38%, 0 42%, 58% 46%, 58% 63%, 100% 68%, 58% 72%, 58% 100%, 42% 100%, 42% 73%, 0 68%, 42% 62%, 42% 47%, 0 42%, 42% 37%, 42% 24%, 0 20%, 42% 16%);
+  animation: dream-signal-pulse 2.4s steps(2, end) infinite;
+}
+
+html:root[data-dream-motion="full"][data-dream-motion-paused="false"][data-dream-motion-ambient="on"][data-dream-motion-route="home"] [data-dream-motion-owned][data-dream-motion-role="ambient"] > span[data-dream-motion-index="1"]::after {
+  content: "+1";
+  position: absolute;
+  left: -27px;
+  top: 20px;
+  width: 24px;
+  height: 14px;
+  box-sizing: border-box;
+  border: 1px solid currentColor;
+  border-radius: 2px;
+  font: 760 9px/12px system-ui, sans-serif;
+  text-align: center;
+  animation: dream-chat-drift 5.6s steps(4, end) infinite;
+}
+
+/* Migrate the old music/heartbeat cards into the same reserved box. The
+   record, equalizer and trace use empty decoration pseudo-elements, leaving
+   the original stars and all native DOM/layout intact. */
+html:root[data-dream-motion="full"][data-dream-motion-paused="false"][data-dream-motion-ambient="on"][data-dream-motion-route="home"] [data-dream-motion-owned][data-dream-motion-role="ambient"] > span[data-dream-motion-index="0"]::before {
+  content: "";
+  position: absolute;
+  left: 18px;
+  top: 2px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: repeating-conic-gradient(var(--dream-motion-accent) 0 16deg, transparent 16deg 90deg);
+  mask: radial-gradient(circle, transparent 0 13%, #000 15% 28%, transparent 30% 52%, #000 54% 66%, transparent 68%);
+  animation: dream-record-spin 2.4s steps(12, end) infinite;
+}
+
+html:root[data-dream-motion="full"][data-dream-motion-paused="false"][data-dream-motion-ambient="on"][data-dream-motion-route="home"] [data-dream-motion-owned][data-dream-motion-role="ambient"] > span[data-dream-motion-index="0"]::after {
+  content: "";
+  position: absolute;
+  left: 30px;
+  top: 33px;
+  width: 16px;
+  height: 3px;
+  background: repeating-linear-gradient(90deg, var(--dream-motion-attention) 0 2px, transparent 2px 4px);
+  transform-origin: 50% 100%;
+  animation: dream-equalizer 1.6s steps(4, end) infinite;
+}
+
+html:root[data-dream-motion="full"][data-dream-motion-paused="false"][data-dream-motion-ambient="on"][data-dream-motion-route="home"] [data-dream-motion-owned][data-dream-motion-role="ambient"]::after {
+  content: "";
+  position: absolute;
+  left: 14px;
+  top: 80px;
+  width: 42px;
+  height: 10px;
+  background: var(--dream-motion-attention);
+  clip-path: polygon(0 44%, 25% 44%, 33% 0, 44% 80%, 54% 20%, 64% 44%, 100% 44%, 100% 58%, 61% 58%, 55% 45%, 43% 100%, 33% 30%, 28% 58%, 0 58%);
+  animation: dream-heartbeat-scan 2.8s steps(8, end) infinite;
+}
+
+/* The former wallpaper-sized orbit is now a small companion halo. Its full
+   rotated square fits the existing 80x76 character/status placement envelope. */
+html:root[data-dream-motion="full"][data-dream-motion-paused="false"][data-dream-motion-character="on"][data-dream-motion-route="home"] [data-dream-motion-owned][data-dream-motion-role="character"]::before {
+  content: "";
+  position: absolute;
+  left: 7px;
+  top: 7px;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: repeating-conic-gradient(var(--dream-motion-accent) 0 3deg, transparent 3deg 30deg, var(--dream-motion-attention) 30deg 33deg, transparent 33deg 60deg);
+  mask: radial-gradient(circle, transparent 0 61%, #000 63% 68%, transparent 70%);
+  animation: dream-angel-orbit-spin 28s linear infinite;
+}
+
+@keyframes dream-record-spin { to { rotate: 360deg; } }
+@keyframes dream-angel-orbit-spin { to { rotate: 360deg; } }
+@keyframes dream-equalizer {
+  0%, 100% { transform: scaleY(.55); }
+  50% { transform: scaleY(1.5); }
 }
 
 /* Shared parts work in generic/Acrylic payloads; extension markers and legacy
@@ -208,6 +344,57 @@ html:root[data-dream-motion]:not([data-dream-motion="off"])[data-dream-motion-pa
   animation: dream-motion-edge 200ms ease-out 1;
 }
 
+/* The wallpaper eyelids use the verified bundled image's fixed-cover geometry.
+   The controller hides them whenever either eye meets native content. A zero
+   stack level keeps the artwork above the body paint without moving any host.
+   Acrylic composites the image and eyelids together in the scene below. */
+html:root[data-dream-motion] [data-dream-motion-owned][data-dream-motion-role="background-character"] {
+  position: fixed;
+  z-index: 0;
+  visibility: hidden;
+}
+
+/* Replaces only the registered Acrylic wallpaper paint while eyes are clear.
+   One opacity group prevents the original irises showing through closed lids.
+   The native application remains above this owned background, without changes
+   to its stacking, transforms or event handling. */
+html:root[data-dream-motion] [data-dream-motion-owned][data-dream-motion-role="background-scene"] {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  visibility: hidden;
+}
+
+html:root[data-dream-motion="full"][data-dream-motion-paused="false"][data-dream-motion-character="on"][data-dream-motion-route="home"][data-dream-motion-wallpaper="acrylic"] body::before {
+  visibility: hidden !important;
+}
+
+html:root[data-dream-motion] [data-dream-motion-owned][data-dream-motion-role="background-character"] > svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  shape-rendering: crispEdges;
+}
+
+html:root[data-dream-motion] [data-dream-motion-owned][data-dream-motion-role="background-character"] [data-dream-motion-eyelid] {
+  opacity: 0;
+}
+
+html:root[data-dream-motion="full"][data-dream-motion-paused="false"][data-dream-motion-character="on"][data-dream-motion-route="home"] [data-dream-motion-owned][data-dream-motion-role="background-character"] [data-dream-motion-eyelid="closed"] {
+  animation: dream-motion-wallpaper-blink 5.7s steps(1, end) infinite;
+  animation-play-state: paused;
+}
+
+html:root[data-dream-motion="full"][data-dream-motion-paused="false"][data-dream-motion-character="on"][data-dream-motion-route="home"] [data-dream-motion-owned][data-dream-motion-role="background-character"] [data-dream-motion-eyelid="half"] {
+  animation: dream-motion-wallpaper-blink-half 5.7s steps(1, end) infinite;
+  animation-play-state: paused;
+}
+
+html:root[data-dream-motion="full"][data-dream-motion-paused="false"][data-dream-motion-character="on"][data-dream-motion-route="home"] [data-dream-motion-owned][data-dream-motion-role="background-character"][data-dream-motion-art-visible="true"] [data-dream-motion-eyelid] {
+  animation-play-state: running;
+}
+
 /* A self-contained pixel character is created only for the known built-in
    Angel theme. It never alters the face or eyes of a wallpaper photograph. */
 html:root[data-dream-motion] [data-dream-motion-owned][data-dream-motion-role="character"] {
@@ -283,8 +470,8 @@ html:root[data-dream-motion]:not([data-dream-motion="off"])[data-dream-motion-st
   --dream-motion-accent: var(--dream-motion-attention);
 }
 
-/* Three static stars share ONE low-frequency timeline. Together with the
-   character and status this caps Home at three continuous channels. */
+/* Three static stars share ONE low-frequency timeline. The wallpaper's two
+   synchronized eyelid frames, character badge and status remain bounded. */
 html:root[data-dream-motion] [data-dream-motion-owned][data-dream-motion-role="ambient"] {
   position: fixed;
   top: 22vh;
@@ -332,6 +519,16 @@ html:root[data-dream-motion]:not([data-dream-motion="off"])[data-dream-motion-pa
 @keyframes dream-motion-signal { 0%, 100% { opacity: .25; scale: .8; } 50% { opacity: .7; scale: 1.1; } }
 @keyframes dream-motion-result { 0% { opacity: .85; scale: .8; } 100% { opacity: 0; scale: 1.5; } }
 @keyframes dream-motion-character { 0%, 100% { translate: 0 0; } 50% { translate: 0 -2px; } }
+/* Original v1.3.4 gesture, with half the interval. Rescaled percentages retain
+   the original half/closed durations instead of making the blink twice as fast. */
+@keyframes dream-motion-wallpaper-blink-half {
+  0%, 86.8%, 87.8%, 90.2%, 91.2%, 100% { opacity: 0; }
+  87%, 87.6%, 90.4%, 91% { opacity: 1; }
+}
+@keyframes dream-motion-wallpaper-blink {
+  0%, 87.6%, 90.4%, 100% { opacity: 0; }
+  87.8%, 90.2% { opacity: 1; }
+}
 @keyframes dream-motion-greeting { 0%, 100% { scale: 1; } 45% { scale: 1.08; } }
 @keyframes dream-motion-nod { 0%, 100% { translate: 0 0; } 45% { translate: 0 1px; } }
 @keyframes dream-motion-icon-press { 0%, 100% { translate: 0 0; } 40% { translate: 0 1px; } }

@@ -77,6 +77,8 @@
   let anchorVisible = true;
   let statusNode = null;
   let characterNode = null;
+  let backgroundCharacterNode = null;
+  let backgroundSceneNode = null;
   let ambientNode = null;
   let snapshot = null;
   let generation = 0;
@@ -95,6 +97,8 @@
   const seen = new Set(handoff?.session?.routeKey === currentRouteKey ? handoff.session.seen : []);
   const seenNodes = new WeakSet();
   const media = safeCall(() => window.matchMedia("(prefers-reduced-motion: reduce)"));
+  const transparencyMedia = safeCall(() => window.matchMedia("(prefers-reduced-transparency: reduce)"));
+  const forcedColorsMedia = safeCall(() => window.matchMedia("(forced-colors: active)"));
   const metrics = { scans: 0, visitedNodes: 0, refreshes: 0, stateChanges: 0, feedbacks: 0,
     ignoredMutations: 0, droppedNodes: 0, snapshotsPrepared: 0, snapshotsSkipped: 0 };
   const matches = (node, selector) => safeCall(() => node.matches(selector), false);
@@ -253,8 +257,42 @@
     }
     return svg;
   };
+  // These eyelids are registered to the bundled JPEG, not to a theme name.
+  // Replacing its image must never paint a face onto unrelated artwork.
+  const hasCharacterArtwork = () => config.artKey === "4858200d0c5714091d3d"
+    && config.artMetadata?.width === 2560 && config.artMetadata?.height === 1440;
+  const wallpaperCharacter = () => {
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("viewBox", "0 0 220 104");
+    svg.setAttribute("preserveAspectRatio", "none");
+    svg.setAttribute("aria-hidden", "true");
+    svg.setAttribute("focusable", "false");
+    // Preserve v1.3.4's hand-authored half/closed pixel frames. Their original
+    // gesture now shares the controller's verified projection and lifecycle.
+    const frames = { half: [
+      ["#b5a8d3", "M23 27H47V29H55V31H59V33H63V35H67V39H69V43H71V47H73V49H69V47H63V49H57V51H47V49H39V47H33V45H29V43H25V39H21V35H19V31H17V29H21V27Z"],
+      ["#b5a8d3", "M151 33H173V35H181V37H187V39H191V41H195V43H199V45H201V49H197V47H189V49H181V51H173V53H159V51H151V49H143V47H137V45H131V43H127V41H129V39H133V37H143V35H151Z"],
+      ["#281277", "M19 31h4v4h-4zM23 35h6v4h-6zM29 39h6v4h-6zM35 43h6v4h-6zM41 47h8v4h-8zM49 49h8v4h-8zM57 51h6v4h-6zM63 49h6v4h-6zM69 47h4v4h-4zM127 41h4v4h-4zM131 43h6v4h-6zM137 45h6v4h-6zM143 47h8v4h-8zM151 49h8v4h-8zM159 51h14v4h-14zM173 53h8v4h-8zM181 51h8v4h-8zM189 49h8v4h-8zM197 47h4v4h-4z"],
+    ], closed: [
+      ["#b5a8d3", "M23 27H47V29H55V31H59V33H63V35H67V39H69V43H71V47H73V61H71V67H69V71H67V75H65V79H61V81H55V79H51V75H47V71H43V67H39V63H35V59H33V55H31V51H29V47H27V43H23V39H21V35H19V31H17V29H21V27Z"],
+      ["#b5a8d3", "M151 33H173V35H181V37H187V39H191V41H195V43H199V45H201V49H199V57H199V61H197V65H195V69H193V73H189V77H185V81H181V83H177V85H163V83H157V81H153V77H147V73H141V69H139V65H137V61H133V57H133V53H131V49H129V45H127V41H127V39H129V37H133V35H143V33Z"],
+      ["#281277", "M19 39h4v4h-4zM23 43h6v4h-6zM29 47h6v4h-6zM35 51h6v4h-6zM41 55h8v4h-8zM49 59h8v4h-8zM57 61h6v4h-6zM63 59h6v4h-6zM69 55h4v4h-4zM127 47h4v4h-4zM131 49h6v4h-6zM137 53h6v4h-6zM143 57h8v4h-8zM151 61h8v4h-8zM159 65h18v4h-18zM177 63h8v4h-8zM185 59h8v4h-8zM193 55h8v4h-8z"],
+    ] };
+    for (const [name, paths] of Object.entries(frames)) {
+      const frame = document.createElementNS("http://www.w3.org/2000/svg", "g");
+      frame.setAttribute("data-dream-motion-eyelid", name);
+      for (const [fill, d] of paths) {
+        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        path.setAttribute("fill", fill); path.setAttribute("d", d); frame.appendChild(path);
+      }
+      svg.appendChild(frame);
+    }
+    return svg;
+  };
   const hideDecorations = () => {
-    for (const node of [statusNode, characterNode, ambientNode]) node?.style.setProperty("visibility", "hidden");
+    for (const node of [statusNode, characterNode, ambientNode, backgroundCharacterNode, backgroundSceneNode]) node?.style.setProperty("visibility", "hidden");
+    if (backgroundCharacterNode) attr(backgroundCharacterNode, `${PREFIX}art-visible`, "false");
+    root.removeAttribute(`${PREFIX}wallpaper`);
   };
   const placeDecorations = () => {
     hideDecorations();
@@ -289,6 +327,71 @@
       }
       return true;
     };
+    if (backgroundCharacterNode) {
+      let style = safeCall(() => getComputedStyle(document.body));
+      const source = artSource();
+      let opacity = 1;
+      let stack = 0;
+      let registered = source && style?.backgroundImage === `url("${source}")`
+        && style.backgroundAttachment === "fixed";
+      // Windows Acrylic paints the same image inside a fixed translucent
+      // body pseudo-element. The wallpaper and eyelids must blend together
+      // BEFORE this opacity; two separate translucent layers leave ghost eyes.
+      if (!registered && config.platform === "windows" && source && style?.backgroundImage === "none") {
+        const layer = safeCall(() => getComputedStyle(document.body, "::before"));
+        const alpha = Number(layer?.opacity);
+        if (layer?.display !== "none" && layer?.position === "fixed" && ["left", "right", "top", "bottom"].every((key) => layer[key] === "0px")
+          && layer.backgroundImage?.endsWith(`, url("${source}")`)
+          && (layer.backgroundImage.match(/url\(/g) || []).length === 1
+          && Number.isFinite(alpha) && alpha > 0 && alpha <= 1) {
+          style = layer; opacity = alpha; stack = -1; registered = true;
+        }
+      }
+      const lastLayer = (value) => typeof value === "string" ? value.split(",").at(-1).trim() : "";
+      const percent = (value) => /^-?\d+(?:\.\d+)?%$/.test(value || "") ? Number.parseFloat(value) / 100 : null;
+      const focusX = percent(lastLayer(style?.backgroundPositionX));
+      const focusY = percent(lastLayer(style?.backgroundPositionY));
+      // Other layered/custom backgrounds have no registered projection.
+      if (registered && lastLayer(style?.backgroundSize) === "cover"
+        && focusX !== null && focusY !== null) {
+        const viewportWidth = root.clientWidth || innerWidth;
+        const viewportHeight = root.clientHeight || innerHeight;
+        const scale = Math.max(viewportWidth / 2560, viewportHeight / 1440);
+        const width = 2560 * scale, height = 1440 * scale;
+        const x = (viewportWidth - width) * focusX + width * .582;
+        const y = (viewportHeight - height) * focusY + height * .351;
+        const w = width * .132, h = height * .107;
+        // Keep the same 6px collision grid as other decorations. At extremely
+        // large sizes an exhausted budget hides the eyes instead of leaving
+        // gaps wide enough to miss a small native control.
+        const eyes = [[17, 27, 58, 56], [125, 31, 78, 56]].map(([ex, ey, ew, eh]) => ({
+          x: x + ex / 220 * w, y: y + ey / 104 * h, width: ew / 220 * w, height: eh / 104 * h,
+        }));
+        const reserved = (statusNode || characterNode ? 182 : 0) + (ambientNode ? 247 : 0);
+        const eyeBudget = 1600 - reserved;
+        const eyeSamples = eyes.reduce((sum, eye) => sum + (Math.floor(eye.width / 6) + 1) * (Math.floor(eye.height / 6) + 1), 0);
+        if (eyeSamples <= eyeBudget && eyes.every((eye) => free(eye.x, eye.y, eye.width, eye.height, eyeBudget))) {
+          for (const [name, value] of [["left", x], ["top", y], ["width", w], ["height", h]]) {
+            backgroundCharacterNode.style.setProperty(name, `${value.toFixed(2)}px`);
+          }
+          if (stack === -1) {
+            backgroundSceneNode ||= makeOwned("background-scene");
+            if (backgroundCharacterNode.parentElement !== backgroundSceneNode) backgroundSceneNode.appendChild(backgroundCharacterNode);
+            for (const [name, value] of [["background-image", style.backgroundImage],
+              ["background-position-x", style.backgroundPositionX], ["background-position-y", style.backgroundPositionY],
+              ["background-size", style.backgroundSize], ["background-repeat", style.backgroundRepeat || "no-repeat"],
+              ["opacity", String(opacity)], ["visibility", "visible"]]) backgroundSceneNode.style.setProperty(name, value);
+            attr(root, `${PREFIX}wallpaper`, "acrylic");
+          } else if (backgroundSceneNode) {
+            document.body.appendChild(backgroundCharacterNode);
+            backgroundSceneNode = removeOwned(backgroundSceneNode);
+          }
+          backgroundCharacterNode.style.setProperty("visibility", "visible");
+          attr(backgroundCharacterNode, `${PREFIX}art-visible`, "true");
+          occupied.push(...eyes);
+        }
+      }
+    }
     const findPlacement = (preferred, width, height, limit = 1600) => {
       // Sidebars and diff panes can occupy every viewport edge. Check a small
       // interior grid as well, with the same content exclusions and budget.
@@ -307,7 +410,7 @@
     if (statusNode || characterNode) {
       // Reserve enough of the shared 1600 samples for an ambient rectangle.
       const placement = findPlacement([[innerWidth - 92, innerHeight - 92], [innerWidth - 92, 68],
-        [innerWidth - 92, Math.floor(innerHeight / 2) - 4], [12, innerHeight - 92]], 80, 76, ambientNode ? 1200 : 1600);
+        [innerWidth - 92, Math.floor(innerHeight / 2) - 4], [12, innerHeight - 92]], 80, 76, ambientNode ? 1353 : 1600);
       if (placement) {
         const [x, y] = placement;
         for (const [node, left, top] of [[statusNode, x + 4, y + 44], [characterNode, x + 28, y + 4]]) {
@@ -328,6 +431,8 @@
     if (mode === "off") {
       statusNode = removeOwned(statusNode);
       characterNode = removeOwned(characterNode);
+      backgroundCharacterNode = removeOwned(backgroundCharacterNode);
+      backgroundSceneNode = removeOwned(backgroundSceneNode);
       ambientNode = removeOwned(ambientNode);
       return;
     }
@@ -338,6 +443,15 @@
       if (!characterNode) { characterNode = makeOwned("character"); characterNode.appendChild(pixelCharacter()); }
     }
     else characterNode = removeOwned(characterNode);
+    if (builtin && hasCharacterArtwork() && config.settings.effects.character && mode === "full" && route === "home") {
+      if (!backgroundCharacterNode) {
+        backgroundCharacterNode = makeOwned("background-character");
+        backgroundCharacterNode.appendChild(wallpaperCharacter());
+      }
+    } else {
+      backgroundCharacterNode = removeOwned(backgroundCharacterNode);
+      backgroundSceneNode = removeOwned(backgroundSceneNode);
+    }
     if (mode === "full" && route === "home" && config.settings.effects.ambient
       && innerWidth >= 960 && innerHeight >= 640) {
       if (!ambientNode) {
@@ -483,6 +597,16 @@
     for (const mutation of records) {
       if (mutation.target === root) { changed = true; continue; }
       if (mutation.target?.closest?.(`[${OWNED}]`)) continue;
+      if (mutation.type === "attributes" && ["class", "style"].includes(mutation.attributeName)) {
+        if (backgroundCharacterNode) changed = true;
+        continue; // Geometry invalidation never widens state/identity scans.
+      }
+      // A newly mounted/removed native leaf or a visibility change can cover
+      // the eyes without being a task-state anchor. Recheck placement once
+      // per frame while the wallpaper layer exists; do not widen DOM scans.
+      if (backgroundCharacterNode && (mutation.type === "attributes"
+        || [...(mutation.addedNodes || []), ...(mutation.removedNodes || [])]
+          .some((node) => node.nodeType === 3 || (node.nodeType === 1 && !node.hasAttribute(OWNED))))) changed = true;
       if (mutation.type === "attributes") {
         if (!tracked.has(mutation.target) && !matches(mutation.target, TRACK)) continue;
         trackNode(mutation.target);
@@ -822,7 +946,7 @@
     owned.clear();
     for (const node of tracked.keys()) { node.removeAttribute(`${PREFIX}index`); clearBinding(node); }
     tracked.clear();
-    for (const name of ["data-dream-motion", ...["paused", "state", "route", "interactions", "status", "character", "ambient", "theme-transition"].map((name) => PREFIX + name)]) root.removeAttribute(name);
+    for (const name of ["data-dream-motion", ...["paused", "state", "route", "interactions", "status", "character", "ambient", "theme-transition", "wallpaper"].map((name) => PREFIX + name)]) root.removeAttribute(name);
     if (globalThis[KEY] === state) delete globalThis[KEY];
   }
   state = {
@@ -848,8 +972,10 @@
   refresh();
   observer?.observe(root, { attributes: true, attributeFilter: ["data-dream-skin", "data-dream-theme"] });
   observer?.observe(document.body, { subtree: true, childList: true, attributes: true,
-    attributeFilter: ["data-ds-part", "data-angel-component", "aria-busy", "aria-expanded", "aria-modal", "data-state", "hidden", "aria-hidden", "href", "data-dream-motion-agent-id", "data-local-conversation-item-target-ids", "data-app-action-sidebar-project-id", "data-app-action-sidebar-thread-id", "data-app-action-sidebar-thread-host-id", "data-app-action-sidebar-thread-kind"] });
+    attributeFilter: ["class", "style", "data-ds-part", "data-angel-component", "aria-busy", "aria-expanded", "aria-modal", "data-state", "hidden", "aria-hidden", "href", "data-dream-motion-agent-id", "data-local-conversation-item-target-ids", "data-app-action-sidebar-project-id", "data-app-action-sidebar-thread-id", "data-app-action-sidebar-thread-host-id", "data-app-action-sidebar-thread-kind"] });
   listen(media, "change", refresh);
+  listen(transparencyMedia, "change", refresh);
+  listen(forcedColorsMedia, "change", refresh);
   listen(document, "visibilitychange", refresh);
   listen(window, "resize", schedule);
   listen(window, "message", nativeMessage);
