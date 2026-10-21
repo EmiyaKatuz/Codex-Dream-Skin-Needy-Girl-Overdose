@@ -45,7 +45,7 @@ test('the unverified legacy eyelid stays hidden and per-subagent glow stays reti
 });
 
 test('restored legacy keyframes animate paint and transform without layout or filter loops', () => {
-  for (const name of ['dream-chat-drift', 'dream-signal-pulse', 'dream-heartbeat-scan']) {
+  for (const name of ['dream-chat-drift', 'dream-signal-pulse', 'dream-heartbeat-scan', 'angel-signal']) {
     const frames = legacy.match(new RegExp(`@keyframes ${name}\\s*\\{((?:[^{}]|\\{[^{}]*\\})*)\\}`))?.[1];
     assert.ok(frames, `${name} needs its shared lightweight replacement`);
     assert.doesNotMatch(frames, /\b(?:margin(?:-top)?|filter|backdrop-filter|box-shadow|width|height|top|left)\s*:/);

@@ -421,12 +421,19 @@ html.codex-dream-skin.dream-choten-art[data-dream-skin="active"]
     --angel-surface-raised: rgb(49 37 116);
   }
 
-  html.codex-dream-skin.dream-choten-art[data-dream-skin="active"] body {
+  html.codex-dream-skin.dream-choten-art[data-dream-skin="active"] body,
+  html.codex-dream-skin.dream-choten-art[data-dream-skin="active"].dream-art-wide[data-dream-route="home"] body,
+  html.codex-dream-skin.dream-choten-art[data-dream-skin="active"].dream-art-wide:is(
+    .dream-task-ambient,
+    .dream-task-banner,
+    .dream-task-full
+  )[data-dream-route]:not([data-dream-route="home"]) body {
     background-color: rgb(15 13 47) !important;
     background-image: var(--dream-art) !important;
     background-position: var(--dream-art-position) !important;
     background-repeat: no-repeat !important;
     background-size: cover !important;
+    background-attachment: fixed !important;
   }
 
   html.codex-dream-skin.dream-choten-art[data-dream-skin="active"] body::before {

@@ -19,6 +19,8 @@ const settings = (mode = 'full', effects = {}) => ({schemaVersion:1, mode,
   effects:{interactions:true, status:true, character:true, ambient:true, themeTransition:true, ...effects}});
 const fixture = `<!doctype html><html><head><title>Dream Skin motion playback fixture</title>
   <style>@keyframes native-fixture-spin {to {transform:rotate(360deg)}}
+  body {margin:0;min-height:100vh;}
+  #fixture-face-control.fixture-control-hidden {visibility:hidden;}
   #native-spinner {animation:native-fixture-spin 1s linear infinite;width:16px;height:16px}</style>
   </head><body><main class="main-surface" data-app-shell-main-surface="true" style="position:fixed;inset:0">
   <section data-testid="home-icon" style="position:absolute;left:320px;top:150px;width:200px;height:80px">Home fixture</section>
@@ -158,11 +160,11 @@ async function assertAcrylicComposition(page, active) {
   }
 }
 
-async function assertWallpaperBlinkPaints(page, material) {
+async function assertWallpaperBlinkPaints(page, material, acrylicScene = true) {
   const eyelid = `${role('background-character')} [data-dream-motion-eyelid="closed"]`;
   await page.waitForFunction(() => document.querySelector('[data-dream-motion-role="background-character"]')
     ?.getAttribute('data-dream-motion-art-visible') === 'true');
-  if (material === 'acrylic') await assertAcrylicComposition(page, true);
+  if (material === 'acrylic' && acrylicScene) await assertAcrylicComposition(page, true);
   // Hold unrelated decoration timelines still while comparing the actual
   // composited eye region. A CSS property changing behind an opaque native
   // panel must fail this pixel comparison.
@@ -244,6 +246,20 @@ for (const material of ['system', 'acrylic']) {
     await page.locator('#fixture-face-control').evaluate((node) => {node.hidden = true;});
     await page.waitForFunction(() => document.querySelector('[data-dream-motion-role="background-character"]')
       ?.getAttribute('data-dream-motion-art-visible') === 'true');
+    await page.locator('#fixture-face-control').evaluate((node) => {node.style.left = '-10000px'; node.hidden = false;});
+    await page.waitForFunction(() => document.querySelector('[data-dream-motion-role="background-character"]')
+      ?.getAttribute('data-dream-motion-art-visible') === 'true');
+    await page.locator('#fixture-face-control').evaluate((node) => {
+      node.style.left = `${document.querySelector('[data-dream-motion-role="background-character"]').getBoundingClientRect().left}px`;
+    });
+    await page.waitForFunction(() => document.querySelector('[data-dream-motion-role="background-character"]')
+      ?.getAttribute('data-dream-motion-art-visible') === 'false');
+    await page.locator('#fixture-face-control').evaluate((node) => node.classList.add('fixture-control-hidden'));
+    await page.waitForFunction(() => document.querySelector('[data-dream-motion-role="background-character"]')
+      ?.getAttribute('data-dream-motion-art-visible') === 'true');
+    await page.locator('#fixture-face-control').evaluate((node) => node.classList.remove('fixture-control-hidden'));
+    await page.waitForFunction(() => document.querySelector('[data-dream-motion-role="background-character"]')
+      ?.getAttribute('data-dream-motion-art-visible') === 'false');
     await page.locator('#fixture-face-control').evaluate((node) => node.remove());
     const oldLayer = await page.locator(role('background-character')).elementHandle();
     await install(settings());
@@ -359,3 +375,34 @@ for (const material of ['system', 'acrylic']) {
     await assertPlaying(page, role('character'), 'dream-motion-character', ['translate']);
   });
 }
+
+test('Windows Acrylic: reduced transparency and forced colors keep opaque wallpaper blinking', options, async (t) => {
+  const {page} = await launch(t, 'acrylic');
+  await page.setViewportSize({width:1280,height:720});
+  const cdp = await page.context().newCDPSession(page);
+  for (const feature of ['prefers-reduced-transparency', 'forced-colors']) {
+    await cdp.send('Emulation.setEmulatedMedia', {features:[
+      {name:'prefers-reduced-motion', value:'no-preference'},
+      {name:feature, value:feature === 'forced-colors' ? 'active' : 'reduce'},
+    ]});
+    await page.waitForFunction(() => getComputedStyle(document.body, '::before').display === 'none'
+      && document.documentElement.getAttribute('data-dream-motion-wallpaper') !== 'acrylic'
+      && !document.querySelector('[data-dream-motion-role="background-scene"]')
+      && document.querySelector('[data-dream-motion-role="background-character"]')?.getAttribute('data-dream-motion-art-visible') === 'true');
+    await assertWallpaperBlinkPaints(page, 'acrylic', false);
+    const projection = await page.evaluate(() => {
+      const body = getComputedStyle(document.body), pseudo = getComputedStyle(document.body, '::before');
+      const box = document.body.getBoundingClientRect();
+      return {attachment:body.backgroundAttachment, image:body.backgroundImage.slice(0, 12),
+        box:[box.x, box.y, box.width, box.height], viewport:[innerWidth, innerHeight], pseudo:pseudo.display,
+        marker:document.documentElement.getAttribute('data-dream-motion-wallpaper'),
+        transparency:matchMedia('(prefers-reduced-transparency: reduce)').matches,
+        forced:matchMedia('(forced-colors: active)').matches};
+    });
+    assert.equal(await page.locator(role('background-scene')).count(), 0, `opaque ${feature} fallback must use the body wallpaper: ${JSON.stringify(projection)}`);
+    assert.equal(await page.evaluate(() => window.__CODEX_DREAM_SKIN_MOTION_STATE__.inspect().mode), 'full');
+    await cdp.send('Emulation.setEmulatedMedia', {features:[{name:'prefers-reduced-motion', value:'no-preference'}]});
+    await page.waitForFunction(() => document.documentElement.getAttribute('data-dream-motion-wallpaper') === 'acrylic');
+    await assertAcrylicComposition(page, true);
+  }
+});

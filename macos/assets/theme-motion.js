@@ -97,6 +97,8 @@
   const seen = new Set(handoff?.session?.routeKey === currentRouteKey ? handoff.session.seen : []);
   const seenNodes = new WeakSet();
   const media = safeCall(() => window.matchMedia("(prefers-reduced-motion: reduce)"));
+  const transparencyMedia = safeCall(() => window.matchMedia("(prefers-reduced-transparency: reduce)"));
+  const forcedColorsMedia = safeCall(() => window.matchMedia("(forced-colors: active)"));
   const metrics = { scans: 0, visitedNodes: 0, refreshes: 0, stateChanges: 0, feedbacks: 0,
     ignoredMutations: 0, droppedNodes: 0, snapshotsPrepared: 0, snapshotsSkipped: 0 };
   const matches = (node, selector) => safeCall(() => node.matches(selector), false);
@@ -338,7 +340,7 @@
       if (!registered && config.platform === "windows" && source && style?.backgroundImage === "none") {
         const layer = safeCall(() => getComputedStyle(document.body, "::before"));
         const alpha = Number(layer?.opacity);
-        if (layer?.position === "fixed" && ["left", "right", "top", "bottom"].every((key) => layer[key] === "0px")
+        if (layer?.display !== "none" && layer?.position === "fixed" && ["left", "right", "top", "bottom"].every((key) => layer[key] === "0px")
           && layer.backgroundImage?.endsWith(`, url("${source}")`)
           && (layer.backgroundImage.match(/url\(/g) || []).length === 1
           && Number.isFinite(alpha) && alpha > 0 && alpha <= 1) {
@@ -365,7 +367,10 @@
         const eyes = [[17, 27, 58, 56], [125, 31, 78, 56]].map(([ex, ey, ew, eh]) => ({
           x: x + ex / 220 * w, y: y + ey / 104 * h, width: ew / 220 * w, height: eh / 104 * h,
         }));
-        if (eyes.every((eye) => free(eye.x, eye.y, eye.width, eye.height, 1200))) {
+        const reserved = (statusNode || characterNode ? 182 : 0) + (ambientNode ? 247 : 0);
+        const eyeBudget = 1600 - reserved;
+        const eyeSamples = eyes.reduce((sum, eye) => sum + (Math.floor(eye.width / 6) + 1) * (Math.floor(eye.height / 6) + 1), 0);
+        if (eyeSamples <= eyeBudget && eyes.every((eye) => free(eye.x, eye.y, eye.width, eye.height, eyeBudget))) {
           for (const [name, value] of [["left", x], ["top", y], ["width", w], ["height", h]]) {
             backgroundCharacterNode.style.setProperty(name, `${value.toFixed(2)}px`);
           }
@@ -405,7 +410,7 @@
     if (statusNode || characterNode) {
       // Reserve enough of the shared 1600 samples for an ambient rectangle.
       const placement = findPlacement([[innerWidth - 92, innerHeight - 92], [innerWidth - 92, 68],
-        [innerWidth - 92, Math.floor(innerHeight / 2) - 4], [12, innerHeight - 92]], 80, 76, ambientNode ? 1350 : 1600);
+        [innerWidth - 92, Math.floor(innerHeight / 2) - 4], [12, innerHeight - 92]], 80, 76, ambientNode ? 1353 : 1600);
       if (placement) {
         const [x, y] = placement;
         for (const [node, left, top] of [[statusNode, x + 4, y + 44], [characterNode, x + 28, y + 4]]) {
@@ -592,6 +597,10 @@
     for (const mutation of records) {
       if (mutation.target === root) { changed = true; continue; }
       if (mutation.target?.closest?.(`[${OWNED}]`)) continue;
+      if (mutation.type === "attributes" && ["class", "style"].includes(mutation.attributeName)) {
+        if (backgroundCharacterNode) changed = true;
+        continue; // Geometry invalidation never widens state/identity scans.
+      }
       // A newly mounted/removed native leaf or a visibility change can cover
       // the eyes without being a task-state anchor. Recheck placement once
       // per frame while the wallpaper layer exists; do not widen DOM scans.
@@ -963,8 +972,10 @@
   refresh();
   observer?.observe(root, { attributes: true, attributeFilter: ["data-dream-skin", "data-dream-theme"] });
   observer?.observe(document.body, { subtree: true, childList: true, attributes: true,
-    attributeFilter: ["data-ds-part", "data-angel-component", "aria-busy", "aria-expanded", "aria-modal", "data-state", "hidden", "aria-hidden", "href", "data-dream-motion-agent-id", "data-local-conversation-item-target-ids", "data-app-action-sidebar-project-id", "data-app-action-sidebar-thread-id", "data-app-action-sidebar-thread-host-id", "data-app-action-sidebar-thread-kind"] });
+    attributeFilter: ["class", "style", "data-ds-part", "data-angel-component", "aria-busy", "aria-expanded", "aria-modal", "data-state", "hidden", "aria-hidden", "href", "data-dream-motion-agent-id", "data-local-conversation-item-target-ids", "data-app-action-sidebar-project-id", "data-app-action-sidebar-thread-id", "data-app-action-sidebar-thread-host-id", "data-app-action-sidebar-thread-kind"] });
   listen(media, "change", refresh);
+  listen(transparencyMedia, "change", refresh);
+  listen(forcedColorsMedia, "change", refresh);
   listen(document, "visibilitychange", refresh);
   listen(window, "resize", schedule);
   listen(window, "message", nativeMessage);

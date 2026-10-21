@@ -113,13 +113,15 @@ function fixture({ home = false, bodyless = false, reduced = false } = {}) {
   const composer = surface.appendChild(new Element("section", { "data-ds-part": "composer" }));
   const media = new Target();
   media.matches = reduced;
+  const transparency = new Target(); transparency.matches = false;
+  const forcedColors = new Target(); forcedColors.matches = false;
   const global = new Target();
   Object.assign(global, {
     document, location: { protocol: "app:", pathname: "/index.html", search: "?initialRoute=%2Ftask%2Fone", hash: "" },
     URL, URLSearchParams, innerWidth: 1280, innerHeight: 800,
     Date: { now: () => now },
     getComputedStyle(node, pseudo) { styleReads += 1; return { display: "block", visibility: node.style.getPropertyValue("visibility") || "visible", opacity: "1", animationName: "none", ...(pseudo ? node.pseudoComputed?.[pseudo] : node.computed) }; },
-    matchMedia: () => media,
+    matchMedia: (query) => query.includes("reduced-transparency") ? transparency : query.includes("forced-colors") ? forcedColors : media,
     requestAnimationFrame(callback) { const id = ++nextId; frames.set(id, callback); return id; },
     cancelAnimationFrame(id) { frames.delete(id); },
     setTimeout(callback, delay) { const id = ++nextId; timers.set(id, { callback, at: now + delay }); return id; },
@@ -161,7 +163,7 @@ function fixture({ home = false, bodyless = false, reduced = false } = {}) {
     }
   };
   const result = {
-    document, root: document.documentElement, body, main, surface, composer, global, media, images, canvases,
+    document, root: document.documentElement, body, main, surface, composer, global, media, transparency, forcedColors, images, canvases,
     frames, timers, observers, intersections, imageBehaviors,
     get state() { return global[KEY]; },
     get reads() { return { style: styleReads, layout: layoutReads }; },
@@ -627,6 +629,30 @@ test("Windows Acrylic eyelids match the translucent fixed pseudo-wallpaper below
   assert.equal(page.document.documentElement.getAttribute("data-dream-motion-wallpaper"), null);
 });
 
+test("opaque Acrylic fallback follows transparency media without disabling motion", () => {
+  for (const feature of ["transparency", "forcedColors"]) {
+    const page = wallpaperFixture(); page.body.computed.backgroundImage = "none";
+    page.body.pseudoComputed = { "::before": { position: "fixed", display: "block",
+      left: "0px", right: "0px", top: "0px", bottom: "0px", opacity: ".18",
+      backgroundImage: 'linear-gradient(135deg, black, transparent), url("blob:app://old-art")',
+      backgroundPositionX: "50%, 72%", backgroundPositionY: "50%, 42%", backgroundSize: "cover, cover" } };
+    page.install(wallpaperConfig("full", { platform: "windows" }));
+    const art = motionRole(page, "background-character");
+    assert.ok(motionRole(page, "background-scene"));
+    page.body.computed.backgroundImage = 'url("blob:app://old-art")';
+    page.body.pseudoComputed["::before"].display = "none";
+    page[feature].matches = true; page[feature].dispatch("change");
+    assert.equal(page.state.inspect().mode, "full");
+    assert.equal(art.getAttribute("data-dream-motion-art-visible"), "true");
+    assert.equal(motionRole(page, "background-scene"), null);
+    page.body.computed.backgroundImage = "none"; page.body.pseudoComputed["::before"].display = "block";
+    page[feature].matches = false; page[feature].dispatch("change");
+    assert.equal(art.getAttribute("data-dream-motion-art-visible"), "true");
+    assert.ok(motionRole(page, "background-scene"), "returning to transparency restores one composed scene");
+    page.state.cleanup(); assert.equal(page[feature].listenerCount(), 0);
+  }
+});
+
 test("wallpaper eyelids hide under controls, unknown projections, IME and scroll, then recover", () => {
   const page = wallpaperFixture(); page.install(wallpaperConfig());
   const art = motionRole(page, "background-character");
@@ -688,12 +714,33 @@ test("wallpaper collision checks retain a dense grid around small controls on 4K
   page.state.cleanup();
 });
 
-test("wallpaper hides rather than weakening collision checks when the pixel budget is exhausted", () => {
-  const page = wallpaperFixture(); page.global.innerWidth = 7680; page.global.innerHeight = 4320;
-  let hits = 0; page.document.elementFromPoint = () => { hits += 1; return page.main; };
-  page.install(wallpaperConfig());
-  assert.equal(motionRole(page, "background-character").getAttribute("data-dream-motion-art-visible"), "false");
-  assert.ok(hits <= 1600); page.state.cleanup();
+test("oversized eyelid grids preserve the existing decoration placement budget", () => {
+  for (const [width, height] of [[5120, 1440], [7680, 4320]]) {
+    const page = wallpaperFixture(); page.global.innerWidth = width; page.global.innerHeight = height;
+    let hits = 0; page.document.elementFromPoint = () => { hits += 1; return page.main; };
+    page.install(wallpaperConfig());
+    assert.equal(motionRole(page, "background-character").getAttribute("data-dream-motion-art-visible"), "false");
+    for (const role of ["status", "character", "ambient"]) {
+      assert.equal(motionRole(page, role).style.getPropertyValue("visibility"), "visible");
+    }
+    assert.ok(hits <= 1600); page.state.cleanup();
+  }
+});
+
+test("native class/style movement rechecks eyes once per frame without widening scans", () => {
+  const page = wallpaperFixture(); page.install(wallpaperConfig());
+  const art = motionRole(page, "background-character"), button = page.add(page.node("button")); page.flush();
+  const scans = page.state.metrics.scans, refreshes = page.state.metrics.refreshes;
+  page.document.elementFromPoint = () => button;
+  for (let i = 0; i < 50; i++) page.attribute(button, "style", `left:${i}px`);
+  assert.equal(page.frames.size, 1); page.flush();
+  assert.equal(art.getAttribute("data-dream-motion-art-visible"), "false");
+  assert.equal(page.state.metrics.refreshes, refreshes + 1); assert.equal(page.state.metrics.scans, scans);
+  page.document.elementFromPoint = () => page.main; page.attribute(button, "class", "outside-face"); page.flush();
+  assert.equal(art.getAttribute("data-dream-motion-art-visible"), "true");
+  page.global.dispatch("compositionstart"); const reads = page.reads;
+  page.attribute(button, "style", "left:900px"); page.flush(); assert.deepEqual(page.reads, reads);
+  page.global.dispatch("compositionend"); page.state.cleanup();
 });
 const agentRow = (page, id = "child", host = "local") => page.add(page.node("button", {
   "data-app-action-sidebar-thread-row": "", "data-app-action-sidebar-thread-kind": "local",

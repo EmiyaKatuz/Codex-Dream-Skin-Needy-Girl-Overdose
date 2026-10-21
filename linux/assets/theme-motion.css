@@ -48,6 +48,10 @@ html:root[data-dream-motion] #codex-dream-skin-chrome .dream-blink-frame {
   0%, 100% { opacity: .44; }
   50% { opacity: .82; }
 }
+@keyframes angel-signal {
+  0%, 100% { opacity: .42; }
+  50% { opacity: .82; }
+}
 @keyframes dream-heartbeat-scan {
   0%, 100% { opacity: .52; }
   42% { opacity: 1; }
