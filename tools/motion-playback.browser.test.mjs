@@ -93,6 +93,26 @@ async function assertPlaying(page, selector, name, properties, pseudo = null, in
   assert.notDeepEqual(after.paint, before.paint, `${name} must change its rendered property, not just its clock`);
 }
 
+async function assertPseudoPaints(page, target, selector, pseudo) {
+  await page.evaluate(() => {
+    window.__fixtureRunningAnimations = document.getAnimations().filter((entry) => entry.playState === 'running');
+    for (const animation of window.__fixtureRunningAnimations) animation.pause();
+  });
+  let hidden;
+  try {
+    const visible = await page.locator(target).screenshot();
+    hidden = await page.addStyleTag({content:`${selector}${pseudo} {visibility:hidden!important;}`});
+    const absent = await page.locator(target).screenshot();
+    assert.ok(!visible.equals(absent), `${selector}${pseudo} must paint actual pixels above the wallpaper`);
+  } finally {
+    if (hidden) await hidden.evaluate((node) => node.remove());
+    await page.evaluate(() => {
+      for (const animation of window.__fixtureRunningAnimations) animation.play();
+      delete window.__fixtureRunningAnimations;
+    });
+  }
+}
+
 async function beginTask(page) {
   assert.equal(await page.evaluate(() => {
     const motion = window.__CODEX_DREAM_SKIN_MOTION_STATE__;
@@ -272,6 +292,13 @@ for (const material of ['system', 'acrylic']) {
       'dream-equalizer', ['transform'], '::after');
     await assertPlaying(page, role('ambient'), 'dream-heartbeat-scan', ['opacity'], '::after');
     await assertPlaying(page, role('character'), 'dream-angel-orbit-spin', ['rotate'], '::before');
+    for (const [selector, pseudo] of [[role('ambient'), '::before'], [role('ambient'), '::after'],
+      [`${role('ambient')} > [data-dream-motion-index="0"]`, '::before'],
+      [`${role('ambient')} > [data-dream-motion-index="0"]`, '::after'],
+      [`${role('ambient')} > [data-dream-motion-index="1"]`, '::after']]) {
+      await assertPseudoPaints(page, role('ambient'), selector, pseudo);
+    }
+    await assertPseudoPaints(page, role('character'), role('character'), '::before');
     assert.equal(await page.evaluate(() => {
       const ambient = document.querySelector('[data-dream-motion-role="ambient"]');
       const bounds = ambient.getBoundingClientRect();
