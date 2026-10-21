@@ -38,6 +38,15 @@ html:root[data-dream-motion] #codex-dream-skin-chrome .dream-blink-frame {
   opacity: 0 !important;
 }
 
+/* The preserved wallpaper orbit follows the character preference too. */
+html:root[data-dream-motion][data-dream-motion-character="off"] #codex-dream-skin-chrome .dream-angel-face-orbit {
+  display: none !important;
+}
+
+html:root[data-dream-motion][data-dream-motion-character="off"] #codex-dream-skin-chrome .dream-angel-face-orbit::before {
+  animation: none !important;
+}
+
 /* Keep restored Windows decoration loops on small opacity/transform surfaces;
    their old keyframes also animated layout or brightness filters. */
 @keyframes dream-chat-drift {

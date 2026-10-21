@@ -44,6 +44,14 @@ test('the unverified legacy eyelid stays hidden and per-subagent glow stays reti
   assert.match(subagent.body, /animation:\s*none\s*!important/);
 });
 
+test('the legacy wallpaper orbit obeys the character toggle independently of ambient', () => {
+  const orbit = rules.filter(({selector}) => selector.includes('.dream-angel-face-orbit'));
+  assert.equal(orbit.length, 2);
+  for (const rule of orbit) assert.ok(rule.selector.includes('[data-dream-motion-character="off"]'));
+  assert.ok(orbit.some(({body}) => /display:\s*none\s*!important/.test(body)));
+  assert.ok(orbit.some(({body}) => /animation:\s*none\s*!important/.test(body)));
+});
+
 test('restored legacy keyframes animate paint and transform without layout or filter loops', () => {
   for (const name of ['dream-chat-drift', 'dream-signal-pulse', 'dream-heartbeat-scan', 'angel-signal']) {
     const frames = legacy.match(new RegExp(`@keyframes ${name}\\s*\\{((?:[^{}]|\\{[^{}]*\\})*)\\}`))?.[1];

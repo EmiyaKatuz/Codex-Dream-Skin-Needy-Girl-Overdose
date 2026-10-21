@@ -282,7 +282,7 @@ for (const material of ['system', 'acrylic']) {
   });
 
   test(`Windows ${material}: legacy home decorations play through the complete CSS cascade`, options, async (t) => {
-    const {page} = await launch(t, material);
+    const {page, install} = await launch(t, material);
     await page.setViewportSize({width:1600,height:1000});
     const chrome = '#codex-dream-skin-chrome';
     await page.waitForFunction(() => document.querySelector('#codex-dream-skin-chrome').getBoundingClientRect().width > 1500);
@@ -290,6 +290,10 @@ for (const material of ['system', 'acrylic']) {
     await assertPlaying(page, `${chrome} .dream-angel-live-ticker > span`, 'dream-angel-ticker', ['transform']);
     await assertPlaying(page, `${chrome} .dream-angel-now-playing`, 'dream-record-spin', ['rotate'], '::after');
     await assertPlaying(page, `${chrome} .dream-angel-now-playing > i`, 'dream-equalizer', ['transform']);
+    await install(settings('full', {character:false}));
+    assert.equal(await page.locator(`${chrome} .dream-angel-face-orbit`).evaluate((node) => getComputedStyle(node).display), 'none');
+    assert.equal(await page.locator(`${chrome} .dream-angel-face-orbit`).evaluate((node) => getComputedStyle(node, '::before').animationName), 'none');
+    await assertPlaying(page, `${chrome} .dream-angel-now-playing`, 'dream-record-spin', ['rotate'], '::after');
     await page.emulateMedia({reducedMotion:'reduce'});
     await page.waitForFunction(() => document.documentElement.getAttribute('data-dream-motion') === 'off');
     await assertNoSkinTimelines(page);
