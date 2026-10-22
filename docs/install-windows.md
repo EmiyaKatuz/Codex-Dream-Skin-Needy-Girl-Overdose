@@ -1,106 +1,59 @@
 # Windows 安装与更新
 
-本页面向只想使用主题的普通用户。Release 安装器包含所需运行时，不需要 clone 仓库、安装全局
-Node.js 或执行 PowerShell 脚本。
+[中文](install-windows.md) · [English](install-windows.en.md)
+
+适用于 Windows 10+ x64。Release 安装器包含所需运行时，按当前用户安装。
 
 ## 首次安装
 
-先从 Microsoft Store 安装当前用户的官方 `OpenAI.Codex` 桌面应用，至少启动一次后退出。
+1. 从 Microsoft Store 安装官方 `OpenAI.Codex`，成功启动一次后退出。
+2. 从 [Releases](https://github.com/EmiyaKatuz/Codex-Dream-Skin-Needy-Girl-Overdose/releases/latest) 下载 `CodexDreamSkin-Setup-vX.Y.Z.exe` 和 `SHA256SUMS.txt`，核对安装包的 SHA-256。
+3. 双击安装器并完成向导。
+4. 从开始菜单打开 **Codex Dream Skin**，右键托盘图标选择应用主题。Codex 已运行时，按提示保存输入并确认重启。
 
-1. 在 GitHub 的 [Releases](https://github.com/EmiyaKatuz/Codex-Dream-Skin-Needy-Girl-Overdose/releases) 下载最新的
-   `CodexDreamSkin-Setup-vX.Y.Z.exe` 与 `SHA256SUMS.txt`，并在运行前核对 SHA-256。
-2. 双击安装器，按向导完成安装。默认安装到当前用户的 LocalAppData，不需要管理员权限；安装前
-   请先退出 Codex。
-3. 安装完成后，从开始菜单启动 Codex Dream Skin；开始菜单、应用列表和系统托盘会显示超天酱图标。
+### SmartScreen 提示
 
-### 为什么有时会看到“Windows 已保护你的电脑”
+当前安装包尚未代码签名，下载后可能显示“Windows 已保护你的电脑”。核对文件名、仓库来源和 SHA-256 后，选择“更多信息 → 仍要运行”。组织策略限制运行时，请联系管理员或使用组织批准的分发方式，并保持系统防护开启。
 
-公开发行包目前没有购买代码签名证书。Windows SmartScreen 会综合下载来源、文件的
-“来自互联网”标记（Mark of the Web）和 Microsoft 的信誉数据作判断，因此同一个版本在不同电脑、
-浏览器或下载时间可能表现不同。你很少遇到提示是正常的：文件已有信誉、来自组织分发，或浏览器
-没有保留该标记时，SmartScreen 可能直接放行。
-
-如果 SmartScreen 显示蓝色警告：
-
-1. 点击 **更多信息**。
-2. 核对文件名、下载来源；需要时再对照 Release 提供的 SHA-256。未签名版本会显示未知发布者。
-3. 确认来源无误后点击 **仍要运行**。
-
-不要为了安装而关闭 Defender、SmartScreen 或系统的 Smart App Control。如果组织策略没有“仍要运行”，
-请联系管理员或使用受组织批准的分发方式；不要下载来路不明的替代安装器。
-
-安装器本身不应要求提升到管理员权限。若出现意外的管理员密码提示，取消并核对下载地址、版本和
-文件属性后再报告问题。
+安装器按当前用户运行；遇到意外的管理员密码提示时，取消并核对下载来源。
 
 ## 日常使用
 
-使用“Codex Dream Skin”快捷方式启动，使用托盘菜单换图、导入主题 ZIP、保存主题、暂停或恢复。主题和运行状态
-保存在 `%LOCALAPPDATA%\CodexDreamSkin`，安装目录可以更新而不会删除这些数据。
+| 入口 | 操作 |
+| --- | --- |
+| 开始菜单或桌面的 Codex Dream Skin | 打开原生主题管理器 |
+| 双击托盘图标 | 打开同一管理器 |
+| 右键托盘图标 | 应用主题、换图、导入 ZIP、保存与切换主题、动态效果、暂停和恢复 |
 
-安装后的快捷方式使用受限的 `RemoteSigned` 策略；普通用户不需要打开 PowerShell，也不需要手动
-运行 `.ps1` 文件。
+管理器支持当前主题的背景透明度设置，以及将非活动主题移到回收站。主题、图片和设置位于 `%LOCALAPPDATA%\CodexDreamSkin`。
 
-下载到 `.zip` 主题包后，选择“导入主题 ZIP…”。只接受普通 `.zip`，不接受 `.dreamskin`。正式 Studio
-包包含 `manifest.json`、非空 `theme.json`、非空 `theme.css`、恰好一张 `background.webp|jpg|png`，并可选带
-`LICENSE.txt`、`manifest.sig`；这些文件可直接位于根目录或只包一层主题目录。导入器会核对平台、最低
-客户端版本以及清单中每个负载文件的大小和 SHA-256。`theme.css` 会在本机导入和应用时复验，通过后只
-作用于注册部件；预留签名当前不验证。本地简化包也必须恰好包含 `theme.json`、`theme.css` 与引用图片。
-导入只加入主题库，不会自动应用。ZIP 最大 32 MiB、最多 32 个条目、解压后最多 64 MiB；路径穿越、
-链接/reparse、嵌套压缩包、Windows 保留路径及不符合主题/图片约束的内容会在写入前被拒绝。
+导入时选择“导入主题 ZIP…”，成功后从“已保存主题”选择应用。包格式、图片大小和手动目录操作见 [主题管理](theme-management.md)，动画选项见 [动态效果](theme-motion.md)。
 
-手动方式：从托盘选择“打开主题文件夹”，把已经解压且直接包含 `theme.json`、`theme.css` 与背景图的完整目录放入
-`%LOCALAPPDATA%\CodexDreamSkin\themes\`，再重新打开托盘菜单。不要只移动图片，也不要让目录里再套
-一层主题目录。手动目录不经过 ZIP 导入器的归档校验，请只移动可信内容。
+## 更新
 
-## 手动更新
+1. 下载新版 Setup.exe 和 `SHA256SUMS.txt`，核对摘要。
+2. 退出 Dream Skin 托盘并关闭 Codex。
+3. 运行新版安装器，覆盖现有安装。
+4. 重新打开 Codex Dream Skin，从托盘应用主题。
 
-更新采用覆盖安装，现有配置会保留：
+更新保留活动主题、主题库、图片和配置备份。新下载的安装包可能再次触发 SmartScreen。
 
-1. 从 Releases 下载新的 `CodexDreamSkin-Setup-vX.Y.Z.exe`。
-2. 退出 Dream Skin 托盘，并关闭 Codex。
-3. 运行新的安装器，按向导覆盖现有安装。
-4. 重新启动快捷方式；活动主题、已保存主题、图片和配置备份会保留。
+托盘的“检查更新”在点击时访问 GitHub Releases，并打开下载入口；下载与安装由用户完成。
 
-SmartScreen 的决定针对下载到本机的具体文件。你对某个安装器点击“仍要运行”后，通常不会在每次
-启动已安装快捷方式时再弹一次；但每次下载新的未签名 Setup.exe 都可能重新出现一次警告，不能把
-“只安装一次”理解为所有未来版本都自动获得信任。更新不需要再次运行 PowerShell 放行命令。
+## 恢复与卸载
 
-托盘中的“检查更新”只在用户点击时访问 GitHub Releases；不会后台轮询、自动
-下载或静默替换安装包。
+右键托盘图标选择恢复，按提示关闭并重新打开 Codex，即可恢复官方外观并结束调试会话。暂停皮肤会保留调试会话，CDP 的本机访问说明见 [SECURITY.md](../SECURITY.md)。
 
-## 卸载与恢复
-
-在“设置 → 应用 → 已安装的应用”中卸载 Codex Dream Skin。卸载器会先恢复 Codex 官方外观并关闭
-CDP；恢复失败时会停止卸载，不会直接删除运行文件。默认保留 `%LOCALAPPDATA%\CodexDreamSkin` 中的
-主题和图片，方便重新安装；确认不再需要时再手动删除该数据目录。
+在“设置 → 应用 → 已安装的应用”卸载 Codex Dream Skin。卸载器先恢复外观并关闭受管会话；恢复失败时会停止并保留运行文件供重试。主题和图片默认保留。确认已备份且不再需要后，可手动删除 `%LOCALAPPDATA%\CodexDreamSkin`。
 
 ## 常见问题
 
-### 没有“仍要运行”
+| 情况 | 处理 |
+| --- | --- |
+| SmartScreen 没有“仍要运行” | 联系管理员或改用组织批准的分发渠道；报告问题时附 Windows 版本、提示内容和安装包摘要 |
+| 提示找不到 Node.js 或管理器 | 重新运行最新 Release Setup，并保留安装日志 |
+| 官方 Store 包缺失或身份无法验证 | 确认 Codex 来自 Microsoft Store、注册在当前用户下，并已成功启动一次 |
+| `config.toml` 语法报错 | 备份后修正提示的 TOML 语法；合法多行数组受支持 |
+| Codex 更新后主题失效 | 退出托盘、重新运行最新 Setup，再从托盘应用主题 |
 
-这通常是企业策略或 Windows 11 Smart App Control 在阻止未签名程序。不要关闭安全策略；改用组织
-批准的机器/分发渠道，或把完整的 SmartScreen 画面、Windows 版本和安装器 SHA-256 提交 Issue。
-
-### 安装后仍提示找不到 Node.js
-
-确认使用 Release Setup.exe；仓库脚本属于源码安装方式。Release 安装器会带上固定的 Node 运行时；
-若问题持续，请保留安装日志并报告版本，不要随意从第三方网站下载 `node.exe` 覆盖安装目录。
-
-### 提示官方 Store 包缺失或身份无法验证
-
-该提示发生在文件修改前。请确认 Codex 来自 Microsoft Store、安装在当前 Windows 用户下，并已至少成功
-启动一次。Dream Skin 只接受 `OpenAI.Codex` 包名、Store 签名、非开发模式、清单中唯一
-`app\ChatGPT.exe` 与合法 AUMID 同时成立的安装；不会跳过身份校验或调整 WindowsApps 权限。
-
-### `config.toml` 使用多行数组
-
-`v1.5.7` 起支持合法的 TOML 多行数组，更新时无需改成单行。未闭合数组、孤立右括号、多行受管外观值和
-多行字符串仍会在写入前停止；请修复对应 TOML 语法并保留原文件副本。
-
-### Codex 更新后主题失效
-
-退出托盘后重新运行最新 Setup.exe，再使用 Dream Skin 快捷方式启动。安装器会重新发现当前注册的
-官方 Store 包，用户主题和图片不会被删除。
-
-开发者和高级用户仍可参阅 [`windows/README.md`](../windows/README.md) 的仓库安装章节；普通用户应
-优先使用 Release Setup.exe。
+源码安装、端口与 Acrylic 设置见 [Windows 开发与使用说明](../windows/README.md)。提交 [Bug](https://github.com/EmiyaKatuz/Codex-Dream-Skin-Needy-Girl-Overdose/issues/new/choose) 时，请附版本、复现步骤和已去除凭据及私人内容的日志。

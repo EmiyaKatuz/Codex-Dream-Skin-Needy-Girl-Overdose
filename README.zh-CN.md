@@ -1,110 +1,54 @@
-# Codex Dream Skin · 超天酱动态主题
+# Codex Dream Skin · 超天酱主题
 
-<p align="center">
-  <a href="./README.en.md">English</a>
-</p>
+[中文](./README.md) · [English](./README.en.md)
 
-<p align="center">
-  <strong>为 Codex Desktop 制作的超天酱 / INTERNET ANGEL 沉浸式动态主题。</strong><br>
-  三端共享覆盖层 · 原生控件换肤 · 动态状态表现 · 本地主题管理
-</p>
+为 Codex Desktop 提供超天酱 / INTERNET ANGEL 主题，支持 Windows、macOS 和 Linux。
 
 <p align="center">
   <img src="windows/assets/dream-reference.jpg" alt="超天酱 INTERNET ANGEL 主题背景" width="900">
 </p>
 
-> 当前版本：`1.8.0`。Windows、macOS 与 Linux 共用超天酱组件识别、覆盖层和动画运行时。
-
-本项目是基于 [Fei-Away/Codex-Dream-Skin](https://github.com/Fei-Away/Codex-Dream-Skin) 持续开发的独立 fork，主要维护超天酱视觉、跨平台一致性、启动兼容性与安全边界。
-
-v1.8.0 为内置壁纸人物新增眨眼动画，并修复完整模式下旧装饰动画被统一样式冻结的问题。在「动态效果」选择「完整」并开启角色效果，即可在首页启用人物动画；系统减少动态效果设置仍然优先。详见[更新说明](docs/releases/v1.8.0.md)。
-
-v1.6.0 新增统一动效设置：macOS 菜单栏的「主题 → 动态效果」、Windows 托盘的「动态效果」及 Linux 配置命令提供跟随系统 / 关闭 / 轻量 / 完整四档和五类效果开关。包含任务与工具状态反馈、独立像素角色、项目行入场和小范围星点视差；装饰在滚动、模态窗口和空间不足时避让。适配条件与验证范围见[统一动效系统](docs/theme-motion.md)。
+当前版本：**1.8.0** · [更新说明](./docs/releases/v1.8.0.md) · [下载](https://github.com/EmiyaKatuz/Codex-Dream-Skin-Needy-Girl-Overdose/releases/latest)
 
 ## 功能
 
-- 超天酱主题覆盖首页、侧栏、任务、输入区、设置、终端、权限、差异、子代理与状态提示等界面。
-- Windows、macOS 与 Linux 从 [`runtime/`](./runtime/) 同步同一套组件分类、专属覆盖层和动画；切换主题时会清理旧监听器与标记。
-- 仅内置定制的「超天酱 · INTERNET ANGEL」JPEG 主题，支持本地图片、主题 ZIP、Safe CSS、主题保存与切换。
-- Windows 提供 Setup、托盘、开始菜单、桌面快捷方式、更新检查、暂停与恢复入口。
-- macOS 提供 DMG 与菜单栏 App；Linux 提供脚本安装和发行归档。
-- 主题运行时使用本机回环 CDP，不改动官方 Codex 二进制、应用签名、`WindowsApps` 权限或 `app.asar`。
+- 统一首页、侧栏、对话、输入框、设置和终端的主题外观。
+- 提供任务状态反馈、像素角色、星点和内置壁纸人物眨眼动画。
+- macOS 和 Windows 支持更换背景图、导入主题 ZIP、保存和切换主题、调整背景透明度。
+- 通过 macOS 菜单栏、Windows 托盘或 Linux 命令管理动效与恢复外观。
 
 ## 安装
 
-### Windows Release
+先安装并启动一次 Codex Desktop，再按平台指南安装主题。
 
-1. 从 [Latest Release](https://github.com/EmiyaKatuz/Codex-Dream-Skin-Needy-Girl-Overdose/releases/latest) 下载 `CodexDreamSkin-Setup-vX.Y.Z.exe` 与 `SHA256SUMS.txt`。
-2. 核对 Setup.exe 的 SHA-256。
-3. 运行安装器，然后从开始菜单启动 `Codex Dream Skin`。
+| 平台 | 下载与要求 | 指南 |
+| --- | --- | --- |
+| Windows | `CodexDreamSkin-Setup-vX.Y.Z.exe`；Microsoft Store 版 Codex；内置 Node.js | [安装与更新](./docs/install-windows.md) |
+| macOS | `CodexDreamSkin-vX.Y.Z.dmg`；使用 Codex 内置 Node.js | [安装与更新](./docs/install-macos.md) |
+| Linux | 需要 Node.js 20+；主要适配 AUR `openai-codex-desktop` | [安装与命令](./linux/README.md) |
 
-Release Setup 内置固定版本并经过哈希校验的 Node.js 运行时，普通用户无需另行安装 Node.js。当前安装包尚未进行代码签名；请核对下载来源与校验值后处理 SmartScreen 提示。完整更新、主题导入、恢复和卸载步骤见 [Windows 安装指南](./docs/install-windows.md)。
+Windows 和 macOS 下载见 [Latest Release](https://github.com/EmiyaKatuz/Codex-Dream-Skin-Needy-Girl-Overdose/releases/latest)，运行前核对 `SHA256SUMS.txt`。源码安装步骤见各平台说明：[Windows](./windows/README.md) · [macOS](./macos/README.md) · [Linux](./linux/README.md)。
 
-若安装器无法验证官方 Store 包，请确认 Codex 来自 Microsoft Store、注册在当前 Windows 用户下，并已成功启动过。验证范围包含 Store 签名、开发模式、包清单、`app\ChatGPT.exe` 与 AUMID。
+## 使用
 
-### Windows 源码安装
+- **主题**：macOS 使用菜单栏「主题」；Windows 使用托盘切换、导入主题，打开 Codex Dream Skin 窗口调整透明度和删除已保存主题。详见[主题管理](./docs/theme-management.md)。
+- **动效**：选择跟随系统、关闭、轻量或完整模式；完整模式可启用首页角色和背景氛围，系统减少动态效果设置优先。详见[动效设置](./docs/theme-motion.md)。
+- **更新与恢复**：安装新版前退出 Codex 与主题工具；使用平台指南中的恢复入口还原外观。
 
-需要 Node.js 22 或更高版本，以及 Windows PowerShell 5.1 或 PowerShell 7：
+## 文档
 
-```powershell
-powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\windows\scripts\install-dream-skin.ps1
-```
+| 内容 | 中文 | English |
+| --- | --- | --- |
+| 项目概览 | [阅读](./docs/PROJECT.md) | [Read](./docs/PROJECT.en.md) |
+| 平台与开发 | [阅读](./docs/platforms.md) | [Read](./docs/platforms.en.md) |
+| 主题管理与格式 | [阅读](./docs/theme-management.md) | [Read](./docs/theme-management.en.md) |
+| 动效设置 | [阅读](./docs/theme-motion.md) | [Read](./docs/theme-motion.en.md) |
+| 背景图制作 | [阅读](./docs/reference-background-prompt-guide.md) | [Read](./docs/reference-background-prompt-guide.en.md) |
 
-运行时与主题数据位于 `%LOCALAPPDATA%\CodexDreamSkin`。安装器会创建 `Codex Dream Skin`、`Codex Dream Skin - Tray` 和 `Codex Dream Skin - Restore` 桌面快捷方式。
+运行与安全说明见 [SECURITY.md](./SECURITY.md)。
 
-### macOS
+## 来源与许可
 
-从 [Latest Release](https://github.com/EmiyaKatuz/Codex-Dream-Skin-Needy-Girl-Overdose/releases/latest) 下载 `CodexDreamSkin-vX.Y.Z.dmg`，将 App 拖入 Applications 后启动。DMG 已包含运行时。当前构建采用 ad-hoc 签名；首次启动请按照系统图形界面完成安全确认。详见 [macOS 安装指南](./docs/install-macos.md)。
+基于 [Fei-Away/Codex-Dream-Skin](https://github.com/Fei-Away/Codex-Dream-Skin) 持续开发，由社区维护。感谢早期主题贡献者 [@seansong-ideogram](https://github.com/seansong-ideogram)。
 
-### Linux
-
-目前主要验证 AUR [`openai-codex-desktop`](https://aur.archlinux.org/packages/openai-codex-desktop)，需要 Node.js 20 或更高版本：
-
-```bash
-./linux/scripts/install-dream-skin-linux.sh
-```
-
-验证、恢复、发行归档与自定义路径见 [Linux 说明](./linux/README.md)。
-
-## 更新与恢复
-
-- Release 用户：退出 Codex 与托盘，核对新版校验值后覆盖安装。
-- 源码用户：拉取本 fork 后再次运行对应安装脚本。
-- Windows 用户可运行 `Codex Dream Skin - Restore` 恢复官方外观。
-- 主题、导入图片和配置备份会保存在受管数据目录中。
-
-## 技术与安全
-
-- CDP 仅接受回环地址、受校验的 Browser ID、页面 Target ID 与 WebSocket 路径。
-- Windows 优先使用 `Browser.getWindowForTarget` 与窗口边界确认可见原生窗口。
-- Codex 未暴露 CDP `Browser.WindowID` 时，兼容路径只接受 Win32 HWND：启动器通过 `EnumWindows` 验证 HWND 可见、未最小化、尺寸达标，并再次核对窗口进程属于已验证的官方 `ChatGPT.exe`。
-- 页面 DOM 可见性、视口和界面结构继续作为独立硬条件；这些信号不会单独通过原生窗口校验。
-- 图片、ZIP、路径、符号链接、Safe CSS、运行时哈希和进程身份均设有边界检查。格式限制见 [Windows 安装指南](./docs/install-windows.md)。
-- 回环地址不等于认证；CDP 风险窗口和安全操作建议见 [`SECURITY.md`](./SECURITY.md)。
-
-## 开发与验证
-
-```powershell
-powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\windows\tests\run-tests.ps1
-node .\tools\internet-angel-extension.test.mjs
-node .\windows\scripts\injector.mjs --check-payload
-```
-
-macOS 回归入口为 `./macos/tests/run-tests.sh`。平台结构与主题格式见 [`docs/platforms.md`](./docs/platforms.md)，历史更新记录见 [`windows/CHANGELOG.md`](./windows/CHANGELOG.md)。
-
-## 未来计划
-
-- 会加入更多动画，以显示不同状态下的差分（思考、输出等）
-- 会随 Codex Desktop 主版本及原始项目更新作长期维护
-- 更多的杂项修复
-
-## 许可与声明
-
-- 非 OpenAI 官方产品；Codex 及相关权利归其权利人
-- 本主题/皮肤中所涉及的 IP 素材与商标权利归其权利人
-- 本项目采用 MIT 许可；详见 [`LICENSE`](./LICENSE) 与 [`macos/NOTICE.md`](./macos/NOTICE.md)
-
-## 致谢
-
-- 原始项目：[Fei-Away/Codex-Dream-Skin](https://github.com/Fei-Away/Codex-Dream-Skin)
-- 历史 Gothic Void Crusade 主题贡献者（该主题已从当前发行包移除）：[@seansong-ideogram](https://github.com/seansong-ideogram)
+代码采用 [MIT 许可](./LICENSE)；Codex、主题素材和商标的权利归各自权利人，详见[素材声明](./macos/NOTICE.md)。

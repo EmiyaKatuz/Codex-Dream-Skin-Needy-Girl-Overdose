@@ -1,149 +1,39 @@
-# Codex Dream Skin · 项目记录
+# 项目概览
 
-> 本地归档说明。面向维护者，不是用户安装手册。  
-> 仓库首页：[`../README.md`](../README.md)（中文）· [`../README.en.md`](../README.en.md)（English）  
-> GitHub：https://github.com/EmiyaKatuz/Codex-Dream-Skin-Needy-Girl-Overdose
+[中文](./PROJECT.md) · [English](./PROJECT.en.md)
 
----
+Codex Dream Skin 为 Codex Desktop 提供超天酱 / INTERNET ANGEL 主题。当前版本为 **1.8.0**，支持 Windows、macOS 和 Linux。
 
-## 1. 它是什么
+## 功能与运行方式
 
-**Codex Dream Skin** 是给 **OpenAI Codex 桌面端** 用的**外部主题 / 换肤**方案：
+主题覆盖首页、侧栏、对话、输入框、设置和终端，提供统一动效。macOS 和 Windows 还支持自定义背景、主题 ZIP、主题保存与切换，以及背景透明度设置。
 
-- 本机 **CDP** 注入 CSS + 装饰 DOM
-- **不修改**官方 `.app` / `app.asar` / WindowsApps / 代码签名
-- 侧栏、建议卡、项目选择、输入框仍是**原生可点控件**（不是整窗假截图）
-- 可换图、可一键恢复
-- **不会**静默改写 API Key / Base URL（换肤与中转配置分开）
+平台启动器通过本机回环 CDP 连接 Codex，向已验证的界面加载共享样式和装饰层。平台脚本负责启动、配置、状态管理和恢复；共享源位于 `runtime/`。
 
-非 OpenAI 官方产品。
+## 目录
 
----
+| 目录 | 内容 |
+| --- | --- |
+| `runtime/` | 共享样式、界面适配、动效、主题校验与偏好工具 |
+| `macos/` | 菜单栏 App、脚本、内置主题与 DMG 构建 |
+| `windows/` | 托盘、原生主题管理器、PowerShell 脚本与 Setup 构建 |
+| `linux/` | 安装、启动、恢复脚本与发行归档构建 |
+| `tools/` | 共享资产同步、兼容性检查与回归工具 |
+| `docs/` | 使用指南、开发参考与版本记录 |
 
-## 2. 来源与时间线（简）
+## 文档维护
 
-| 阶段 | 说明 |
-|------|------|
-| 安全审 | 核对是否改 asar、是否静默劫持 API；结论：以本机 CDP 注入为主，开源时明确禁止静默中转劫持 |
-| 整理开源 | 按平台拆成 `macos/`、`windows/`，补 README 图库与安装入口 |
-| 本地美化 | Mac 本机引擎装在 `~/.codex/codex-dream-skin-studio`；CSS 走浅色壳 + 可选底部赞助 chip |
-| 赞助 | Passion8（`aff=TuPe`）写在 README 顶部；强调满血中转卖点，且与换肤配置隔离 |
-| 图库 | `docs/images/gallery/skin-01`～`08`；粉系定制 → 财神打工 → 红白科幻… |
-| i18n | 默认中文 `README.md`，英文 `README.en.md`，顶部互链 |
+中文与英文使用相同的章节和操作步骤，顶部互链。`README.md` 为默认中文首页，`README.zh-CN.md` 与其保持一致，`README.en.md` 为英文首页。短文档和独立打包文档可在同一文件中提供两种语言。
 
-本地曾用过 `8765` 静态预览与临时 injector；**发布后不要求**常驻这两个进程。桌面快捷方式指向已安装引擎，不依赖本仓库路径。
+更新文档时以当前代码和发布资产为依据；安装与使用步骤放在平台指南，主题格式和动效设置集中维护。历史更新保存在 `docs/releases/` 和平台 `CHANGELOG.md`。
 
----
+## 入口
 
-## 3. 架构（两边相同）
+- [下载与使用](../README.md)
+- [平台与开发](./platforms.md)
+- [主题管理与格式](./theme-management.md)
+- [动效设置](./theme-motion.md)
+- [背景图制作](./reference-background-prompt-guide.md)
+- [发布流程](./releases/README.md)
 
-```text
-用户本机主题工具（本仓库脚本 / 已安装引擎）
-    │  启动官方 Codex + 本机 CDP（127.0.0.1）
-    ▼
-官方 Codex Desktop（不改 asar / 签名）
-    │  注入 CSS + 装饰 DOM
-    ▼
-原生侧栏 / 输入框 / 建议卡 + 主题外观
-```
-
-更细的平台路径见 [`platforms.md`](./platforms.md)。
-
----
-
-## 4. 仓库结构
-
-```text
-Codex-Dream-Skin/
-├── README.md              # 默认中文
-├── README.en.md           # English
-├── docs/
-│   ├── PROJECT.md         # 本文件（项目记录）
-│   ├── platforms.md       # Win/Mac 路径与能力矩阵
-│   ├── promo-copy.md      # 宣传文案（朋友圈等，注意肖像/IP）
-│   └── images/
-│       ├── gallery/       # README 效果图 skin-01…08
-│       └── sponsor-passion8.png
-├── macos/                 # Mac 脚本、资源、LICENSE、SKILL
-└── windows/               # Windows PowerShell / 注入脚本
-```
-
-**安装后的运行位置（Mac，与仓库分离）：**
-
-| 用途 | 路径 |
-|------|------|
-| 引擎 | `~/.codex/codex-dream-skin-studio` |
-| 状态 / 主题 | `~/Library/Application Support/CodexDreamSkinStudio` |
-| 桌面启动器 | `~/Desktop/Codex Dream Skin*.command` → 指向上面的引擎脚本 |
-
-Windows 状态目录见 `platforms.md`（`%LOCALAPPDATA%\CodexDreamSkin`）。
-
----
-
-## 5. Git / 移动目录说明
-
-- **远程**：`origin` → `https://github.com/EmiyaKatuz/Codex-Dream-Skin-Needy-Girl-Overdose.git`
-- **分支**：`main`
-- **整夹移动本地路径**（例如从 `中转站/New-api` 挪到 `Personal_Developer`）：
-  - **不影响** `.git` 历史、commit、remote
-  - **不影响** GitHub 上的仓库
-  - 只需用 `mv` 移动整个含 `.git` 的目录；之后在新路径里 `git status` 即可
-  - 若 IDE / 终端仍开着旧路径工作区，需重新打开新路径
-
-桌面 `.command` 与 `~/.codex/...` **不依赖**本仓库磁盘位置，移动开源目录后主题安装仍可用。
-
----
-
-## 6. 安全与合规边界
-
-1. CDP **仅** `127.0.0.1`，主题运行期勿跑来路不明的本机程序  
-2. 不改官方安装目录与签名  
-3. **禁止**安装脚本静默写入第三方 Base URL / Key  
-4. 效果图含人物 / IP 时仅作主题示意；商用再分发需自行确认肖像与商标  
-5. 宣传文案见 `promo-copy.md`（避免未授权商业化表述）
-
----
-
-## 7. 赞助（Passion8）
-
-- 注册链：`https://passion8.cc/register?aff=TuPe`
-- README 调性：更智能的连接 / 满血 AI 中转 / 官方模型、无降智无套壳 / 一行接 Codex·Claude Code·Grok  
-- 固定声明：换肤与 API 配置互相独立  
-
-Logo 资源：`docs/images/sponsor-passion8.png`（及 svg）。
-
----
-
-## 8. 常用维护动作
-
-| 动作 | 说明 |
-|------|------|
-| 换图库图 | 替换 `docs/images/gallery/skin-XX.jpg`，同步改 README 两份 caption |
-| 改赞助文案 | 同时改 `README.md` 与 `README.en.md` |
-| 发版推送 | 在本仓库目录 `git add` → `commit` → `push origin main` |
-| Mac 本机主题 | 改 `~/.codex/codex-dream-skin-studio` 的 CSS/inject；与 GitHub 源码可不同步，属本机实验位 |
-
----
-
-## 9. 本地路径变迁
-
-| 时间 | 路径 |
-|------|------|
-| 初开源整理 | `~/Desktop/中转站/New-api/Codex-Dream-Skin` |
-| 归档位置 | `~/Desktop/Personal_Developer/Codex-Dream-Skin` |
-
-（若再次移动，在本表追加一行即可。）
-
----
-
-## 10. 相关但不在本仓
-
-| 项 | 说明 |
-|----|------|
-| 本机已装引擎 | `~/.codex/codex-dream-skin-studio` |
-| Passion8 主站 / NewAPI | 独立业务；本仓只做赞助致谢与配置隔离说明 |
-| 中转站其它项目 | 勿与本仓混目录；本仓可独立于 New-api 工作区存在 |
-
----
-
-*最后更新：随仓库提交维护。有架构变更时优先改本文件与 `platforms.md`。*
+项目基于 [Fei-Away/Codex-Dream-Skin](https://github.com/Fei-Away/Codex-Dream-Skin) 开发。许可见 [LICENSE](../LICENSE)，素材说明见 [NOTICE](../macos/NOTICE.md)。

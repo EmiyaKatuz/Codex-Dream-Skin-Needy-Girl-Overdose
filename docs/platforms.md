@@ -1,118 +1,63 @@
-# 平台对照
+# 平台与开发
 
-## 运行模型（两边相同）
+[中文](./platforms.md) · [English](./platforms.en.md)
 
-```text
-用户本机主题工具
-    │  启动官方 Codex + 本机 CDP
-    ▼
-官方 Codex Desktop（不改 asar / 签名）
-    │  注入 CSS + 装饰 DOM
-    ▼
-仍用原生侧栏 / 输入框 / 建议卡
+## 平台支持
+
+| 项目 | Windows | macOS | Linux |
+| --- | --- | --- | --- |
+| 安装方式 | Setup.exe、源码脚本 | DMG、源码脚本 | 源码脚本、tar.gz 归档 |
+| 控制入口 | 系统托盘、原生主题管理器 | 菜单栏 App | shell 命令 |
+| Codex 来源 | Microsoft Store `OpenAI.Codex` | 官方 Codex App | 主要适配 AUR `openai-codex-desktop` |
+| 运行时 | Setup 内置 Node.js；源码需要 Node.js 22+ | 使用 Codex 内置 Node.js | Node.js 20+ |
+| 自定义背景与保存主题 | 支持 | 支持 | 使用当前配置 |
+| 主题 ZIP 导入与透明度菜单 | 支持 | 支持 | — |
+| 动效设置与恢复 | 支持 | 支持 | 支持 |
+
+Windows 调试会话使用独立的受管 profile，首次使用时可能需要重新登录 Codex。Linux 可通过 `CODEX_APP_BIN` 指定自定义可执行文件路径。
+
+安装与平台命令：[Windows](../windows/README.md) · [macOS](../macos/README.md) · [Linux](../linux/README.md)。
+
+## 默认路径
+
+| 平台 | 安装后引擎 | 用户数据与日志 |
+| --- | --- | --- |
+| Windows | `%LOCALAPPDATA%\CodexDreamSkin\engine` | `%LOCALAPPDATA%\CodexDreamSkin` |
+| macOS | `~/.codex/codex-dream-skin-studio` | `~/Library/Application Support/CodexDreamSkinStudio` |
+| Linux | `~/.codex/codex-dream-skin-linux` | `${XDG_STATE_HOME:-~/.local/state}/CodexDreamSkin` |
+
+Windows 的受管 profile 位于数据目录中的 `cdp-profile/`；macOS 和 Windows 的已保存主题位于各自数据目录中的 `themes/`。
+
+## 共享运行时
+
+三端通过本机回环 CDP 向已验证的 Codex 界面加载样式和装饰层。`runtime/` 是共享源，平台脚本负责应用发现、启动、配置与恢复。
+
+修改共享样式或脚本后，从仓库根目录同步资产：
+
+```bash
+node tools/sync-runtime-assets.mjs
+node tools/sync-runtime-assets.mjs --check
 ```
 
-## 路径速查
+主题格式与图片配置见[主题管理](./theme-management.md)，动效偏好见[动效设置](./theme-motion.md)，CDP 与路径校验见[安全说明](../SECURITY.md)。
 
-### macOS
+## 开发检查
 
-| 用途 | 路径 |
-|------|------|
-| 源码（本整理包） | `Codex-Dream-Skin/macos/` |
-| 安装后引擎 | `~/.codex/codex-dream-skin-studio` |
-| 状态 / 日志 | `~/Library/Application Support/CodexDreamSkinStudio` |
-| Codex 配置 | `~/.codex/config.toml`（仅外观相关项可能被改，可恢复） |
+跨平台 Node 检查建议使用 Node.js 22。以下命令从仓库根目录运行：
 
-### Windows
-
-| 用途 | 路径 |
-|------|------|
-| 源码（本整理包） | `Codex-Dream-Skin/windows/` |
-| 安装后的受管运行时 | `%LOCALAPPDATA%\CodexDreamSkin\engine` |
-| 状态 / 日志 | `%LOCALAPPDATA%\CodexDreamSkin` |
-| 受管 CDP profile | `%LOCALAPPDATA%\CodexDreamSkin\cdp-profile` |
-| Codex 配置 | `%USERPROFILE%\.codex\config.toml` |
-| 默认 CDP 端口 | 首选 `9335`，冲突时自动选空闲口（Mac 包默认从 `9341` 起） |
-
-Windows 普通启动、失败回滚与恢复重开均从已注册的 `OpenAI.Codex` 包清单解析 AppUserModelId，并通过系统应用包激活接口完成。调试启动会额外使用独立的受管 CDP profile，因为 Chromium 136 起只有同时传入非默认 `--user-data-dir` 才接受 `--remote-debugging-port`。若新版 owl runtime 明确把 CDP 参数转换成 `codex://` 路径，调试启动会对同一个已验证 Store 包内的精确 `app\ChatGPT.exe` 做一次原始参数回退；ACL 拒绝或参数保留后仍无可信监听都会停止并回滚，不修改或接管 WindowsApps 权限。Issue #235 早期在 `26.715.10079.0` 与 `26.721.3404.0` 实机确认过这两种失败，其中 `26.721.3404.0` 的“保留参数但无监听”正是缺少非默认数据目录所致；报告者随后在 `26.803.10989.0` / Chromium `151.0.7922.76` 上用受管 profile 实机恢复了 CDP、`app://-/index.html` renderer 与完整主题注入验证。
-
-### Linux
-
-| 用途 | 路径 |
-|------|------|
-| 源码 | `Codex-Dream-Skin/linux/` |
-| 安装后引擎 | `~/.codex/codex-dream-skin-linux` |
-| 状态 / 日志 | `${XDG_STATE_HOME:-~/.local/state}/CodexDreamSkin` |
-| 默认 CDP 端口 | `9341` |
-
-Linux 启动器优先使用 `codex-desktop`，其次读取 `/usr/share/applications/Codex.desktop` 的 `Exec` 项；其他安装位置可通过 `CODEX_APP_BIN` 显式指定。运行时不会改写 `~/.codex/config.toml`。
-
-## 能力矩阵
-
-| 功能 | macOS | Windows | Linux |
-|------|:-----:|:-------:|:-----:|
-| 普通用户安装包 | ✅ DMG | ✅ Setup.exe | ✅ tar.gz |
-| 原生控制入口 | ✅ 菜单栏 App | ✅ 系统托盘 | shell 命令 |
-| 安装脚本 | ✅ | ✅ | ✅ |
-| 启动 + 注入 | ✅ | ✅ | ✅ |
-| 一键恢复 | ✅ | ✅ | ✅ |
-| 实机 verify / 截图 | ✅ | ✅ | verify |
-| 用户选图定制 | ✅ | ✅（系统托盘「更换背景图」） | 当前默认主题 |
-| 本地主题保存 / 切换 | ✅（菜单栏） | ✅（系统托盘） | 当前默认主题 |
-| 普通 `.zip` 主题导入 | ✅（菜单栏） | ✅（系统托盘） | 暂无 |
-| Gallery / 在线 Studio 入口 | ✅（菜单栏） | ✅（系统托盘） | 暂无 |
-| 官方签名校验 | ✅ | Store 签名类型 + 包身份 | 依赖发行版包管理器 |
-| 客户部署提示词 | ✅ | ❌（可用 Mac 文案改写） | ❌ |
-| 旧版离线 ZIP | ✅ `build-client-release.sh` | 不再建议手动压缩源码 | tar.gz |
-
-## 自适应图像主题契约
-
-同一套主题配置在两个渲染器中使用相同的外观约定。只需要提供一张背景图，注入层就会在本机分析图像并生成协调的颜色、焦点和页面布局；不会上传图片，也不依赖外部 AI/API。
-
-```json
-{
-  "appearance": "auto",
-  "art": {
-    "focusX": 0.72,
-    "focusY": 0.45,
-    "safeArea": "auto",
-    "taskMode": "auto"
-  }
-}
+```bash
+node --test macos/tests/*.test.mjs windows/tests/*.test.mjs tools/*.test.mjs
+node tools/sync-runtime-assets.mjs --check
+node tools/check-selector-provenance.mjs
+node macos/scripts/injector.mjs --check-payload
+node windows/scripts/injector.mjs --check-payload
+node linux/scripts/injector.mjs --check-payload
 ```
 
-- `appearance`：`auto | light | dark`。`auto` 跟随 Codex/ChatGPT 与系统外观；`light` / `dark` 为显式覆盖。图像亮度只参与配色和构图，不会反向覆盖用户选择的外观。
-- `art.focusX` / `art.focusY`：`0..1` 的归一化焦点坐标（左/上为 `0`，右/下为 `1`）。用于控制背景定位，超出范围的值会被拒绝或限制。
-- `art.safeArea`：`auto | left | right | center | none`。`auto` 根据左右信息量推断适合放置原生首页内容的一侧；其余值显式指定安全区，`none` 表示不保留安全区。
-- `art.taskMode`：`auto | ambient | banner | full | off`。`auto` 对超宽图使用横幅/纵向渐隐，对普通比例图使用低噪环境背景；`full` 保留完整画面并仅叠加基础可读性遮罩；`off` 在任务页关闭背景图。
+原生构建与测试使用对应平台环境：
 
-显式的 `appearance` 优先于 Codex/ChatGPT 外观；焦点、安全区和任务模式的显式值优先于图像分析。首页保留更完整的主视觉和原生控件，任务页默认降低背景干扰以保证代码、消息和输入框可读。
+- Windows：PowerShell 5.1 / 7；源码安装前需使用 .NET SDK 8+ [构建主题管理器](../windows/theme-manager/README.md)。
+- macOS：`./macos/tests/run-tests.sh`；菜单栏 App 与 DMG 构建见 [macOS 说明](../macos/README.md)。
+- Linux：归档构建与桌面验证见 [Linux 说明](../linux/README.md)。
 
-### 平台差异
-
-- macOS 的选图脚本会把这些字段写入主题库，可通过 `--appearance`、`--focus-x`、`--focus-y`、`--safe-area`、`--task-mode` 设置。
-- Windows 安装会把运行所需的 `assets/`、`scripts/` 与可选内置运行时原子复制到 `%LOCALAPPDATA%\CodexDreamSkin\engine`，所有快捷方式均指向该受管副本，因此安装后可移动或删除源码目录。安装还会初始化 `active-theme`、`themes` 与 `images`，并把「超天酱 · INTERNET ANGEL」JPEG 版设为首次默认活动主题，仅把该 JPEG 默认主题播种到已保存主题库；升级会把未改动的旧内置主题及其保存副本移到 `retired-themes/`，旧活动主题切回 JPEG；自建、导入、已改动的主题与设置保留。系统托盘支持更换背景、保存当前主题、从「已保存主题」切换、暂停和恢复；图片与 `theme.json` 保存在主题仓库中，不写进 Codex 的 `config.toml`。安装会保留用户已有的 `appearanceTheme`；仅在识别到旧版精确托管的浅色三元组时按备份迁移。
-- Windows 渲染器仍支持在注入前用 `window.__CODEX_DREAM_SKIN_CONFIG__` 提供内存级可选覆盖（形状同上，颜色覆盖使用 `palette.accent`），但普通用户应优先使用持久化主题仓库与托盘。
-
-### 主题 ZIP 与手动目录
-
-- 两端只接受普通 `.zip`，明确不兼容 `.dreamskin` 后缀。新的正式 Studio 包必须包含 `manifest.json`、非空 `theme.json`、非空 `theme.css`、恰好一张 `background.webp|jpg|png`，并可选带 `LICENSE.txt`、`manifest.sig`；文件位于 ZIP 根目录或唯一一层顶级主题目录。仅供本机可信工作流使用的简化格式也必须恰好包含 `theme.json`、`theme.css` 与其引用图片。
-- 导入前限制为 32 MiB 压缩文件、32 个条目和 64 MiB 解压总量，并拒绝路径穿越、链接/reparse、嵌套压缩包、未注册负载以及未通过主题/图片校验的内容。正式包还会核对平台、最低客户端版本及清单中每个负载文件的大小与 SHA-256。
-- `theme.css` 必须通过同一份 Safe CSS allowlist，本机在导入和每次应用时都会复验；通过后只作用于 12 个注册 `data-ds-part` 部件。升级前已经保存且没有 CSS 的 legacy 主题仍可使用，但不会注入额外 CSS。`manifest.sig` 是预留文件，当前不验证签名也不写入主题库；`LICENSE.txt` 随主题保留。
-- 导入目标始终是 saved themes；不会自动覆盖或应用 active / last-known-good。完全相同的内容返回重复结果。同 ID 的新版本会在确认旧目录身份后原地更新，并仅清理语义指纹完全一致、已确认属于同一主题的旧版 `-2`/`-3` 重复目录；无法确认身份时拒绝覆盖，名称不作为删除其他主题的依据。
-- 手动解压时，把直接包含 `theme.json`、`theme.css` 与背景图的完整目录放到 macOS `~/Library/Application Support/CodexDreamSkinStudio/themes/` 或 Windows `%LOCALAPPDATA%\CodexDreamSkin\themes\`。两端控制菜单均提供“打开主题文件夹”；该路径绕过归档校验，只应用于可信内容。
-
-## 预设与图片类型
-
-- macOS 仅内置 `macos/presets/preset-internet-angel-default/`，与 Windows 的 `windows/assets/theme.json` + `dream-reference.jpg` 保持字节一致；两端首次安装均默认启用「超天酱 · INTERNET ANGEL」JPEG 主题。
-- 安装包仅包含这套定制主题；升级会一次性将识别出的旧内置主题和未改动保存副本移出可见主题库，完整备份到状态目录的 `retired-themes/`；旧活动主题切回 JPEG。个人主题、带自定义 CSS 的主题和偏好保留；迁移完成后用户主动恢复的备份不会每次启动又被移走。
-- README 实机截图与 `docs/images/gallery/` 概念图只作预览，绝不能作为背景导入。主题中的 JPEG 是纯背景素材，必须与 `theme.json` 一起使用；新导入的主题 ZIP 仍须满足上面的完整包合同。
-- Windows 导入和 macOS 快速加载入口会拒绝空文件或超过 10 MB 的输入；macOS 主定制入口可接收最高 50 MB 的源图，但转换后的主题文件必须不超过 10 MB。两端 payload 构建还会拒绝任一边超过 16384px 或总像素超过 50MP 的声明尺寸；Windows 在复制导入图前复用 Node 元数据解析器执行同一限制。Windows 注入器用图片、主题和 Safe CSS 内容的 SHA-256 修订值识别热更新，并在构建首帧 payload 前同步读取图片比例。
-- 自定义生图优先使用 `2560 × 1440`（16:9）：左侧约 50%～58% 保持低信息、低对比，主体放在右侧约 58%～88%。输出必须是连续铺满画布的纯背景，禁止窗口、侧栏、卡片、输入框、文字、Logo 和水印。
-- 可直接复制的无人物、右侧成年人物与参考图编辑模板见 `docs/reference-background-prompt-guide.md`；公共默认提示词不指定真人或名人。
-
-## 不要放进这个目录的东西
-
-- API Key、`.codex/auth.json`
-- 中转站密钥、服务器私钥
-- 含客户隐私的实机截图（若要公开）
+发布步骤见[发布流程](./releases/README.md)，版本历史见[更新记录](../windows/CHANGELOG.md)。

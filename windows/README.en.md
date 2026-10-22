@@ -1,282 +1,132 @@
 # Codex Dream Skin for Windows
 
-<p align="center">
-  <a href="./README.md">中文</a> · <strong>English</strong>
-</p>
+[中文](README.md) · [English](README.en.md)
 
-Codex Dream Skin loads an external theme into the official Codex Windows desktop app through loopback CDP. The native sidebar, project picker, task content, and composer remain interactive. The tool does not modify WindowsApps, `app.asar`, or the app signature.
+An INTERNET ANGEL theme for Codex Desktop, with custom backgrounds, saved themes, motion effects, and appearance recovery. Themes load through local CDP, while the sidebar, tasks, and composer use native Codex controls.
 
 ## Requirements
 
-- Windows 10 or newer on x64 (the installer declares Windows 10 as its minimum).
-- The official `OpenAI.Codex` app installed from Microsoft Store and registered for the current user.
-- Release Setup.exe bundles Node.js. Only source-based use needs Node.js 22 or
-  newer on `PATH`.
-- Windows PowerShell 5.1 or newer (the installer invokes it in the background;
-  ordinary users do not open it).
+- Windows 10 or newer, x64.
+- Official `OpenAI.Codex` installed from Microsoft Store, registered for the current user, and launched successfully at least once.
+- Windows PowerShell 5.1 or newer.
+- Release Setup includes Node.js; source installation requires Node.js 22+ and .NET SDK 8+.
 
-## Release install (recommended for users)
+## Release installation
 
-Download `CodexDreamSkin-Setup-vX.Y.Z.exe` from
-[GitHub Releases](https://github.com/EmiyaKatuz/Codex-Dream-Skin-Needy-Girl-Overdose/releases) and
-follow [`docs/install-windows.md`](../docs/install-windows.md). The installer
-contains the pinned Node runtime, so users do not need a source checkout or to
-run a `.ps1` file. It installs per-user and should not request administrator
-access. An unsigned download may occasionally trigger SmartScreen; use
-**More info → Run anyway** only after checking the file came from this Release,
-and never disable Defender. Updates are new Setup.exe packages installed over
-the existing copy; themes and images are retained.
+Download Setup.exe and `SHA256SUMS.txt` from [Releases](https://github.com/EmiyaKatuz/Codex-Dream-Skin-Needy-Girl-Overdose/releases/latest), verify the checksum, and run the installer. Installation is per user. See the [Windows installation guide](../docs/install-windows.en.md) for first launch, SmartScreen prompts, updates, and removal.
 
-Run the installer after Codex has fully exited. Normal use does not require administrator access or ownership changes under WindowsApps.
+Open **Codex Dream Skin** to enter the native theme manager. Right-click the tray icon to apply a theme, switch saved themes, or restore the appearance. Double-clicking the icon also opens the manager.
 
-## Advanced: install from source
+## Source installation
 
-Ordinary users can skip this section. Open PowerShell in the repository's
-`windows` directory and run:
+Exit Codex and the Dream Skin tray, then run from the repository root:
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\scripts\install-dream-skin.ps1
+node .\tools\build-theme-manager.mjs
+powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\windows\scripts\install-dream-skin.ps1
 ```
 
-The installer validates the official Codex Store package and Node.js, saves a recoverable appearance baseline, and initializes the local theme store. By default it also creates these shortcuts:
+The installer validates the official Store package and runtime, backs up managed appearance settings, and initializes the theme library. It creates these entries by default:
 
-- `Codex Dream Skin`: launch or reapply the skin.
-- `Codex Dream Skin - Tray`: open the system tray theme controls.
-- `Codex Dream Skin - Restore`: restore the stock appearance and close the saved CDP session.
+| Entry | Purpose |
+| --- | --- |
+| `Codex Dream Skin` | Open the native theme manager and tray |
+| `Codex Dream Skin - Tray` | Open tray controls |
+| `Codex Dream Skin - Restore` | Restore the stock appearance and close the managed CDP session |
 
-Source-install commands and daily shortcuts both use `RemoteSigned`, so they do not override system or enterprise Group Policy. The installer verifies the runtime copy with SHA-256, then clears download-zone markers only from managed PowerShell copies under `%LOCALAPPDATA%\CodexDreamSkin\engine`.
+The default port search starts at `9335`. Add `-Port 9444` to the installation command to specify a port in `1024–65535`. Scripts use `RemoteSigned`, and deployment validates the managed runtime checksums.
 
-Pass `-Port` during installation to use a fixed custom port. Valid ports range from `1024` through `65535`.
+After updating the source, exit Codex and the tray, then repeat the build and installation commands. Personal themes, images, and preferences are preserved.
 
-```powershell
-powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\scripts\install-dream-skin.ps1 -Port 9444
-```
+## Launch and verification
 
-## Apply a hotfix without uninstalling
-
-When a patch is published for an already installed runtime, run this from the updated checkout:
+Right-click the tray icon and apply the theme, or run from the repository root:
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\scripts\patch-dream-skin.ps1
-```
-
-The patch script replaces only the affected launcher scripts inside `%LOCALAPPDATA%\CodexDreamSkin\engine`, stages and hash-verifies the replacements, and preserves active themes, saved themes, config backups, tray settings, and the running Codex session. It does not uninstall or reinstall Dream Skin and does not require closing Codex. Add `-DryRun` to preview the patch without changing files.
-
-## Update
-
-Exit the Dream Skin tray and close Codex, update the checkout (`git pull`, or download the latest source again), then rerun the install command above. The installer atomically replaces the managed runtime and rebuilds its shortcuts without deleting the active theme, saved themes, or imported images.
-
-## Launch and verify
-
-The `Codex Dream Skin` shortcut is the recommended launcher. It asks for confirmation before restarting an open Codex window.
-
-Command-line launch:
-
-```powershell
-powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\scripts\start-dream-skin.ps1 -PromptRestart
-```
-
-Run verification after launch:
-
-```powershell
-powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\scripts\verify-dream-skin.ps1 `
+powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\windows\scripts\start-dream-skin.ps1 -PromptRestart
+powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\windows\scripts\verify-dream-skin.ps1 `
   -ScreenshotPath "$env:TEMP\codex-dream-skin.png"
 ```
 
-The verification script confirms:
+The launcher asks before restarting a running Codex session. Verification checks the CDP identity, skin version, native controls, and decorative layers. Use the screenshot to check overflow and contrast. See the [QA checklist](references/qa-inventory.md) for interaction checks.
 
-- The CDP endpoint is bound to loopback and belongs to the current official Codex package.
-- The current renderer has loaded the expected skin version.
-- The native sidebar and composer remain present.
-- The decorative skin layer does not intercept pointer events.
-- When the current route is home, the themed home structure has loaded.
+## Themes and motion
 
-Next, use the generated screenshot to check horizontal overflow and text contrast. On both the home and normal task routes, manually check the project menu and composer interaction. See [`references/qa-inventory.md`](./references/qa-inventory.md) for the complete visual checklist.
+The tray provides background replacement, ZIP import, theme saving and switching, motion settings, pause, reapply, and restore. The initial installation includes the Internet Angel JPEG theme.
 
-## Optional Acrylic window material
+The native manager adjusts the current theme's background transparency and moves inactive themes to the Recycle Bin. See the [theme manager guide](theme-manager/README.en.md).
 
-Windows 11 build 22621 or newer can use native Desktop Acrylic instead of the
-default system/Mica material. Windows transparency effects must be enabled.
-This preference is opt-in and applies on the next Dream Skin launch:
+- Backgrounds support PNG, JPEG, and WebP, up to 10 MiB, 16384 pixels per edge, and 50 million pixels total.
+- Use **Import Theme ZIP…** to add a pack to the library, then apply it from **Saved Themes**. See [theme management](../docs/theme-management.en.md) for formats and limits.
+- Motion offers System, Off, Subtle, and Full modes plus five effect switches. See [motion settings](../docs/theme-motion.en.md).
+- DreamSkin.cc's **Apply in app** opens a confirmation before downloading and validating the theme. Save input before any requested Codex launch or restart; the client first verifies the current visible theme to establish a rollback baseline.
+
+## Acrylic window material
+
+Desktop Acrylic is available on Windows 11 22621+ with system transparency effects enabled. The setting takes effect on the next Dream Skin launch:
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\scripts\manage-window-effects.ps1 -Set Acrylic
+powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\windows\scripts\manage-window-effects.ps1 -Set Acrylic
 ```
 
-Use `-Status` to inspect the saved preference, or `-Set System` to return to the
-normal system material. The launcher keeps an identity-pinned monitor for the
-exact Codex PID, creation time, package, window class, and HWND; failed startup
-restores the previous material instead of mutating another window.
+Use `-Status` to inspect the setting or `-Set System` to restore the system material.
 
-## Optional official-shortcut handoff
+## Automatic handoff from the official shortcut
 
-The installer does not enable automatic handoff by default. Users who want an
-ordinary Store/Start-menu Codex launch to become a managed Dream Skin session
-can enable the guarded current-user watcher explicitly:
+This option is off by default. Enable the per-user watcher while protecting the Codex session already open at the time:
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\scripts\manage-auto-launch-dream-skin.ps1 -Enable -ProtectCurrentSession
+powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\windows\scripts\manage-auto-launch-dream-skin.ps1 -Enable -ProtectCurrentSession
 ```
 
-`-ProtectCurrentSession` is a one-time guard for a Codex session that is already
-open while enabling the watcher; it is not persisted in the login shortcut.
-After that protected session reaches a stable zero-process boundary, a newly
-opened stock Codex session receives a three-second grace period and is handed
-off at most once through the normal identity-verified launcher. Debug/CDP,
-paused, uninspectable, and already managed sessions are never restarted.
-The handoff closes that exact stock session; after a 15-second graceful-close
-window, its remaining identity-verified processes may be force-stopped. Save or
-send any in-progress input before relying on automatic handoff.
-Watcher ownership is limited to one Windows session per user across Fast User
-Switching and RDP. The first session to acquire the watcher owns it and monitors
-only that session; other sessions fail closed and do not hand off Codex until
-the owner watcher exits or is disabled. Managed `state.json` is also a single
-per-user live-session slot. Only one Windows session can own live managed state
-at a time; manual and automatic starts in another session fail closed without
-stopping or overwriting that owner until its session exits or is restored.
+After that session ends, newly launched stock Codex sessions receive a three-second grace period before handoff to Dream Skin. Handoff closes the stock session; after a 15-second graceful-close window, remaining verified processes may be force-stopped. Save input first.
 
-Use `-Status` to inspect the watcher and `-Disable` to stop it and remove its
-managed Startup entry. The ordinary Store shortcut can show the stock window
-briefly during the grace period. The dedicated `Codex Dream Skin` shortcut is a
-direct entry without that three-second grace and normally minimizes stock flash.
+Each Windows user can own one watcher and one live managed session, including across Fast User Switching and RDP. Use `-Status` to inspect the watcher or `-Disable` to stop it and remove its Startup entry.
 
-## Change and save themes
+## Restore
 
-Open `Codex Dream Skin - Tray` to:
-
-- Recognize the managed skin at a glance through its custom Internet Angel pixel icon.
-- Start with only the customized Internet Angel JPEG theme. Upgrades archive unchanged retired built-ins and their saved copies under `retired-themes/`, switching a retired active theme to the JPEG default. Personal themes and preferences remain.
-- Import a PNG, JPEG, or WebP background.
-- Import an ordinary `.zip` theme pack into Saved Themes (`.dreamskin` is not supported).
-- Save the active theme and switch through saved themes.
-- Pause or resume the skin.
-- Reapply the theme or fully restore Codex.
-
-For a reviewed, compatible three-payload theme on DreamSkin.cc, choose **Apply
-in app** to open `dreamskin://apply?version=...`. Windows shows a native
-confirmation first. After confirmation, the client downloads that exact version
-only from `https://api.dreamskin.cc`, checks the reviewed metadata, actual byte
-count, and SHA-256, then runs the same manifest, image, ZIP, and Safe CSS checks
-as manual import before switching. If there is no verifiable skin session, the
-client first starts or restarts Codex and verifies that the on-disk active theme
-is the one visibly rendered; only then does it write the downloaded theme, so a
-rollback baseline is always available. Save unfinished input first. The link
-cannot provide an arbitrary download URL, file path, command, or silent-apply
-option. Incomplete legacy themes remain rejected by the client.
-
-Import a UI-free wallpaper rather than a preview containing a window, sidebar, composer, text, or buttons. Images may be at most 10 MB, 16384 pixels on either side, and 50 million total pixels.
-
-Every new official Studio ZIP contains `manifest.json`, non-empty `theme.json`,
-non-empty `theme.css`, and exactly one `background.webp|jpg|png`, with optional `LICENSE.txt` and the
-reserved `manifest.sig`. Place them at archive root or inside exactly one
-top-level theme folder. A local simplified ZIP must contain exactly `theme.json`,
-`theme.css`, and its referenced image; because it lacks manifest integrity and compatibility
-data, use that format only for trusted content. Limits are 32 MiB compressed,
-32 entries, and 64 MiB expanded. Traversal, links/reparse entries, nested
-archives, and unregistered files are rejected. Official packs also verify the
-platform, minimum client version, and each payload's declared byte length and
-SHA-256. Safe CSS is locally revalidated on import and every apply, then runs
-only against the 12 registered parts. Previously saved legacy themes without
-CSS remain switchable and inject no extra CSS. `manifest.sig` is reserved and
-not used for signature verification. Import only adds to Saved
-Themes; it does not change the active theme. Identical content is not
-duplicated. A newer pack with the same ID updates the saved copy in place after
-the stored identity is confirmed; only a legacy `-2`/`-3` suffix directory with
-an identical semantic fingerprint is consolidated. Names alone never prove a
-duplicate, so ambiguous entries are preserved and replacement fails closed.
-
-For the manual fallback, choose **Open Themes Folder** and move in the complete
-extracted directory whose immediate children are `theme.json`, `theme.css`, and
-its image:
-`%LOCALAPPDATA%\CodexDreamSkin\themes\`. Reopen the tray menu afterward; do not
-add another wrapper directory. Manual placement bypasses archive checks, so use
-trusted content only.
-
-## Restore and remove shortcuts
-
-Restore the stock appearance. If Codex is running, confirm its closure and relaunch:
+Choose restore from the tray menu, or run:
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\scripts\restore-dream-skin.ps1 `
+powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\windows\scripts\restore-dream-skin.ps1 `
   -RestoreBaseTheme -PromptRestart
 ```
 
-Add `-Uninstall` to also remove the shortcuts created by Dream Skin:
+Add `-Uninstall` to remove shortcuts created by source installation. `-RecoverConfigBackup` saves the current configuration before restoring the complete pre-install `config.toml`; use it for configuration damage that normal appearance recovery cannot resolve.
 
-```powershell
-powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\scripts\restore-dream-skin.ps1 `
-  -RestoreBaseTheme -PromptRestart -Uninstall
-```
-
-`-RecoverConfigBackup` restores the complete pre-install `config.toml` backup and saves the current configuration first. Reserve it for a damaged configuration that normal `-RestoreBaseTheme` recovery cannot resolve.
+End the debug session with a full restore and restart, or quit all Codex processes and reopen through the official entry. Pausing the theme keeps the debug session open. See [SECURITY.md](../SECURITY.md) for local CDP access details.
 
 ## Files and logs
 
 | Purpose | Path |
-|---------|------|
-| Dream Skin state root | `%LOCALAPPDATA%\CodexDreamSkin` |
+| --- | --- |
+| Runtime | `%LOCALAPPDATA%\CodexDreamSkin\engine` |
 | Active theme | `%LOCALAPPDATA%\CodexDreamSkin\active-theme` |
-| Saved themes | `%LOCALAPPDATA%\CodexDreamSkin\themes` |
-| Imported image archive | `%LOCALAPPDATA%\CodexDreamSkin\images` |
+| Theme library | `%LOCALAPPDATA%\CodexDreamSkin\themes` |
+| Image archive | `%LOCALAPPDATA%\CodexDreamSkin\images` |
 | Session state | `%LOCALAPPDATA%\CodexDreamSkin\state.json` |
-| Injector log | `%LOCALAPPDATA%\CodexDreamSkin\injector.log` |
-| Injector error log | `%LOCALAPPDATA%\CodexDreamSkin\injector-error.log` |
-| Verification log | `%LOCALAPPDATA%\CodexDreamSkin\verify.log` |
+| Logs | `%LOCALAPPDATA%\CodexDreamSkin\injector.log`, `injector-error.log`, `verify.log` |
 | Codex configuration | `%USERPROFILE%\.codex\config.toml` |
 
-See [`../docs/platforms.md`](../docs/platforms.md) for the complete platform path reference.
+## Troubleshooting and development
 
-## Troubleshooting
+| Situation | Action |
+| --- | --- |
+| Source installation cannot find Node.js | Confirm 22+ with `node --version`, then reopen PowerShell |
+| Store package missing | Check the current user's installation with `Get-AppxPackage -Name OpenAI.Codex` |
+| Theme manager missing | Rebuild and reinstall the manager, or rerun Release Setup |
+| Specified port occupied | Choose another available port |
+| Theme fails after a Codex update | Update and reinstall Dream Skin, then apply from the tray |
+| CDP endpoint missing | Apply from the tray, retry, and retain launch and verification logs |
 
-### Node.js is missing
+See [runtime notes](references/runtime-notes.md) for compatibility and recovery details, and [platform reference](../docs/platforms.en.md) for paths. When filing a [bug](https://github.com/EmiyaKatuz/Codex-Dream-Skin-Needy-Girl-Overdose/issues/new/choose), include Windows, Codex, and Dream Skin versions, reproduction steps, and logs with credentials and private content removed.
 
-Run `node --version`, confirm that it reports version 22 or newer, and reopen PowerShell so an updated `PATH` takes effect.
-
-### The official Codex package is missing
-
-Run:
+Run regression checks from the repository root:
 
 ```powershell
-Get-AppxPackage -Name OpenAI.Codex
+powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\windows\tests\run-tests.ps1
+node .\tools\internet-angel-extension.test.mjs
+node .\windows\scripts\injector.mjs --check-payload
 ```
 
-The scripts accept only a registered official Store package. They do not launch Codex from an arbitrary executable path.
-
-### The installer asks you to close Codex
-
-Close every Codex window and run the installer again. Installation requires stable app and configuration state.
-
-### Antivirus reports the old tray shortcut
-
-Older tray shortcuts combined hidden PowerShell with `ExecutionPolicy Bypass`, which can trigger behavior-based LNK detections. Do not whitelist the detection blindly. Update the source and rerun the installer so the shortcuts use `RemoteSigned`. If the updated shortcut is still detected, leave it quarantined and report the antivirus product, version, detection name, and shortcut properties without sharing secrets or private data.
-
-### The port is occupied
-
-When `-Port` is omitted, the launcher searches for a free port beginning at `9335`. If an explicitly requested port is held by a live unverified listener, choose a different port rather than stopping an unknown process. A listener whose owning process no longer exists is treated as stale: the launcher warns and automatically selects the next free loopback port.
-
-### Verification cannot find a CDP endpoint
-
-Launch Codex through the `Codex Dream Skin` shortcut, then run verification. A normal Codex launch does not open the debug session used by Dream Skin.
-
-Starting with Codex Store `26.715.10079.0`, the owl runtime may convert package-activation arguments into a `codex://` path. The launcher detects that behavior and makes one raw-argument fallback attempt against the exact `ChatGPT.exe` in the same validated Store package; it does not change files or WindowsApps permissions.
-
-Field results in issue #235 now confirm two independent failures: WindowsApps returns `access-denied` for direct launch on `26.715.10079.0`, while `26.721.3404.0` retains the raw CDP arguments but its production runtime still opens no listener. Either result means that Codex/Windows combination cannot enable the skin within the project's safety boundary. The fallback is currently a safe diagnostic and rollback path, not a compatibility guarantee for affected owl builds. Do not take ownership of WindowsApps or patch the official package; keep the complete error and follow issue #235 for upstream compatibility status.
-
-If debug launch or visible renderer verification fails, the launcher first confirms that every Codex process started by this attempt is closed, then restores only this attempt's appearance-key values that are still unchanged. Newer config edits are preserved instead of replacing the whole file from an old backup. A bounded `preparing` transaction is saved before the marker/config commits; after a forced process termination, the next locked operation recovers by comparing the before, intended, and current values. If Codex cannot be confirmed closed or recovery cannot finish safely, one-click apply preserves the current theme files and exact prior-theme snapshot rather than racing the running app. This mechanism is not evidence that an affected official Codex build has restored CDP support.
-
-### The skin stops working after a Codex update
-
-Run the installer and launch shortcut again. The scripts rediscover the currently registered Store package instead of trusting an executable path from an older app version.
-
-Open the repository's [new issue page](https://github.com/EmiyaKatuz/Codex-Dream-Skin-Needy-Girl-Overdose/issues/new/choose) and choose the bug form when reporting a problem. Include the Windows version, Codex source, reproduction steps, and relevant log lines. Remove secrets, `auth.json`, relay tokens, and private conversation content.
-
-## Security boundaries
-
-- CDP binds only to `127.0.0.1`, but it has no authentication; another process on the same computer may still connect and inspect or control the renderer.
-- Pausing the theme or stopping only the injector does not close the debug port of a running Codex process. Use a full restore with restart, or quit every Codex process and reopen the official app normally, to end the exposure window.
-- The tool does not modify the official Codex installation, WindowsApps, `app.asar`, or signatures.
-- It does not write API keys, Base URLs, or model provider settings.
-- Restore controls only Codex processes that pass package identity, executable path, and recorded session checks.
-- See [`../SECURITY.md`](../SECURITY.md) for the complete threat model and operating guidance.
-
-Maintainer and agent constraints live in [`SKILL.md`](./SKILL.md). See [`references/runtime-notes.md`](./references/runtime-notes.md) for deeper runtime troubleshooting.
+See the [native manager guide](theme-manager/README.en.md) for its build and tests, and [SKILL.md](SKILL.md) for maintainer constraints.

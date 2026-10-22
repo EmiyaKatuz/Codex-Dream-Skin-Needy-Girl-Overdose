@@ -1,247 +1,132 @@
 # Codex Dream Skin for Windows
 
-<p align="center">
-  <strong>中文</strong> · <a href="./README.en.md">English</a>
-</p>
+[中文](README.md) · [English](README.en.md)
 
-Codex Dream Skin 通过本机回环 CDP 给官方 Codex Windows 桌面应用加载外部主题。它保留原生侧栏、项目选择、任务内容和输入框，不修改 WindowsApps、`app.asar` 或应用签名。
+为 Codex Desktop 加载超天酱 / INTERNET ANGEL 主题，支持背景替换、主题保存、动态效果和外观恢复。主题通过本机 CDP 加载，侧栏、任务和输入框使用 Codex 原生控件。
 
 ## 运行要求
 
-- Windows 10 或更高版本（x64；安装器声明 Windows 10 为最低版本）。
-- 从 Microsoft Store 安装且已注册到当前用户的官方 `OpenAI.Codex` 应用。
-- Release Setup.exe 已内置 Node.js；只有从源码运行时才需要 `PATH` 中有 Node.js 22 或更高版本。
-- Windows PowerShell 5.1 或更高版本（安装器会在后台调用，普通用户不需要打开它）。
+- Windows 10 或更高版本，x64。
+- 从 Microsoft Store 安装、注册到当前用户且已成功启动过的官方 `OpenAI.Codex`。
+- Windows PowerShell 5.1 或更高版本。
+- Release 安装器包含 Node.js；源码安装需要 Node.js 22+ 和 .NET SDK 8+。
 
-`v1.5.7` 支持在 `~/.codex/config.toml` 中保留合法的 TOML 多行数组。身份预检仍要求当前用户的
-`OpenAI.Codex` 具备 Store 签名、非开发模式、唯一 `app\ChatGPT.exe` 清单入口与合法 AUMID；预检失败时
-不会写入配置或安装运行时。
+## Release 安装
 
-## Release 安装（推荐普通用户）
+从 [Releases](https://github.com/EmiyaKatuz/Codex-Dream-Skin-Needy-Girl-Overdose/releases/latest) 下载 Setup.exe 和 `SHA256SUMS.txt`，核对摘要后运行安装器。安装按当前用户进行。首次安装、SmartScreen 提示、更新与卸载见 [Windows 安装指南](../docs/install-windows.md)。
 
-普通用户请从 [GitHub Releases](https://github.com/EmiyaKatuz/Codex-Dream-Skin-Needy-Girl-Overdose/releases) 下载
-`CodexDreamSkin-Setup-vX.Y.Z.exe`，按 [`docs/install-windows.md`](../docs/install-windows.md) 的图形
-界面步骤安装。安装器自带固定 Node 运行时，不需要 clone 仓库或运行 `.ps1`；默认按当前用户安装，
-不应要求管理员权限。未签名的新下载偶尔会触发 SmartScreen，按“更多信息 → 仍要运行”即可，
-不要关闭 Defender。后续更新运行新的 Setup.exe 覆盖安装，主题和图片会保留。
+打开 **Codex Dream Skin** 进入原生主题管理器；右键托盘图标可应用主题、切换已保存主题或恢复外观。双击托盘图标也可打开管理器。
 
-安装脚本需要在 Codex 完全退出后运行。普通使用不需要管理员权限，也不需要接管 WindowsApps 目录。
+## 源码安装
 
-## 高级：从源码安装
-
-普通用户无需阅读本节。在 PowerShell 中进入仓库的 `windows` 目录，然后运行：
+先退出 Codex 和 Dream Skin 托盘。在仓库根目录运行：
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\scripts\install-dream-skin.ps1
+node .\tools\build-theme-manager.mjs
+powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\windows\scripts\install-dream-skin.ps1
 ```
 
-安装器会校验官方 Codex Store 包和 Node.js，保存可恢复的外观配置，并初始化本地主题仓库。默认还会创建这些快捷方式：
+安装器会校验官方 Store 包和运行时、备份受管外观配置，并初始化主题库。默认创建以下入口：
 
-- `Codex Dream Skin`：启动或重新应用皮肤。
-- `Codex Dream Skin - Tray`：打开系统托盘主题控制。
-- `Codex Dream Skin - Restore`：恢复官方外观并关闭已保存的 CDP 会话。
+| 入口 | 用途 |
+| --- | --- |
+| `Codex Dream Skin` | 打开原生主题管理器和托盘 |
+| `Codex Dream Skin - Tray` | 打开托盘控制 |
+| `Codex Dream Skin - Restore` | 恢复官方外观并关闭受管 CDP 会话 |
 
-Setup、快捷方式、卸载器、`dreamskin://` 协议与托盘统一使用超天酱多尺寸图标。
+默认从端口 `9335` 开始寻找空闲端口。安装命令可加 `-Port 9444` 指定端口，有效范围为 `1024–65535`。脚本使用 `RemoteSigned` 策略，并在部署时校验受管运行时摘要。
 
-源码安装命令与日常快捷方式都使用 `RemoteSigned`，不会绕过系统或企业组策略。安装器会先校验运行时副本的 SHA-256，再仅对 `%LOCALAPPDATA%\CodexDreamSkin\engine` 中受管的 PowerShell 副本清除下载区标记。
-
-如需使用自定义端口，可以在安装时传入 `-Port`。端口范围必须是 `1024` 到 `65535`。
-
-```powershell
-powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\scripts\install-dream-skin.ps1 -Port 9444
-```
-
-## 更新
-
-先退出 Dream Skin 托盘并关闭 Codex，再更新仓库（`git pull`，或重新下载最新源码），然后重新运行上面的安装命令。安装器会原子替换受管运行时并重建快捷方式；当前主题、已保存主题和导入图片不会被删除。
+更新源码后，退出 Codex 和托盘，再运行上述构建与安装命令。安装会保留个人主题、图片和设置。
 
 ## 启动与验证
 
-推荐从 `Codex Dream Skin` 快捷方式启动。它发现 Codex 已经运行时会先询问是否重启。
-
-命令行启动：
+右键托盘图标选择应用主题，或从仓库根目录运行：
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\scripts\start-dream-skin.ps1 -PromptRestart
-```
-
-启动后运行验证脚本：
-
-```powershell
-powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\scripts\verify-dream-skin.ps1 `
+powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\windows\scripts\start-dream-skin.ps1 -PromptRestart
+powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\windows\scripts\verify-dream-skin.ps1 `
   -ScreenshotPath "$env:TEMP\codex-dream-skin.png"
 ```
 
-## 可选：Acrylic 窗口材质
+Codex 正在运行时，启动器会询问是否重启。验证脚本检查 CDP 身份、皮肤版本、原生控件和装饰层；截图用于检查溢出和对比度。交互验收项见 [QA 清单](references/qa-inventory.md)。
 
-Windows 11 22621 或更高版本可以选择原生 Desktop Acrylic，替代默认的系统/Mica
-材质；系统的“透明效果”必须已开启。该设置默认不启用，并在下一次 Dream Skin
-启动时生效：
+## 主题与动态效果
+
+托盘提供背景替换、ZIP 导入、保存与切换主题、动态效果、暂停、重新应用和恢复入口。首次安装包含超天酱 JPEG 主题。
+
+原生管理器可调整当前主题的背景透明度，并将非活动主题移到回收站。操作说明见 [主题管理器](theme-manager/README.md)。
+
+- 背景支持 PNG、JPEG、WebP，上限 10 MiB、单边 16384 像素、总计 5000 万像素。
+- 通过“导入主题 ZIP…”加入主题库，再从“已保存主题”选择应用。格式和限制见 [主题管理](../docs/theme-management.md)。
+- 动态效果提供跟随系统、关闭、轻量、完整四档及五类开关，见 [动态效果](../docs/theme-motion.md)。
+- DreamSkin.cc 的“一键换肤”会先显示确认框，再下载并校验对应主题。需要启动或重启 Codex 时，请先保存输入；客户端会先确认当前可见主题，以建立回滚基线。
+
+## Acrylic 窗口材质
+
+Windows 11 22621+ 且系统“透明效果”开启时，可选择 Desktop Acrylic。设置在下次 Dream Skin 启动时生效：
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\scripts\manage-window-effects.ps1 -Set Acrylic
+powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\windows\scripts\manage-window-effects.ps1 -Set Acrylic
 ```
 
-使用 `-Status` 查看当前设置，或用 `-Set System` 恢复系统材质。启动器会把材质
-监控器严格绑定到 Codex 的 PID、创建时间、Store 包、窗口类和 HWND；启动失败时
-恢复原材质，不会修改其他窗口。
+使用 `-Status` 查看设置，使用 `-Set System` 恢复系统材质。
 
-## 可选：接管官方快捷方式启动
+## 官方快捷方式自动接管
 
-安装器默认不会开启自动接管。若希望从 Store 或开始菜单正常打开 Codex 后自动
-切换为 Dream Skin 会话，可以显式启用当前用户的安全监控器：
+该功能默认关闭。以下命令启用当前用户监控器，并保护启用时已经打开的 Codex 会话：
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\scripts\manage-auto-launch-dream-skin.ps1 -Enable -ProtectCurrentSession
+powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\windows\scripts\manage-auto-launch-dream-skin.ps1 -Enable -ProtectCurrentSession
 ```
 
-`-ProtectCurrentSession` 只在启用时保护已经打开的 Codex，会话结束后才允许接管
-未来的新启动；该参数不会写入登录启动项。之后，普通 Codex 会话会先保留三秒
-宽限期，再最多一次交给经过身份校验的 Dream Skin 启动器。调试/CDP、暂停、无法
-安全检查以及已经受管的会话都不会被重启。
-接管会关闭这个经过精确校验的原版会话；经过 15 秒正常关闭窗口后，仍未退出的
-同一组身份校验进程可能会被强制停止。依赖自动接管前，请先发送或保存正在输入的
-内容。
-快速用户切换或 RDP 场景下，同一 Windows 用户全局只允许一个监控器 owner。最先
-取得所有权的会话只监控自己的 Windows 会话；其他会话会安全跳过接管，直到 owner
-监控器退出或被禁用。受管 `state.json` 同样是每个用户唯一的实时会话槽，同一时间
-只能由一个 Windows 会话持有；在 owner 会话退出或完成恢复前，另一会话中的手动与
-自动启动都会安全失败，不会停止或覆盖 owner 的实时注入器/Acrylic 监控器。
+当前会话结束后，新启动的普通 Codex 会话会经过三秒宽限，再交给 Dream Skin 启动器。接管会关闭原会话；正常关闭等待 15 秒后，剩余的已验证进程可能被强制停止，请先保存输入。
 
-使用 `-Status` 查看监控状态，使用 `-Disable` 停止监控并删除受管的 Startup
-快捷方式。官方快捷方式在三秒宽限期内可能短暂显示原版窗口；专用的
-`Codex Dream Skin` 快捷方式不经过这段三秒宽限，通常能尽量减少原版画面闪现。
+同一 Windows 用户最多拥有一个监控器和一个实时受管会话，快速用户切换和 RDP 也适用。使用 `-Status` 查看状态，使用 `-Disable` 停止监控并移除启动项。
 
-验证脚本会自动确认：
+## 恢复
 
-- CDP 端点只绑定本机回环地址，并且属于当前官方 Codex 包。
-- 当前渲染页已经加载预期版本的皮肤。
-- 原生侧栏和输入框仍然存在。
-- 皮肤装饰层不会拦截鼠标事件。
-- 当前为首页时，首页主题结构已经正确加载。
-
-随后用生成的截图检查横向溢出和文字对比度，再分别在首页与普通任务页手动检查项目菜单和输入框交互。完整视觉检查项见 [`references/qa-inventory.md`](./references/qa-inventory.md)。
-
-## 更换和保存主题
-
-打开 `Codex Dream Skin - Tray` 后可以：
-
-- 通过专门设计的超天酱像素图标快速识别受管皮肤。
-- 首次初始化仅内置定制的「超天酱 · INTERNET ANGEL」JPEG 默认主题；升级将未改动的旧内置主题及保存副本移到 `retired-themes/` 备份，旧活动主题切回 JPEG；个人主题与设置保留。
-- 更换 PNG、JPEG 或 WebP 背景图。
-- 导入普通 `.zip` 主题包到“已保存主题”（不支持 `.dreamskin`）。
-- 保存当前主题并从「已保存主题」切换。
-- 暂停或继续显示皮肤。
-- 重新应用主题，或完整恢复 Codex。
-
-在 DreamSkin.cc 上，对包含完整三件套且通过审核的兼容主题点击“一键换肤”，浏览器会打开
-`dreamskin://apply?version=...`。Windows 会显示原生确认框；确认后客户端只从固定的
-`https://api.dreamskin.cc` 下载该版本，核对审核元数据、实际字节数和 SHA-256，再执行与手动 ZIP
-导入相同的清单、图片与 Safe CSS 校验并切换主题。若当前没有可验证的皮肤会话，客户端会先启动或重启
-Codex，并验证磁盘上的当前主题与可见主题一致；只有建立了可回滚的旧主题基线后，才会写入下载的新主题。
-确认前请保存输入。链接不能指定任意下载地址、文件路径或命令，也不能静默应用；不完整的旧主题仍会被客户端拒绝。
-
-导入图片必须是纯背景，不要使用包含窗口、侧栏、输入框、文字或按钮的效果截图。图片上限为 10 MB；宽或高不能超过 16384 像素，总像素不能超过 5000 万。
-
-新的正式 Studio ZIP 必须包含 `manifest.json`、非空 `theme.json`、非空 `theme.css`、恰好一张 `background.webp|jpg|png`，并可选
-带 `LICENSE.txt`、`manifest.sig`；文件直接位于根目录或只包一层主题目录。本地简化包也必须恰好包含
-`theme.json`、`theme.css` 与其引用图片，且只应来自可信来源。压缩文件上限 32 MiB、最多
-32 个条目、解压后最多 64 MiB；路径穿越、链接/reparse、嵌套压缩包和未注册文件会被拒绝。正式包还会
-核对平台、最低客户端版本及清单中每个负载文件的大小与 SHA-256。Safe CSS 会在本机导入和每次应用时
-复验，通过后只作用于 12 个注册部件；升级前已有的无 CSS legacy 主题仍可切换且不会注入额外 CSS。
-预留签名当前不验证。导入只加入主题库，不会改动当前主题；重复内容不会再次写入。同 ID 的新版本会在确认
-旧目录身份后原地更新；只有语义指纹完全一致的旧版 `-2`/`-3` 同族目录才会被清理，名称本身不能证明重复，
-身份不明时会保留并拒绝覆盖。
-
-也可从托盘选择“打开主题文件夹”，手动把已解压、且直接包含 `theme.json`、`theme.css` 与背景图的完整目录移动到
-`%LOCALAPPDATA%\CodexDreamSkin\themes\`。重新打开托盘菜单后即可看到；不要再套一层目录。手动目录
-不会经过 ZIP 导入器的归档校验，请只移动可信内容。
-
-## 恢复与卸载快捷方式
-
-恢复官方外观；如果 Codex 正在运行，确认后关闭并重新打开：
+右键托盘图标选择恢复，或运行：
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\scripts\restore-dream-skin.ps1 `
+powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\windows\scripts\restore-dream-skin.ps1 `
   -RestoreBaseTheme -PromptRestart
 ```
 
-如需同时删除 Dream Skin 创建的快捷方式，再增加 `-Uninstall`：
+加 `-Uninstall` 同时删除源码安装创建的快捷方式。`-RecoverConfigBackup` 会先保存当前配置，再恢复安装前的完整 `config.toml`，适用于普通外观恢复无法解决的配置损坏。
 
-```powershell
-powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\scripts\restore-dream-skin.ps1 `
-  -RestoreBaseTheme -PromptRestart -Uninstall
-```
+结束调试会话需完整恢复并重启，或退出全部 Codex 进程后从官方入口打开。暂停主题会保留调试会话。CDP 的本机访问说明见 [SECURITY.md](../SECURITY.md)。
 
-`-RecoverConfigBackup` 用于明确恢复安装前的完整 `config.toml` 备份。它会先保存当前配置，只应在配置损坏且普通的 `-RestoreBaseTheme` 无法解决时使用。
-
-## 文件与日志位置
+## 文件与日志
 
 | 用途 | 路径 |
-|------|------|
-| Dream Skin 状态根目录 | `%LOCALAPPDATA%\CodexDreamSkin` |
+| --- | --- |
+| 运行时 | `%LOCALAPPDATA%\CodexDreamSkin\engine` |
 | 当前主题 | `%LOCALAPPDATA%\CodexDreamSkin\active-theme` |
-| 已保存主题 | `%LOCALAPPDATA%\CodexDreamSkin\themes` |
-| 导入图片归档 | `%LOCALAPPDATA%\CodexDreamSkin\images` |
+| 主题库 | `%LOCALAPPDATA%\CodexDreamSkin\themes` |
+| 图片归档 | `%LOCALAPPDATA%\CodexDreamSkin\images` |
 | 会话状态 | `%LOCALAPPDATA%\CodexDreamSkin\state.json` |
-| 注入器日志 | `%LOCALAPPDATA%\CodexDreamSkin\injector.log` |
-| 注入器错误日志 | `%LOCALAPPDATA%\CodexDreamSkin\injector-error.log` |
-| 验证日志 | `%LOCALAPPDATA%\CodexDreamSkin\verify.log` |
+| 日志 | `%LOCALAPPDATA%\CodexDreamSkin\injector.log`、`injector-error.log`、`verify.log` |
 | Codex 配置 | `%USERPROFILE%\.codex\config.toml` |
 
-更完整的平台路径说明见 [`../docs/platforms.md`](../docs/platforms.md)。
+## 排错与开发
 
-## 常见问题
+| 情况 | 处理 |
+| --- | --- |
+| 源码安装找不到 Node.js | 用 `node --version` 确认 22+，重新打开 PowerShell |
+| 找不到 Store 包 | 用 `Get-AppxPackage -Name OpenAI.Codex` 检查当前用户的安装 |
+| 管理器缺失 | 重新构建管理器并安装，或重新运行 Release Setup |
+| 指定端口被占用 | 选择其他空闲端口 |
+| Codex 更新后主题失效 | 更新并重新安装 Dream Skin，再从托盘应用主题 |
+| 找不到 CDP 端点 | 从托盘应用主题后重试，并保留启动与验证日志 |
 
-### 找不到 Node.js
+运行时兼容性与恢复细节见 [运行说明](references/runtime-notes.md)，平台路径见 [平台参考](../docs/platforms.md)。提交 [Bug](https://github.com/EmiyaKatuz/Codex-Dream-Skin-Needy-Girl-Overdose/issues/new/choose) 时附系统、Codex 与 Dream Skin 版本、复现步骤和已去除凭据及私人内容的日志。
 
-运行 `node --version`，确认版本为 22 或更高，并重新打开 PowerShell 让新的 `PATH` 生效。
-
-### 找不到官方 Codex 包
-
-运行：
+在仓库根目录运行回归检查：
 
 ```powershell
-Get-AppxPackage -Name OpenAI.Codex
+powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\windows\tests\run-tests.ps1
+node .\tools\internet-angel-extension.test.mjs
+node .\windows\scripts\injector.mjs --check-payload
 ```
 
-脚本只接受已注册的官方 Store 包，不会从任意可执行文件路径启动 Codex。
-
-### 安装器要求关闭 Codex
-
-关闭所有 Codex 窗口后再运行安装器。安装期间必须保持配置和应用状态稳定。
-
-### 杀毒软件报告旧版托盘快捷方式
-
-旧版托盘快捷方式同时使用隐藏 PowerShell 和 `ExecutionPolicy Bypass`，可能触发基于行为特征的 LNK 告警。不要直接加入白名单；更新源码并重新运行安装器，让快捷方式改用 `RemoteSigned`。如果新版仍然报警，请保留隔离状态，并在 Issue 中附上杀毒软件名称、版本、告警名称和快捷方式属性，不要上传密钥或私人数据。
-
-### 端口被占用
-
-没有显式指定 `-Port` 时，启动脚本会从默认端口 `9335` 开始寻找空闲端口。显式端口被其他进程占用时，改用另一个端口，不要关闭身份不明的监听进程。
-
-### 验证找不到 CDP 端点
-
-通过 `Codex Dream Skin` 快捷方式启动 Codex，再运行验证脚本。普通 Codex 启动方式不会打开 Dream Skin 所需的调试会话。
-
-Codex Store `26.715.10079.0` 起，owl runtime 可能把应用包激活参数转换为 `codex://` 路径。当前启动器会识别这一行为，并对同一个已验证 Store 包内的精确 `ChatGPT.exe` 尝试一次原始参数回退；不会修改文件或 WindowsApps 权限。
-
-Issue #235 的实机结果已经确认两种独立失败：`26.715.10079.0` 的 WindowsApps ACL 会返回 `access-denied`；`26.721.3404.0` 可保留原始 CDP 参数，但 production runtime 仍不监听端口。两种结果都意味着当前 Codex/Windows 组合无法在项目安全边界内启用皮肤；该回退目前只提供安全诊断与回滚，不构成受影响 owl 版本的兼容性保证。不要接管 WindowsApps 所有权或修改官方包；请保留完整错误并关注 Issue #235 的上游兼容状态。
-
-如果调试启动或可见渲染验证失败，启动器会先确认本轮启动的 Codex 已全部关闭，再只恢复本次改动且仍保持原值的外观键；较新的配置编辑会保留，不会被整份旧备份覆盖。marker/config 写入前会保存有界的 `preparing` 事务；进程被强制结束后，下次受锁操作会按写入前、预期写入值和当前值三方比较恢复。若无法确认 Codex 已关闭或安全完成恢复，一键换肤会保留当前主题文件和旧主题快照，不与仍在运行的应用竞争写入。此机制不代表受影响的官方 Codex 版本已经恢复 CDP 支持。
-
-### Codex 更新后皮肤失效
-
-重新运行安装器和启动快捷方式。脚本会重新发现当前注册的 Store 包，不依赖旧版本的可执行文件路径。
-
-提交问题时请从仓库的 [Issue 提交页](https://github.com/EmiyaKatuz/Codex-Dream-Skin-Needy-Girl-Overdose/issues/new/choose) 选择 Bug 模板，附上系统版本、Codex 来源、复现步骤和相关日志片段。请删除密钥、`auth.json`、中转 token 和私人对话内容。
-
-## 安全边界
-
-- CDP 只绑定 `127.0.0.1`，但没有身份认证；同一台电脑上的其他进程仍可能连接并读取或控制 renderer。
-- 暂停主题或只停止 injector 不会关闭正在运行的 Codex 调试端口；执行带重启的完整恢复，或退出全部 Codex 后从官方普通入口重新打开，风险窗口才结束。
-- 不修改官方 Codex 安装目录、WindowsApps、`app.asar` 或签名。
-- 不写入 API Key、Base URL 或模型供应商配置。
-- 恢复脚本只会控制经过包身份、进程路径和会话状态校验的 Codex 进程。
-- 完整威胁模型与操作建议见 [`../SECURITY.md`](../SECURITY.md)。
-
-维护者和代理使用的实现约束见 [`SKILL.md`](./SKILL.md)，运行时排错细节见 [`references/runtime-notes.md`](./references/runtime-notes.md)。
+原生管理器的构建与测试见 [开发说明](theme-manager/README.md)，维护约束见 [SKILL.md](SKILL.md)。

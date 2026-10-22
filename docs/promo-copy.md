@@ -1,73 +1,25 @@
-# 宣传文案（可直接发）
+# 项目介绍 / Project copy
 
-仓库：https://github.com/EmiyaKatuz/Codex-Dream-Skin-Needy-Girl-Overdose
+## 中文
 
----
+**一句话**
 
-## 短版（朋友圈 / 群公告）
+Codex Dream Skin：为 Codex Desktop 添加超天酱 / INTERNET ANGEL 主题与动态效果。
 
-Codex 也能「换皮肤」了。
+**简短介绍**
 
-不是整窗假截图，侧栏、卡片、输入框都还是真控件。  
-一张图一套主题：千玺、热巴、Miku、KUN、ENFP……你想要的样子自己配。
+Codex Dream Skin 支持 Windows、macOS 和 Linux，统一首页、侧栏、对话、输入框与设置的主题外观，提供任务状态反馈、像素角色和壁纸人物眨眼动画。macOS 和 Windows 可更换背景、导入主题 ZIP、保存与切换主题，并调整背景透明度。
 
-本机注入，不改官方安装包，还能一键恢复。
+[下载与使用](../README.md) · [项目仓库](https://github.com/EmiyaKatuz/Codex-Dream-Skin-Needy-Girl-Overdose)
 
-开源地址：  
-https://github.com/EmiyaKatuz/Codex-Dream-Skin-Needy-Girl-Overdose
+## English
 
-感谢 Passion8 赞助：https://passion8.cc/register?aff=TuPe
+**One line**
 
----
+Codex Dream Skin adds an INTERNET ANGEL theme and motion effects to Codex Desktop.
 
-## 中版（公众号 / 即刻 / 小红书）
+**Short description**
 
-标题可选：
+Codex Dream Skin supports Windows, macOS, and Linux. It themes the home screen, sidebar, conversations, composer, and settings, with task feedback, a pixel character, and blinking animation for the wallpaper character. macOS and Windows support custom backgrounds, theme ZIP imports, saved themes, switching, and background transparency.
 
-1. 我给 Codex 做了个皮肤商店：从人民的 AI 到初音未来  
-2. 写代码也能有爱豆同款桌面  
-3. Codex Dream Skin：不拆包，也能把官方界面变成你的
-
-正文：
-
-还在用默认灰白 Codex？有点可惜。
-
-**Codex Dream Skin** 是一套给 Codex 桌面端用的外部主题方案：  
-用本机 CDP 把样式和横幅「贴」上去，**不修改官方 `.app` / `app.asar`**，侧栏、建议卡、项目选择、输入框都是原生可点。
-
-你看到的热巴紫夜、千玺清透、Miku 蓝粉、KUN 黑金、ENFP 小宇宙……都是同一套能力换图 + 换色的结果。
-
-开源仓库（含效果图与安装脚本）：  
-https://github.com/EmiyaKatuz/Codex-Dream-Skin-Needy-Girl-Overdose
-
-想稳定接模型的话，可以走赞助方 Passion8（与换肤分开配置）：  
-https://passion8.cc/register?aff=TuPe
-
----
-
-## 长版钩子（发帖置顶）
-
-> 写代码的桌面，也可以有自己的皮肤。
-
-- 真交互，不是 P 一张假 UI  
-- 可换图、可恢复  
-- Mac / Windows 脚本都在仓库里  
-- 效果图直接看 README Gallery  
-
-👉 https://github.com/EmiyaKatuz/Codex-Dream-Skin-Needy-Girl-Overdose
-
----
-
-## 一句话 slogan
-
-- 给 Codex 换一张会呼吸的脸  
-- 一张图，一种心情  
-- 写代码，也要有氛围感  
-- 不拆包，也能全员爱豆版 Codex  
-
----
-
-## 注意（发的时候自己把关）
-
-效果图含公众人物 / IP 形象时，**仅作主题示意**。  
-二次商用或大规模传播前，请确认肖像与商标授权，避免纠纷。
+[Download and usage](../README.en.md) · [Repository](https://github.com/EmiyaKatuz/Codex-Dream-Skin-Needy-Girl-Overdose)

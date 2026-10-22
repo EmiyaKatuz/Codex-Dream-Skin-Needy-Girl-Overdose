@@ -1,98 +1,43 @@
-# Codex Dream Skin Reference Image Prompts
+# Custom background guide
 
-This guide generates **wallpaper artwork only** for use beneath real Codex controls. The recommended master is `2560 × 1440`, 16:9. A screenshot, app mockup, sidebar, card, or composer is not a usable theme background.
+[中文](./reference-background-prompt-guide.md) · [English](./reference-background-prompt-guide.en.md)
 
-Chinese guide: [`reference-background-prompt-guide.md`](./reference-background-prompt-guide.md)
-
-> Public prompts default to an original fictional adult. They do not name or imitate a celebrity, private individual, copyrighted character, or living artist's signature style. Use an authorized identity reference only when you hold the necessary likeness and asset rights. Generated artwork is not an official OpenAI/Codex visual or endorsement.
+Create artwork that fits the Codex interface, then export a theme ZIP through DreamSkin Studio.
 
 ## Turn generated artwork into an importable theme
 
-1. **Generate wallpaper only.** Aim for `2560 × 1440`, 16:9. Keep sidebars, input controls, text and translucent interface overlays out of the image; theme colors and the client control transparency.
-2. **Open [DreamSkin Studio](https://dreamskin.cc/en/studio).** Choose a JPEG, PNG or static WebP background no larger than **10 MiB**. Adjust composition, colors and `theme.json`, and keep non-empty `theme.css` that passes Safe CSS validation. Check readability across appearances, pages and window widths.
-3. **Export a complete ZIP from Studio.** Fill in theme details, platforms, license and provenance. The package must contain `manifest.json`, valid `theme.json`, non-empty validated `theme.css`, and exactly one background image referenced by the theme. An image and JSON alone are not a complete new package. Let Studio generate the manifest and do not use a screenshot as wallpaper.
-4. **Import, then explicitly apply.** On macOS, use menu bar → Themes → Import theme ZIP…; on Windows, use Import theme ZIP… in the tray. Importing only saves the theme; select it in Saved themes to apply. Exporting and local imports do not publish to the community.
+1. Generate a `2560 × 1440`, 16:9 background with a content area on the left and the main subject on the right.
+2. Import a JPEG, PNG, or static WebP into [DreamSkin Studio](https://dreamskin.cc/en/studio), up to **10 MiB**. Adjust colors and preview light and dark appearances, Home, tasks, and different window widths.
+3. Fill in the theme name, author, platforms, and asset sources. Export a ZIP containing `manifest.json`, `theme.json`, non-empty `theme.css`, and exactly one background image. The CSS must pass Safe CSS validation.
+4. On macOS, choose Theme → Import theme ZIP from the menu bar. On Windows, choose Import theme ZIP from the tray. After import, select the theme from Saved themes to apply it.
 
-### Transparency and local theme management (v1.5.19+)
+Theme colors and client preferences control background transparency. Let the runtime draw text, controls, and interface overlays; keep the background artwork complete and opaque.
 
-- Per-theme local preferences take priority over explicit authored color alpha; without either, backgrounds default to **30% transparency**. Alpha describes opacity: `rgba(17, 19, 24, 0.7)` is 70% opaque, or 30% transparent.
-- On macOS, use the Themes menu. On Windows, open the native manager from the desktop, Start Menu or by double-clicking the tray icon. The slider ranges from 0% (opaque) to 100% (transparent). **Follow theme** clears the local override. Text, icons and theme packages are unchanged, and Studio does not read client preferences.
-- Switch away from a theme before deleting it. Confirmation moves the saved local theme to Trash or Recycle Bin for system restoration. Source ZIPs, recovery backups, transparency preferences and community publications are retained. Windows imports and theme switching remain in the tray.
+## Bundled theme and custom assets
 
-See [local theme management](./theme-management.md#english). The source presets and concept images below are references; use the Studio workflow above for ordinary theme creation and distribution.
+| Content | Source location |
+| --- | --- |
+| Bundled INTERNET ANGEL theme | `macos/presets/preset-internet-angel-default/` |
+| Windows theme and background | `windows/assets/theme.json`, `windows/assets/dream-reference.jpg` |
+| Asset license notes | `macos/NOTICE.md` |
 
+The bundled background is a `2560 × 1440` JPEG. Custom assets can be your own photos, illustrations, or generated images. Include the relevant license and asset sources when distributing a theme.
 
-## Current bundled theme
+## Canvas and composition
 
-macOS and Windows bundle only the customized **超天酱 · INTERNET ANGEL** JPEG
-theme. `macos/presets/preset-internet-angel-default/` matches the Windows
-`windows/assets/theme.json` + `dream-reference.jpg` pair byte for byte.
-The `2560 × 1440` image is pure wallpaper. Fresh installs use this theme;
-upgrades preserve existing local themes. See `macos/NOTICE.md` for asset terms;
-repository inclusion is not a grant of third-party rights.
+Select `2560 × 1440` in the generator's size settings. If unavailable, generate a 16:9 landscape image, then resize proportionally or crop it.
 
-## Separate Presets, Source Art, Screenshots, And Concepts
+| Area | Suggested range | Composition |
+| --- | --- | --- |
+| Native content | `x=0%–52%` | Low detail and contrast with subtle texture |
+| Transition | `x=45%–62%` | Continuous environment, lighting, and perspective |
+| Main subject | `x=62%–88%`, `y=16%–72%` | Keep the face, hands, and essential props here |
+| Portrait placement | Face `y=20%–52%`; hands `y=30%–70%` | Allow for window cropping and the composer below |
+| Edges | At least `8%` around critical details | Use extensible scenery around the canvas |
 
-The “effect” shown in a README is not automatically an importable wallpaper. These paths have different jobs:
+Backgrounds fill the window with `cover`, so different aspect ratios crop the edges. Retain midtone detail and subject definition under both light and dark interfaces.
 
-| Type | Repository path | What it is | A complete theme? |
-|---|---|---|---|
-| **Current bundled preset** | macOS: `macos/presets/preset-internet-angel-default/`; Windows: `windows/assets/theme.json` + `dream-reference.jpg` | Customized Internet Angel JPEG wallpaper and metadata | Ready to use in the bundled client; new import ZIPs must still meet the complete-package contract |
-| **Pure wallpaper** | `windows/assets/dream-reference.jpg` | `2560 × 1440` JPEG without metadata or CSS | **No**, an image alone is not a complete pack |
-| **Concept gallery** | `docs/images/gallery/skin-01.jpg`–`skin-08.jpg` | UI effect mockups used only to communicate visual directions | **No** |
-| **Experimental/history images** | `docs/images/banner-*.png`, `docs/images/generated-*.png` | Unapproved local experiments or references | **No**; do not ship without rights/provenance review |
-
-`docs/images/hero-banner-red-white.png` is a historical 3:1 banner reference,
-not the current 16:9 universal-theme master. Do not substitute it for a theme
-background unless the output is intentionally homepage-banner-only.
-
-Current installers bundle only the Internet Angel JPEG theme. Generate from
-this guide and study concept directions in `docs/images/gallery/`. New theme
-imports and distribution require non-empty validated `theme.css`, and formal
-ZIPs need a Studio-generated `manifest.json`; `docs/images/` is documentation
-space, not a mirror of the theme library.
-
-Save new generations outside the repository while drafting and run the acceptance checklist at the end. After checking it, load the **pure wallpaper** into Studio and export a complete theme ZIP using the workflow above. Do not place drafts, UI screenshots, or unverified human-likeness images in `docs/images/` and assume they become switchable themes.
-
-## Copy From The skin-01 Concept: Render It In UI, Not In The Image Prompt
-
-`docs/images/gallery/skin-01.jpg` is a concept effect image. It paints copy, sidebar data, and the small polaroid into one complete UI. The strings below are a **requirements reference** extracted from that image, not part of the wallpaper bitmap. Keep `no readable text` in the generation prompt and render these strings later as live UI or independent decoration; otherwise they will blur or crop when the window changes size.
-
-| Concept location | Reference copy | Current recommendation |
-|---|---|---|
-| Top brand title | `桥本有菜专属定制皮肤` | Use only after likeness and redistribution rights are confirmed; the current runtime does not show this brand layer, so keep it as a future UI field |
-| Top subtitle | `Codex App 限定版` | Not visible in the current runtime; do not bake it into `background.jpg` |
-| Script signature | `Arina Hashimoto♡` | Independent signature layer; the base runtime has no generic signature field yet |
-| Home title | `我们该构建什么？` | Keep the native Codex title; the current theme does not replace project, task, message, or primary-title data |
-| Home subtitle | `与有菜一起，用灵感创造无限可能` | macOS can currently show it through `tagline`; Windows does not yet render theme copy |
-| Composer placeholder | `随心输入，让灵感陪你一起写代码吧～` | Use only where product configuration explicitly permits a custom placeholder; never overwrite user input |
-| Bottom-right polaroid copy | `一直陪伴，是最温暖的慰藉 ♥` | Caption for an independent sticker; the concept glyphs are low-resolution, so confirm the final copy before release |
-
-This table does **not** claim that every field is implemented. Theme names are currently visible in the macOS menu-bar and Windows tray switchers; macOS shows `tagline` on the home route, while Windows does not yet render theme copy. Brand, subtitle, status, quote, signature, polaroid, and independently positioned decoration are outside the current visible runtime contract. Until corresponding schema and renderer support exists, omit those elements instead of flattening them into the background. If stickers are implemented later, keep each image as an independent `sticker-*.jpg` in the theme directory, render it through a pointer-events-free decoration layer, and hide or reposition it at homepage/task/narrow-window breakpoints. Do not treat it as a second background or let it cover the composer.
-
-Names, likenesses, and this copy belong to that historical concept image and should not be copied into the generic templates. Without the required rights, use an original fictional adult and remove names, work titles, and identifying terms.
-
-## Fix The Role Of Each Reference
-
-Use this order when all three references are supplied:
-
-| Input | Role | Allowed use | Never do this |
-|---|---|---|---|
-| **Image 1** | UI screenshot or effect mockup | Palette, lighting, atmosphere, approximate subject placement, and broad composition | Do not edit, erase, trace, or retain its UI, text, or controls |
-| **Image 2** | Optional clean style/environment reference | Materials, scenery, grading, depth of field, and lighting | Do not infer identity or copy text, logos, characters, or a signature style |
-| **Image 3** | Optional adult identity reference | Identity consistency only, and only after the user explicitly confirms the necessary likeness and asset rights | Do not use it without that confirmation; do not take UI or background composition from it |
-
-Image numbers follow the actual upload order. Generators and the CLI do not reserve a blank number for an omitted image. If Image 2 is omitted, the next uploaded reference becomes the actual Image 2 and the prompt must be renumbered. Never refer to an image that was not uploaded.
-
-The safest first pass uses Image 1 only and generates an original fictional adult. This guide makes no rights claim about any specific person or asset.
-
-Names of specific real people (for example, “Arina Hashimoto”) must not be put in a public default prompt to induce imitation. If you genuinely hold the necessary rights, use a clear adult identity image as Image 3 only in the local authorized workflow below; otherwise use the original-fictional-adult version.
-
-## Set The Output Size
-
-Prompt text cannot replace the generator's size control. Select `2560 × 1440` in the generator UI or API as well. If that exact size is unavailable, generate the highest-quality 16:9 landscape output, crop it to 16:9, and then resize it to `2560 × 1440`. Do not stretch a non-16:9 image.
-
-Dream Skin uses `cover`, so 16:10, 4:3, and ultrawide windows crop some source pixels. For a right-side portrait, use this theme metadata:
+For a right-side subject, this `theme.json` configuration is a useful starting point:
 
 ```json
 {
@@ -106,147 +51,71 @@ Dream Skin uses `cover`, so 16:10, 4:3, and ultrawide windows crop some source p
 }
 ```
 
-`safeArea: "left"` reserves the left side for native content and prioritizes the right-side subject on narrower windows. Edge preservation takes priority over `focusX` in that mode.
+`safeArea: "left"` reserves space for native content and prioritizes the right-side subject in narrow windows.
 
-| Zone | Recommended coordinates | Requirement |
-|---|---:|---|
-| Native-content safe zone | `x=0%–52%` | Continuous low-detail, low-local-contrast environment; no face, hands, dense flowers, or bright flare |
-| Natural transition | `x=45%–62%` | Blend naturally into the focal area; no panel edge or split-screen seam |
-| Critical subject zone | `x=62%–88%` | Keep the face, hands, hair ornaments, and identifying props here; nonessential decoration may reach `x=90%` |
-| Vertical safe zone | `y=16%–72%` | Face `y=20%–52%`; hands `y=30%–70%`; the composer may cover lower content |
-| Edge protection | at least `8%` | Do not place critical details against any edge |
+## Environment template
 
-Keep subtle midtone texture in the left zone so it remains usable beneath either a light or dark translucent layer. Reserve the strongest contrast and highest-frequency detail for the subject area.
-
-Every complete prompt below follows the same order: **use/asset type → canvas and layout → reference contract → scene and one primary subject → capture/medium → materials → lighting → palette → invariants → targeted exclusions**. Keep that order when adapting a prompt. Concrete visible objects, materials, and light behavior are more useful than a stack of vague quality adjectives.
-
-## Public Baseline: Copy-Ready Soft Rose With An Original Fictional Adult
+Replace the bracketed fields with concrete scenery, materials, lighting, and colors.
 
 ```text
-Use case: photorealistic-natural
-Asset type: adaptive Codex desktop wallpaper
-Primary request: Create one new standalone 2560×1440, 16:9 desktop wallpaper as edge-to-edge continuous artwork. Generate only the underlying romantic rose scene that will sit beneath a real application interface.
-Input image contract:
-- Image 1 is a UI screenshot or concept mockup. Use it only for palette, lighting, atmosphere, subject placement, and broad composition. It is not an edit target.
-- Image 2, if supplied, is a clean style or environment reference. Use it only for materials, floral language, color grading, depth of field, and lighting. Do not infer identity, copy text, or copy branded elements from it.
-- Identity mode for this prompt is ORIGINAL FICTIONAL ADULT. Do not attach or use Image 3. Do not infer a real identity from Image 1 or Image 2. For an identity-preserving result, stop and use the separately authorized workflow below.
-Reference handling: Generate a completely new image from scratch. Do not copy, trace, clean up, erase UI from, or retain any interface element from the references. Reconstruct all areas hidden by Image 1's interface as one continuous natural environment.
+Create one 2560×1440, 16:9, opaque desktop wallpaper.
+Scene: [environment, season, and main objects]. Medium: [photography, watercolor, or digital illustration].
+Materials: [3–5 visible materials]. Lighting: [direction, softness, and time of day].
+Palette: [4–6 colors].
 
-Scene/backdrop: A luxurious pastel rose-garden studio with pink and ivory rose clusters concentrated around the right side, translucent blush curtains, soft-focus floral depth, sparse floating petals, pearlescent dust, tiny warm star-like glints, and restrained creamy bokeh. Continue the same environment naturally across the entire canvas. Keep x=0%–52% calm, bright, low-contrast, and low-detail with a smooth warm-ivory-to-blush atmosphere, extremely faint watercolor leaves, and only a few sparse petals. Keep the bottom-left and center-left especially quiet.
-
-Subject: One original fictional adult woman in a refined romantic beauty-editorial portrait. She is clearly adult and is not based on any named or recognizable person. Give her balanced delicate facial proportions, expressive eyes, long glossy black twin ponytails, airy bangs, soft natural pink makeup, and a gentle confident expression. She wears delicate white fluffy hair ornaments, a blush-pink chiffon dress with translucent ruffled sleeves, subtle crystal embroidery, and a small white faux-fur shoulder wrap. Her hands form one natural relaxed pose near her collarbone.
-
-Style/medium: Premium Japanese romantic beauty editorial, polished photorealism, realistic skin texture, natural anatomy, delicate fabric micro-detail, shallow depth of field, no plastic CGI skin.
-Capture context: Eye-level editorial portrait with a restrained 85 mm lens feel and a natural waist-up three-quarter framing; realistic optical depth and no extreme wide-angle distortion.
-Composition/framing: Reserve x=0%–52% for the calm text-safe environment. Keep the complete critical silhouette, face, hands, hair ornaments, and clothing details within x=62%–88% and y=16%–72%. Place the face within y=20%–52% and the hands within y=30%–70%. Keep nonessential flowers and curtain detail within x=56%–90%. Keep all critical details at least 8% away from every edge. Create one continuous scene with no vertical seam or split-panel effect.
-Materials/detail: Real rose petals with varied translucency, matte chiffon, soft faux-fur fibers, restrained crystal highlights, translucent curtain weave, and natural skin micro-texture. Keep reflective sparkle sparse and physically coherent.
-Lighting/mood: High-key diffused beauty lighting, soft window glow from the upper left, gentle rim light around dark hair, calm romantic atmosphere.
-Color palette: Warm ivory, pearl white, sakura pink, dusty rose, with restrained muted-berry accents and enough midtone detail to survive both light and dark translucent overlays.
-
-Constraints: Pure wallpaper only. No readable text and no interface. One adult person only, natural hands, coherent perspective, continuous edge-to-edge background.
-Avoid: screenshot, UI, UX, GUI, software window, browser, mockup, title bar, menu bar, sidebar, navigation, dashboard, panel, card, rounded rectangle, button, icon, badge, input box, composer, chat panel, code panel, terminal, cursor, device frame, poster layout, typography, letters, words, Chinese text, numbers, name, signature, logo, label, watermark, border, split screen, collage, polaroid, blank white panel, celebrity likeness, public figure likeness, private-person likeness, copyrighted character, child, underage appearance, duplicate person, duplicate face, extra limbs, extra hands, extra fingers, malformed hands, cropped face, cropped hands.
+Keep x=0%–52% as continuous low-detail, low-contrast scenery.
+Concentrate the focal detail within x=62%–88%, y=16%–72%,
+with at least 8% padding around all critical details.
+Use one perspective and a natural transition across the canvas.
+Retain midtone texture beneath light and dark interface overlays.
+Output wallpaper artwork only, without interface controls, text, logos, or watermarks.
 ```
 
-## Custom Environment Template
-
-Replace every `[REPLACE: ...]` field before generation. Do not append the full Soft Rose prompt as well.
+## Portrait template
 
 ```text
-Use case: stylized-concept
-Asset type: adaptive Codex desktop wallpaper
-Primary request: Create one new standalone 2560×1440, 16:9 desktop wallpaper as edge-to-edge continuous artwork.
-Input image contract:
-- Image 1, if supplied, is a UI screenshot or effect mockup. Use it only for palette, lighting, atmosphere, focal placement, and broad composition. It is a visual reference, never an edit target.
-- Image 2, if supplied, is a clean environment or material reference. Use it only for scenery, materials, color grading, depth, and lighting. Do not copy text, logos, characters, or a signature style.
-- No identity image is used in this no-person prompt. Do not infer a person or character from either reference.
-Reference handling: Generate a completely new image from scratch. Do not erase UI from, trace, clean up, or reproduce Image 1. Reconstruct every region hidden by the interface as the same continuous physical environment.
-Scene/backdrop: [REPLACE: environment, season, architecture or landscape, materials, and mood]. Concentrate detail between x=62%–88%. Continue the same environment through x=0%–52% using broad gradients, atmosphere, mist, sky, wall or paper texture, or soft foliage shadows. The left must not look like an empty white rectangle or an interface panel.
-Style/medium: [REPLACE: cinematic environment, premium illustration, or photoreal editorial set].
-Composition/framing: Primary focal point x=68%–76%, y=24%–55%. Keep every essential structure within x=62%–88% and y=16%–72%, at least 8% from every edge. One continuous perspective, no vertical seam.
-Materials/detail: [REPLACE: 3–6 concrete surfaces or materials and how they react to light].
-Lighting/mood: [REPLACE: light direction, time of day, and mood].
-Color palette: Controlled midtones, lifted shadows, restrained highlights, and subtle texture beneath light or dark translucent overlays.
-Invariants: One physical environment, one perspective, continuous depth, no person, no interface, no readable text, no logo, and no watermark. Return only the opaque edge-to-edge wallpaper.
-Avoid: screenshot, UI, software window, sidebar, navigation, dashboard, panel, card, rounded rectangle, button, icon, input box, composer, code editor, terminal, cursor, device frame, poster, typography, letters, words, numbers, logo, signature, watermark, split screen, collage, blank white panel.
+Create one 2560×1440, 16:9, opaque desktop wallpaper.
+Place one original adult character on the right: [hair, clothing, pose, and expression].
+Scene: [environment and props]. Materials: [fabric, plants, glass, or other surfaces].
+Style: [photography or illustration medium]. Lighting: [key and ambient light]. Palette: [colors].
+
+Continue the same environment through x=0%–52% with soft detail and contrast.
+Keep the complete face, hands, and essential props within x=62%–88%, y=16%–72%;
+face y=20%–52%, hands y=30%–70%, with at least 8% padding around critical details.
+Use natural anatomy, coherent lighting, and a continuous background.
+Output wallpaper artwork only, without interface controls, text, logos, or watermarks.
 ```
 
-## Copy-Ready User-Confirmed Authorized Adult Identity Reference
+## Use reference images
 
-This generates a new image from references; it does not edit the original portrait. Use Image 3 only after the user explicitly confirms the necessary rights. Otherwise omit the identity image and use the original-fictional-adult prompt.
+State each image's role in the prompt, following the actual upload order:
+
+| Reference | Role |
+| --- | --- |
+| Interface screenshot | Extract palette, lighting, atmosphere, and broad composition; rebuild the full background scene |
+| Environment or material image | Extract scenery, surface texture, depth, and lighting |
+| Licensed portrait reference | Preserve the subject's appearance and natural proportions |
+
+For example, when uploading an interface image followed by a portrait, append:
 
 ```text
-Use case: identity-preserve
-Asset type: adaptive Codex desktop wallpaper
-Primary request: Generate one new standalone 2560×1440, 16:9 desktop wallpaper. Place the adult subject from Image 3 naturally inside a newly generated continuous environment.
-Input images:
-- Image 1 is a UI screenshot or effect mockup used only for palette, lighting, atmosphere, subject placement, and broad composition. It is not an edit target.
-- Image 2 is an optional clean style or environment reference used only for materials, scenery, color grading, depth of field, and lighting. Do not infer identity from Image 1 or Image 2.
-- Image 3 is an adult identity reference supplied only after the user explicitly confirmed the necessary likeness and asset rights. Use Image 3 only for identity, adult age, facial proportions, hairstyle, body proportions, expression, and natural anatomy.
-Reference handling: Generate from scratch. Do not erase UI from, clean up, trace, or reproduce Image 1. Rebuild all occluded areas as one continuous environment. Do not copy text, logos, UI, background composition, or unrelated styling from Image 3.
-Subject: Preserve the Image 3 adult subject's facial identity, adult age, facial proportions, hairstyle, body proportions, expression, and natural anatomy. Do not add another person.
-Scene/backdrop: Create a luxurious pastel rose-garden studio with pink and ivory rose clusters concentrated around the right side, translucent blush curtains, soft-focus floral depth, sparse floating petals, pearlescent dust, tiny warm star-like glints, and restrained creamy bokeh. Continue the same environment naturally across the full canvas. Keep x=0%–52% calm, bright, low-contrast, and low-detail with a smooth warm-ivory-to-blush atmosphere, extremely faint watercolor leaves, and only a few sparse petals. Keep the bottom-left and center-left especially quiet.
-Composition/framing: Keep all critical identity details within x=62%–88% and y=16%–72%; face y=20%–52%; hands y=30%–70%; at least 8% edge padding. One continuous scene, no split panel.
-Style/medium: Premium Japanese romantic beauty editorial, polished photorealism, realistic skin texture, natural anatomy, delicate fabric micro-detail, shallow depth of field, no plastic CGI skin.
-Capture context: Eye-level editorial portrait with a restrained 85 mm lens feel and a natural waist-up three-quarter framing; preserve realistic optical depth and avoid wide-angle facial distortion.
-Materials/detail: Real rose petals with varied translucency, matte chiffon, soft faux-fur fibers, restrained crystal highlights, translucent curtain weave, and natural skin micro-texture.
-Lighting/mood: High-key diffused beauty lighting, soft window glow from the upper left, a gentle rim light around dark hair, and matched skin, hair, fabric, and environmental shadows.
-Color palette: Warm ivory, pearl white, sakura pink, dusty rose, with restrained muted-berry accents and enough midtone detail to survive both light and dark translucent overlays.
-Constraints: Preserve identity and adult appearance. Pure wallpaper only; no interface; no readable text; no logo; no watermark.
-Avoid: identity drift, altered face, age regression, childish appearance, duplicate person, duplicate face, extra limbs, extra hands, extra fingers, malformed hands, cropped face, cropped hands, screenshot, UI, software window, sidebar, card, button, input box, composer, typography, signature, logo, watermark, copyrighted character.
+Image 1 provides palette, lighting, and composition references for a new continuous background scene.
+Image 2 provides the subject's appearance; place the subject naturally in the right-side safe area.
 ```
 
-## Regenerate From A UI Reference
+## Transparency and local management
 
-Treat the screenshot as a reference, never as an edit target:
+Background transparency uses the theme's saved local preference first, then the author's color alpha, with **30% transparency** as the fallback. For example, `rgba(17, 19, 24, 0.7)` is 70% opaque, or 30% transparent.
 
-```text
-Use case: photorealistic-natural
-Asset type: adaptive Codex desktop wallpaper generated from a UI reference
-Input images: Image 1 is a UI screenshot used only for style, palette, lighting, atmosphere, subject placement, and broad composition. Image 2, if supplied, is a clean style or environment reference only. Image 3 may be used only in the separately authorized adult-identity workflow; otherwise it must be absent.
-Primary request: Generate one completely new standalone 2560×1440, 16:9 wallpaper representing the continuous source artwork that could exist beneath Image 1's interface.
-Reference use: Do not reproduce, trace, retain, clean up, or redesign any interface element from Image 1. Discard the entire software-window concept and reconstruct every occluded region as one natural continuous environment. Do not infer a real identity, copyrighted character, brand mascot, or artist signature style from Image 1 or Image 2.
-Scene transfer: Preserve only the reference's broad environment category, visible physical materials, lighting direction, atmospheric depth, palette relationships, and approximate focal balance. Invent new scene detail for all occluded regions. Keep one coherent horizon, perspective, and lighting setup across x=0%–100%.
-Composition/framing: Reserve x=0%–52% as calm low-contrast environment; natural transition x=45%–62%; keep critical subject details in x=62%–88% and y=16%–72%; face or primary object y=20%–52%; hands y=30%–70%; critical details at least 8% from all edges.
-Style/lighting/palette: Match only the broad medium, color relationships, contrast hierarchy, light direction, and depth-of-field logic requested above; do not copy a living artist's signature style. Preserve usable midtones beneath both light and dark translucent overlays.
-Invariants: One newly generated physical scene, one perspective, continuous depth, all critical details crop-safe, and no surviving pixels or geometry from the reference interface.
-Output contract: Return only the new opaque edge-to-edge wallpaper. Not a cleaned screenshot, not a UI mockup, not a redesigned app, and not a poster. No readable text, logos, signatures, panels, cards, buttons, input boxes, or watermarks.
-```
+Adjust it through the macOS Theme menu or the Windows native manager. The slider ranges from 0–100%; Follow theme restores the author's setting. Switch to another theme before deleting one, then confirm moving it to Trash or Recycle Bin.
 
-## Keep Copy And Small Photos Out Of The Bitmap Until Overlay Support Exists
+See [local theme management](https://github.com/EmiyaKatuz/Codex-Dream-Skin-Needy-Girl-Overdose/blob/main/docs/theme-management.en.md) for details.
 
-Do not bake names, signatures, titles, or copy such as “Create without limits with `[subject name]`” into the bitmap. Today, only the macOS home `tagline` is a visible copy field; theme names appear in both platforms' switching controls, and the remaining copy fields do not yet have a cross-platform visible contract. Implement the relevant schema and real UI layer before relying on those fields; merely adding them to `theme.json` does not make them visible.
+## Check before export
 
-Do not bake a polaroid or small photo into `background.jpg` either. Only after the corresponding schema and renderer capability is implemented should it become a separate theme asset and, after confirming the necessary photo and likeness rights, be positioned by a `theme.json` sticker/decoration layer. The current runtime has no such visible field, so omit the photo today: do not add an unrecognized field to `theme.json`, and do not merge the photo into the wallpaper. Once implemented, the independent layer can be hidden around native cards, the composer, and narrow layouts.
+- Verify the image dimensions, aspect ratio, and file size.
+- Preview `cover` cropping at 16:9, 16:10, 4:3, and ultrawide ratios, keeping the subject intact.
+- Check readable text and natural background transitions in light and dark appearances.
+- Keep the image as background artwork; include complete metadata, CSS, and the background in the theme ZIP.
 
-## GPT Image 2 CLI Example
-
-This optional example does not run automatically. Executing it reads `OPENAI_API_KEY`, calls the OpenAI API, and may incur charges. `--image` order defines Image 1 / 2 / 3.
-
-```bash
-gpt-image \
-  --model gpt-image-2 \
-  --size 2560x1440 \
-  --quality high \
-  --background opaque \
-  --format png \
-  --n 1 \
-  --image ./references/image-1-ui.png \
-  --image ./references/image-2-style.png \
-  --prompt 'PASTE THE COMPLETE ORIGINAL-FICTIONAL-ADULT PROMPT HERE' \
-  --file ./dream-skin-wallpaper.png
-```
-
-For the user-confirmed authorized workflow, append `--image ./references/image-3-authorized-adult.png` and use the complete authorized prompt above. Remove omitted inputs and renumber the prompt to match.
-
-## Retry And Acceptance
-
-- If UI survives, start a new generation with: `Image 1 is a visual reference, never an edit target. Generate a new continuous source wallpaper from scratch and discard every interface element.`
-- If a seam appears, require one physical environment, lighting setup, perspective, and atmospheric depth across `x=0%–100%`.
-- If the head, hands, or bottom crop, move all critical details back into `x=62%–88%` / `y=16%–72%`; face `y=20%–52%`; hands `y=30%–70%`; edge padding at least `8%`.
-- If identity drifts, verify actual image numbering and restate that Image 3 supplies identity only. Do not bypass an API refusal; use the original fictional workflow.
-
-Reject the asset unless the file is actually `2560 × 1440`, contains one continuous edge-to-edge wallpaper with no UI or readable text, preserves every crop-safe coordinate above, survives `cover` previews at 16:9 / 16:10 / 4:3 / ultrawide, remains readable beneath light and dark overlays, and keeps all copy and small-photo assets outside the bitmap.
-
-Before import, preview the image with `cover` at 16:9, 16:10, 4:3, and ultrawide ratios; verify both light and dark overlays; confirm that the face, hands, and critical props remain intact; and import the wallpaper, never a README preview screenshot.
-
-For prompts matching the eight concept-gallery directions, see [`background-generation-prompts.md`](./background-generation-prompts.md).
+See [background prompt ideas](./background-generation-prompts.md#english) for more palettes and scenes.

@@ -1,252 +1,93 @@
-# Codex Dream Skin Studio
+# Codex Dream Skin · macOS
 
-Unofficial macOS theme studio for the **official Codex Desktop** app.
+[English](README.en.md) · [项目首页](https://github.com/EmiyaKatuz/Codex-Dream-Skin-Needy-Girl-Overdose/blob/main/README.md)
 
-Turn an image you like into one continuous full-window Codex theme. The same wallpaper runs beneath the native sidebar and main surface, while route-aware translucency keeps home, task, plugin, scheduled-task, and pull-request controls fully interactive and readable.
+为 Codex Desktop 提供超天酱 / INTERNET ANGEL 主题、动态效果和本地主题管理。菜单栏支持换图、导入主题、调整透明度、暂停与恢复。
 
-This project injects through **local loopback CDP**. It does **not** modify the official `.app`, `app.asar`, or code signature.
+## 安装
 
-> Not affiliated with OpenAI. Codex is a trademark of its respective owners.
+需要 macOS 13 或更新版本，以及已启动过一次的官方 Codex Desktop。主题引擎使用官方 Codex 内置的 Node.js。
 
-## Requirements
+从 [Releases](https://github.com/EmiyaKatuz/Codex-Dream-Skin-Needy-Girl-Overdose/releases/latest) 下载 `CodexDreamSkin-vX.Y.Z.dmg`，将 **Codex Dream Skin.app** 拖入 Applications 后打开。首次启动、更新和卸载见 [macOS 安装指南](https://github.com/EmiyaKatuz/Codex-Dream-Skin-Needy-Girl-Overdose/blob/main/docs/install-macos.md)。
 
-- macOS 13 Ventura or newer (the native DMG app declares macOS 13 as its minimum)
-- Official Codex Desktop installed and launched at least once (`~/.codex/config.toml` exists)
-- No global Node.js install required (uses Codex’s signed bundled Node after validation)
+## 从源码安装
 
-## Release install (recommended)
-
-普通用户请从 [GitHub Releases](https://github.com/EmiyaKatuz/Codex-Dream-Skin-Needy-Girl-Overdose/releases) 下载
-`CodexDreamSkin-vX.Y.Z.dmg`，按 [`docs/install-macos.md`](../docs/install-macos.md) 的图形界面步骤
-拖入 Applications。首次运行可能需要在“系统设置 → 隐私与安全性 → 仍要打开”确认一次；不需要
-运行 `xattr` 或安装源码。后续更新下载新的 DMG 覆盖安装即可，用户主题和图片会保留。
-
-## Advanced: run from source
-
-The Release DMG above is the normal user path. The commands below are for
-contributors, diagnostics, and legacy deployments.
+在本目录运行；安装前先退出 Codex：
 
 ```bash
-# 1) Optional checks (needs the installed Codex/ChatGPT.app bundled Node)
-./tests/run-tests.sh
-
-# 2) Install to the stable path and create Desktop launchers
 ./scripts/install-dream-skin-macos.sh --no-launch
-
-# 3) Reapply the customized Internet Angel JPEG preset, or import your own pure background
-~/.codex/codex-dream-skin-studio/scripts/switch-theme-macos.sh --id preset-internet-angel-default
-# ~/.codex/codex-dream-skin-studio/scripts/customize-theme-macos.sh
-
-# 4) Start/re-apply, verify, or restore via Desktop:
-#    Codex Dream Skin.command
-#    Codex Dream Skin - Customize.command
-#    Codex Dream Skin - Verify.command
-#    Codex Dream Skin - Restore.command
-
-# 5) Legacy only: install the old SwiftBar menu (do not enable it beside the native app)
-./Install\ Menu\ Bar.command
-# Look for 🎨 Skin in the top-right menu bar
+~/.codex/codex-dream-skin-studio/scripts/start-dream-skin-macos.sh
 ```
 
-Install location after step 2:
+安装器创建启动、定制、验证和恢复四个桌面 `.command` 入口。安装位置：
 
-| Item | Path |
+| 内容 | 路径 |
 | --- | --- |
-| Engine | `~/.codex/codex-dream-skin-studio` |
-| State / logs / user images | `~/Library/Application Support/CodexDreamSkinStudio` |
-| Theme backup | under Application Support (`theme-backup.json`) |
+| 引擎 | `~/.codex/codex-dream-skin-studio` |
+| 主题、图片、状态和日志 | `~/Library/Application Support/CodexDreamSkinStudio` |
+| 已保存主题 | `~/Library/Application Support/CodexDreamSkinStudio/themes` |
+| 外观配置备份 | `~/Library/Application Support/CodexDreamSkinStudio/theme-backup.json` |
 
-## Legacy standalone ZIP (maintainer/offline packaging only)
+## 常用操作
 
-To build the “double-click install” folder layout for non-git users:
+菜单栏的「主题」菜单提供背景透明度和动态效果设置。透明度范围为 0–100%；「跟随主题」使用作者设置，缺省值为 30%。动态效果提供跟随系统、关闭、轻量和完整四档。详见 [主题管理](https://github.com/EmiyaKatuz/Codex-Dream-Skin-Needy-Girl-Overdose/blob/main/docs/theme-management.md) 与 [动态效果](https://github.com/EmiyaKatuz/Codex-Dream-Skin-Needy-Girl-Overdose/blob/main/docs/theme-motion.md)。
 
-```bash
-./scripts/build-client-release.sh "$HOME/Desktop/Codex 主题编辑器.zip"
-```
-
-That ZIP contains a visible installer plus a hidden `.codex-dream-skin-studio`
-engine and the same single Internet Angel JPEG preset as the DMG. It is retained
-for existing offline workflows; prefer the DMG for ordinary users.
-Do not ship only CSS/images.
-
-## How it works (security boundary)
-
-1. Discover `com.openai.codex` and validate signature / Team ID / arch / bundled Node.
-2. Start Codex via user `launchd` with CDP bound to `127.0.0.1` only.
-3. Accept the debug port only when it belongs to Codex (or a legitimate child).
-4. Inject only into expected `app://` renderer targets.
-5. Resolve the selected theme and image to real paths, then enforce 10 MB,
-   `16384px`-per-side, and 50-megapixel limits before injection.
-6. Keep a small injector alive across reloads and route changes.
-7. Pause/Restore stops the injector only when PID, executable, script path, and
-   start time match the recorded job; a stop failure preserves state and aborts.
-8. Config backup/restore requires Codex to be closed, strict UTF-8, an operation
-   lock, same-directory atomic replacement, and an unchanged-byte check.
-
-CDP is powerful and unauthenticated on loopback. Another process on the same
-computer may connect while the CDP-enabled Codex process is running. Removing
-the CSS or stopping only the injector does not remove the debug-port launch
-argument; use Restore with `--restart-codex`, or fully quit Codex and reopen it
-normally, to end the exposure window. See [`../SECURITY.md`](../SECURITY.md).
-
-## Bundled presets
-
-The DMG seeds only **超天酱 · INTERNET ANGEL**, the customized JPEG theme.
-Fresh installs use the byte-identical `theme.json` + `dream-reference.jpg` pair
-from the Windows edition. Internet Angel artwork is outside the MIT software
-license; review the asset terms in `NOTICE.md` before redistributing the DMG.
-
-Seeding is idempotent. A one-time upgrade archives unchanged retired built-ins
-and their saved copies under `retired-themes/`, outside the visible theme library.
-A retired active theme switches to the JPEG default; full original files remain
-in the archive. Personal themes, imported packs, modified themes and preferences
-are preserved. Restoring a backup after migration is an explicit user choice
-and is not undone on each launch.
-
-To contribute a preset, see [`presets/README.md`](./presets/README.md).
-
-## Import a theme ZIP
-
-The native menu-bar app has **导入主题 ZIP…**. It accepts ordinary `.zip`
-files only; `.dreamskin` is deliberately unsupported. An official Studio pack
-contains `manifest.json`, non-empty `theme.json`, non-empty `theme.css`, and exactly one
-`background.webp|jpg|png`, with optional `LICENSE.txt` and the
-reserved `manifest.sig`. Put them at archive root or inside one top-level theme
-folder. A local simplified pack must contain exactly `theme.json`, `theme.css`, and its
-referenced image; because it lacks manifest integrity and compatibility data,
-use that format only for trusted local content.
-
-The importer allows at most 32 MiB compressed, 32 entries, and 64 MiB expanded.
-It rejects links, traversal, nested archives, unregistered payload files, and
-anything that fails theme/image validation. Official packs also verify the
-platform, minimum client version, and each manifest payload's byte length and
-SHA-256. Safe CSS is locally revalidated on import and every apply, then runs
-only against the 12 registered parts. `manifest.sig` is reserved and not used
-for signature verification; `LICENSE.txt` is preserved. Previously saved legacy
-themes without CSS remain switchable and inject no additional CSS.
-
-An import only adds to **已保存的主题**. It never replaces or applies the
-active/last-known-good copy. Reimporting identical content reports a duplicate;
-a newer pack with the same ID replaces the saved copy in place after its stored
-identity is confirmed. Only a legacy suffix directory (`-2`, `-3`, and so on)
-with an identical semantic fingerprint is consolidated; names alone never prove
-that a directory is a duplicate, so ambiguous entries are preserved.
-
-Manual fallback: choose **打开主题文件夹**, or open
-`~/Library/Application Support/CodexDreamSkinStudio/themes/`, then move in the
-complete extracted directory whose immediate children are `theme.json`, `theme.css`, and the
-referenced image. Reopen the menu afterward. Do not add another wrapper folder;
-manual placement bypasses archive checks, so use trusted content only.
-
-## Image guidelines
-
-- PNG / JPEG / HEIC / TIFF / WebP (macOS readable)
-- Source ≤ 50 MB; prepared file ≤ 10 MB, ≤ 16384 px per side, and ≤ 50 MP
-- `2560 × 1440` (16:9) is the recommended master size; width ≥ 2000 px minimum
-- Keep roughly the left 50%–58% calm and low-contrast for native home content;
-  place the subject in the right 58%–88% without touching the edge
-- Use pure edge-to-edge background art only: no window chrome, sidebar, cards,
-  buttons, composer, readable text, logo, or watermark
-- The prompt-ready composition template and negative prompt live in
-  [`docs/reference-background-prompt-guide.md`](../docs/reference-background-prompt-guide.md)
-
-## Adaptive image themes
-
-The renderer treats every image as a theme input instead of assuming a fixed
-character palette. It downsamples the image in a local Canvas to estimate
-brightness, accent color, visual focus, left/right safe area, and aspect ratio.
-The pixels stay in the Codex renderer; there is no upload or external API call.
-If Canvas analysis is unavailable, the theme falls back to a safe default and
-the detected Codex shell/OS appearance.
-
-Theme metadata is optional. The defaults are deliberately adaptive:
-
-```json
-{
-  "appearance": "auto",
-  "art": {
-    "focusX": 0.72,
-    "focusY": 0.45,
-    "safeArea": "auto",
-    "taskMode": "auto"
-  }
-}
-```
-
-- `appearance`: `auto`, `light`, or `dark`. `auto` follows the native
-  Codex/ChatGPT or OS appearance; an explicit value wins. Image luminance
-  still informs palette and composition, but never overrides the user's UI mode.
-- `art.focusX` / `art.focusY`: normalized `0..1` coordinates used for
-  `background-position` (left/top is `0`, right/bottom is `1`).
-- `art.safeArea`: `auto`, `left`, `right`, `center`, or `none`. Automatic mode
-  finds the lower-information side so native home content does not cover the
-  subject. Use `none` when the artwork should fill the composition evenly.
-- `art.taskMode`: `auto`, `ambient`, `banner`, `full`, or `off`. Ultra-wide art
-  automatically uses a full-width task banner with a vertical fade; standard
-  art uses a quieter ambient layer. `full` keeps the artwork at normal strength
-  with only the baseline readability veil; `off` removes the task-page artwork
-  while leaving the rest of the theme active.
-
-The image-derived palette is used unless a theme explicitly supplies color
-fields. Explicit art metadata (`focusX`, `focusY`, `safeArea`, `taskMode`) has
-the same priority over automatic inference. The home route remains expressive;
-task routes keep native content, cards, composer, and code readable above the
-image layer.
-
-CLI example:
+源码部署也可以运行：
 
 ```bash
-~/.codex/codex-dream-skin-studio/scripts/customize-theme-macos.sh \
-  --image "/path/to/image.png" \
-  --name "My theme" \
-  --accent "#7cff46" \
-  --secondary "#36d7e8" \
-  --highlight "#642a8c"
+~/.codex/codex-dream-skin-studio/scripts/verify-dream-skin-macos.sh
+~/.codex/codex-dream-skin-studio/scripts/pause-dream-skin-macos.sh
+~/.codex/codex-dream-skin-studio/scripts/restore-dream-skin-macos.sh --restore-base-theme --restart-codex
 ```
 
-To tune composition without changing the image, pass the adaptive fields to
-the image loader:
+恢复命令会恢复界面并以普通模式重启 Codex，结束本次 CDP 调试会话。运行方式与本机调试端口说明见 [安全文档](https://github.com/EmiyaKatuz/Codex-Dream-Skin-Needy-Girl-Overdose/blob/main/SECURITY.md)。
+
+## 图片与主题
+
+内置「超天酱 · INTERNET ANGEL」JPEG 主题。安装时将预设复制到主题库；升级保留个人主题、导入图片和偏好，并把识别出的未修改旧预设归档到 `retired-themes/`。预设说明见 [内置主题](presets/README.md)。
+
+- 菜单选择「导入主题 ZIP…」，导入后在「已保存的主题」中选择应用。格式要求见 [主题管理](https://github.com/EmiyaKatuz/Codex-Dream-Skin-Needy-Girl-Overdose/blob/main/docs/theme-management.md)。
+- 换图支持 PNG、JPEG、HEIC、TIFF 和 WebP；源文件上限 50 MiB，处理后的背景上限 10 MiB、单边 16384 像素、总计 5000 万像素。
+- 推荐使用 `2560 × 1440` 纯背景图，主体靠右，左侧留出低对比空间。构图模板见 [背景提示词指南](../docs/reference-background-prompt-guide.md)。
+
+调整本地图片的构图：
 
 ```bash
 ~/.codex/codex-dream-skin-studio/scripts/load-image-theme-macos.sh \
-  --file "/path/to/image.png" \
+  --file "/path/to/background.jpg" \
   --appearance auto \
   --focus-x 0.72 --focus-y 0.45 \
   --safe-area left --task-mode banner
 ```
 
-Reset to the bundled abstract demo:
+| 参数 | 可选值或用途 |
+| --- | --- |
+| `--appearance` | `auto` 跟随 Codex 外观；`light`、`dark` 固定模式 |
+| `--focus-x` / `--focus-y` | `0..1`，背景主体位置 |
+| `--safe-area` | `auto`、`left`、`right`、`center`、`none` |
+| `--task-mode` | `auto`、`ambient`、`banner`、`full`、`off`，控制任务页背景 |
+
+引擎在本机分析图片的亮度、配色和构图；显式主题字段优先于自动分析。配色定制可使用：
 
 ```bash
-~/.codex/codex-dream-skin-studio/scripts/customize-theme-macos.sh --reset-demo
+~/.codex/codex-dream-skin-studio/scripts/customize-theme-macos.sh \
+  --image "/path/to/background.jpg" --name "My theme" \
+  --accent "#ff45c8" --secondary "#36d7e8" --highlight "#642a8c"
 ```
 
-## License
+## 开发与验证
 
-MIT — see `LICENSE`. Additional notices in `NOTICE.md` cover trademarks,
-runtime Node, user-provided artwork, third-party rights, and assets that are not
-licensed under the software license.
+在本目录运行：
 
-## Sponsors
+```bash
+node scripts/injector.mjs --check-payload
+./tests/run-tests.sh
+swift test --package-path menubar-app
+./scripts/build-dmg.sh
+```
 
-Thanks to **[passion8.cc](https://passion8.cc/register?aff=TuPe)** for sponsoring this project.
+DMG 输出到 `macos/release/`。原生构建和交互验收需要 macOS。跨平台结构见 [平台说明](https://github.com/EmiyaKatuz/Codex-Dream-Skin-Needy-Girl-Overdose/blob/main/docs/platforms.md)。
 
-<p align="center">
-  <a href="https://passion8.cc/register?aff=TuPe">
-    <img src="../docs/images/sponsor-passion8.png" alt="Passion8" height="96">
-  </a>
-</p>
+## 许可
 
-<p align="center">
-  <a href="https://passion8.cc/register?aff=TuPe"><strong>Passion8｜感谢 passion8.cc 赞助本项目</strong></a><br>
-  AI API 中转站，支持 Codex / Claude Code / Grok 等工具接入。主题与 API 配置互相独立。
-</p>
-
-## What this is not
-
-- Not an OpenAI product and not a fork of Codex source
-- Not a way to patch or rebrand the official binary
-- Not a Windows build (see `../windows/`)
-- Not an API proxy: theming does not change model providers or API keys
-
-If you use a third-party API relay, configure it separately — keep theme install and API config as two explicit steps.
+软件采用 [MIT 许可](LICENSE)。素材与运行时条款见 [NOTICE.md](NOTICE.md)。

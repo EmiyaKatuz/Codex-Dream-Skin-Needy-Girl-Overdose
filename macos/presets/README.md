@@ -1,59 +1,65 @@
-# 预设主题 · Preset packs
+# 内置主题
 
-这个目录放 **Codex Dream Skin 的内置预设主题**。安装时 `install-dream-skin-macos.sh` 会把每个 `preset-*/` 幂等地播种到用户主题库 `~/Library/Application Support/CodexDreamSkinStudio/themes/`，装完即可在**菜单栏「已保存的主题」**或 `switch-theme-macos.sh --id <id>` 里直接切换。
+[English](README.en.md) · [macOS 说明](../README.md)
 
-> This folder holds the bundled preset themes. Install seeds each `preset-*/` into the user theme library, so a fresh install ships with ready-to-use skins.
+当前内置预设为「超天酱 · INTERNET ANGEL」，首次安装默认启用。安装器把该预设复制到 `~/Library/Application Support/CodexDreamSkinStudio/themes/`，可从菜单栏「已保存的主题」选择。
 
-## 内置实测预设
+## 当前预设
 
-当前发行 DMG 仅内置定制的「超天酱 · INTERNET ANGEL」JPEG 主题：
+```text
+preset-internet-angel-default/
+├── theme.json
+└── dream-reference.jpg
+```
 
-- `preset-internet-angel-default/`：`theme.json` + `dream-reference.jpg`
-  （`2560 × 1440` JPEG），首次安装默认启用。
+背景为 `2560 × 1440` JPEG。主题文件与 Windows 默认主题保持字节一致。升级保留个人主题和偏好，并将识别出的未修改旧预设归档到 `retired-themes/`。素材条款见 [NOTICE.md](../NOTICE.md)。
 
-主题文件与 Windows 默认主题保持字节一致。图片不属于 MIT 软件许可，
-分发限制见 [`../NOTICE.md`](../NOTICE.md)。升级保留已有的已保存主题、
-导入主题、用户图片与当前活动主题副本；不再向新主题库播种已移除的变体。
-
-安装后可直接切换回默认主题：
+切回内置主题：
 
 ```bash
 ~/.codex/codex-dream-skin-studio/scripts/switch-theme-macos.sh \
   --id preset-internet-angel-default
 ```
 
-## 一套预设的结构
+## 制作主题
 
-```
-preset-<slug>/
-├── theme.json        # schemaVersion 1，与 assets/theme.json 同一格式
-└── background.jpg    # 背景图（横向，JPEG）
-```
+新主题使用非空 `theme.json`、非空 `theme.css` 和 JSON 引用的一张背景图。ZIP 与 Studio manifest 格式见 [主题管理](https://github.com/EmiyaKatuz/Codex-Dream-Skin-Needy-Girl-Overdose/blob/main/docs/theme-management.md)。当前内置预设沿用已有的双文件格式。
 
-- 目录名与 `theme.json` 的 `id` **必须**都是 `preset-<slug>` 形式（`slug` 用小写英文 + 连字符）。播种只管理 `preset-*`，绝不会碰用户自己「换一张图」保存的 `custom-*` 主题。
-- `image` 字段只能是**本目录内**的文件名（不能是路径），格式 `png` / `jpg` / `jpeg` / `webp`，≤ 10 MB（建议 < 1 MB）。
-- `appearance` **必须如实声明背景图成立的模式**（这是强制规范，不能省略）：
-  - `"auto"`——仅限浅色、暗色外壳下都协调的图，且两种模式都实测过。皮肤跟随 Codex 客户端的浅暗设置切换外壳。
-  - `"dark"` / `"light"`——单模专属图（如深色大教堂、纯白极简）。皮肤外壳固定为该模式，不随客户端切换。
-  - 暗色专属画作声明 `auto` 会构成缺陷，该结果与偏好无关：客户端处于浅色时，Codex 原生组件（差异卡片、任务条等）按浅色渲染，会与暗图直接打架。拿不准就按图的实际明暗写死，不要照抄模板默认值。
-- 人物/场景背景优先提交 `2560 × 1440`（16:9）母版；主视觉放在右侧约 58%～88%，左侧约 50%～58% 保持低信息、低对比。禁止把效果截图、窗口 mockup 或任何带 UI 的图片命名为 `background.*`。
+主题 ID 使用小写英文和连字符；拟纳入内置预设的目录与 ID 使用相同的 `preset-<slug>`。当前安装与打包脚本显式列出内置主题，新增预设时需要同步更新这些入口和测试。
 
-## theme.json 字段全解（投稿必读）
+- 图片使用 PNG、JPEG 或 WebP，最大 10 MiB、单边 16384 像素、总计 5000 万像素。
+- 推荐 `2560 × 1440`，主体放右侧约 58%–88%，左侧约 50%–58% 保持低对比留白。
+- `appearance` 为 `auto`、`light` 或 `dark`。`auto` 跟随 Codex 外观，需分别检查浅色和深色界面；单一模式的图片声明对应模式。
+- 使用原创、已授权或允许再分发的图片，并附来源和许可。第三方素材按 [NOTICE.md](../NOTICE.md) 记录与审核。
 
-以 `preset-internet-angel-default/theme.json` 为参考模板。除标注「可选」外均建议如实填写；文案留空会退回内置默认值，不会报错但会显得敷衍。
+构图模板见 [背景提示词指南](../../docs/reference-background-prompt-guide.md)。
 
-### 文案字段（界面哪里能看到）
+## theme.json 字段
 
-| 字段 | 显示位置 |
+| 字段 | 用途 |
 | --- | --- |
-| `name` | 首页标题上方的主题名眉标（强调色小字） |
-| `tagline` | 首页标题下方一行副标语 |
-| `quote` | 首页右下角手写体口号（斜排，随强调色） |
-| `brandSubtitle` / `statusText` | 皮肤 chrome 的品牌角标与状态文案（部分布局下隐藏） |
-| `projectPrefix` / `projectLabel` | 「选择项目」按钮的前缀与占位文案 |
-| `promoTitle` / `promoSub` / `promoUrl` | 分享/宣传场景使用，可选 |
+| `schemaVersion` / `id` / `image` | 版本、主题身份和本目录中的背景文件名 |
+| `name` / `tagline` / `quote` | 首页主题名、副标语和口号 |
+| `brandSubtitle` / `statusText` | 品牌角标和状态文字 |
+| `projectPrefix` / `projectLabel` | 项目入口文字 |
+| `promoTitle` / `promoSub` / `promoUrl` | 可选宣传信息 |
+| `appearance` | 外观模式 |
+| `art.focusX` / `art.focusY` | `0..1`，背景主体位置 |
+| `art.safeArea` | `auto`、`left`、`right`、`center`、`none` |
+| `art.taskMode` | `auto`、`ambient`、`banner`、`full`、`off` |
 
-在显示首页副标语的布局中，可以通过 `theme.css` 的公开 `home-hero` 部件同时调整首页标题和副标语：
+显式 `art` 字段优先于图片自动分析。`colors` 支持以下颜色键：
+
+| 键 | 用途 |
+| --- | --- |
+| `background` | 背景底色 |
+| `panel` / `panelAlt` | 侧栏、卡片、输入框和工具面板 |
+| `accent` / `accentAlt` | 图标、聚焦边框和主题标题 |
+| `secondary` / `highlight` | 次强调色与高亮 |
+| `text` / `muted` | 正文与次要文字 |
+| `line` | 分隔线 |
+
+`theme.css` 使用 Safe CSS 公开部件。例如，调整首页标题和副标语：
 
 ```css
 [data-ds-part="home-hero"] {
@@ -62,68 +68,16 @@ preset-<slug>/
 }
 ```
 
-字号沿用 Safe CSS 的 `12–20px` 范围；副标语使用相同字号、继承颜色并保留 `76%` 不透明度。未指定字号时保留桌面 `13px`、窄窗口 `11px` 的默认值。无需写伪元素、自定义属性或新增 `theme.json` 字段；这些 CSS 入口仍受原有安全限制。
+字号允许 `12–20px`；副标语继承字号和颜色，并保留 76% 不透明度。
 
-### colors 调色板（键 → 界面用途）
+## 验证
 
-所有键都会被注入为主题变量，整套皮肤 UI 跟着走：
-
-| 键 | 用途 |
-| --- | --- |
-| `background` | 整窗兜底底色（背景图未盖住的区域、body 底） |
-| `panel` / `panelAlt` | 半透明面板底：侧栏、卡片、composer、右侧工具面板的毛玻璃都从它调透明度 |
-| `accent` / `accentAlt` | 强调色：建议卡圆圈与图标、主题名眉标、口号、状态点、聚焦描边 |
-| `secondary` / `highlight` | 次强调/高亮（粒子、渐变、hover 等点缀） |
-| `text` | 正文字色（标题、卡片文字都强制跟随） |
-| `muted` | 次要文字与大多数描边（卡片/面板边框按它调透明度） |
-| `line` | 分隔线与细描边 |
-
-- 颜色必须与背景图协调：`accent` 建议直接从画面主体取色（如从背景中选取协调的粉色或蓝色）。
-- 声明 `appearance: dark` 的主题请给暗底亮字；`light` 反之；`auto` 主题两种模式都要自查对比度。
-
-### art 元数据
-
-`art.focusX` / `art.focusY`（`0..1`，画面主体位置）、`art.safeArea`（`auto | left | right | center | none`，低信息留白侧）、`art.taskMode`（`auto | ambient | banner | full | off`，任务页呈现）。显式值优先于引擎自动分析；拿不准可先不填，实测后补。
-
-## 素材红线（务必阅读）
-
-内置预设会随仓库公开分发。为避免把维护者和使用者拖进法律风险，只接受：
-
-- ✅ **原创**或你**拥有授权**的图像；
-- ✅ 明确 **CC0 / 公有领域 / 允许再分发**的素材；
-- ✅ 纯程序化生成的抽象 / 渐变 / 几何背景。
-- ✅ 原创虚构的成年人物形象，且能说明生成/授权来源、没有模仿可识别真人。
-
-除非维护者事先完成独立权利审核并在 `NOTICE.md` 逐项记录，否则**不接受**（PR 会被拒绝）：
-
-- ❌ 真人肖像（明星、网红、AV 演员等）——涉肖像权，且本仓库带 MIT 与商业赞助；
-- ❌ 受版权保护的动漫 / 游戏 / 影视角色与截图；
-- ❌ 任何你无权再分发的第三方素材。
-
-提交预设即视为你声明：对该素材拥有分发与再授权的权利。
-
-## 贡献方式
-
-没有 mac 或想用自制原图，也可以直接放 `preset-<slug>/background.jpg` + 手写 `theme.json`（照抄任一现有预设改配色即可）。
-
-生成纯背景前建议直接使用 [`docs/reference-background-prompt-guide.md`](../../docs/reference-background-prompt-guide.md) 的 16:9 通用模板、浅/暗兼容约束和负面词；八种概念图的逐张拆解另见 [`docs/background-generation-prompts.md`](../../docs/background-generation-prompts.md)。
-
-## 提交前自检
+在 macOS 引擎目录（源码中为 `macos/`）运行：
 
 ```bash
-# 单独校验一套预设是否是合法可注入的主题包
-node macos/scripts/injector.mjs --check-payload --theme-dir macos/presets/preset-<slug>/
-
-# 跑完整测试（含预设合法性 + 播种幂等）
-cd macos && npm test
+node scripts/injector.mjs --check-payload \
+  --theme-dir presets/preset-internet-angel-default
+./tests/run-tests.sh
 ```
 
-`theme.json` 字段含义见 `../assets/theme.json` 与 `scripts/write-theme.mjs`；`colors` 十个键请与背景图协调（`accent` / `secondary` / `highlight` 会体现在原生控件的强调色上）。
-
-脚本自检通过后，请在实机至少过一遍以下路由（PR 里附截图）：
-
-1. 首页：主题名眉标、标题、tagline、右下口号、四张建议卡（图标应在圆圈正中）；
-2. 输入框聚焦后的建议下拉（应为紧凑行，避免呈现大空卡）；
-3. Pull Requests 页与「Toggle side panel」打开的 Review · Terminal · Browser · Files 侧面板（应为毛玻璃，避免保留原生黑底）；
-4. 任务页（按 `taskMode` 检查横幅/环境模式）；
-5. `appearance: auto` 的主题需浅、暗两种外壳各跑一遍上述路由。
+检查自制主题时将 `--theme-dir` 换为对应目录。提交时附首页、输入框建议、任务页和侧面板截图；`auto` 主题同时提供浅色与深色结果。
