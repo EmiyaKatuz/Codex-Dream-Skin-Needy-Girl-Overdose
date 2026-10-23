@@ -130,10 +130,13 @@ for (const [platform, material] of [['windows', 'system'], ['windows', 'acrylic'
     // pixels still belong to the panel even when no text/control is hit.
     await page.setContent(`<!doctype html><html><head><title>Settings placement fixture</title></head><body>
       <main data-app-shell-main-surface style="position:fixed;inset:0">
-      <div class="scrollbar-stable flex-1 overflow-y-auto p-panel" style="position:fixed!important;inset:0!important;width:100vw!important;height:100vh!important;max-width:none!important;z-index:100"><div style="height:100%"></div></div>
+      <aside><nav><button data-settings-panel-slug="appearance">Appearance</button></nav></aside>
+      <section id="fixture-settings-panel" style="position:fixed!important;inset:0!important;width:100vw!important;height:100vh!important;max-width:none!important;z-index:100">
+      <div class="scrollbar-stable flex-1 overflow-y-auto p-panel" style="height:120px"><h1>Appearance</h1><input aria-label="Theme name" value="INTERNET ANGEL"></div>
+      </section>
       </main></body></html>`);
     await install(settings('subtle'));
-    assert.equal(await page.locator('.p-panel').evaluate((node) => {
+    assert.equal(await page.locator('#fixture-settings-panel').evaluate((node) => {
       const box = node.getBoundingClientRect();
       return box.left <= 0 && box.top <= 0 && box.right >= innerWidth && box.bottom >= innerHeight;
     }), true, 'the fixture settings panel must fill the viewport on every platform');

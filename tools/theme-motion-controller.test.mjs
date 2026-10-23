@@ -1171,7 +1171,9 @@ test("ambient placement checks its full 104px height plus parallax margins", () 
 test("decorations avoid empty native panes, timelines and settings surfaces", () => {
   for (const attributes of [{ "data-app-shell-pane-frame": "true" }, { "data-app-action-timeline-scroll": "" },
     { "data-angel-component": "settings-content" }, { "data-angel-component": "settings-surface" },
-    { "data-angel-component": "settings-row" }, { class: "scrollbar-stable flex-1 overflow-y-auto p-panel" }]) {
+    { "data-angel-component": "settings-row" }, { class: "dream-settings-content" },
+    { class: "dream-settings-surface" }, { class: "dream-settings-row" },
+    { class: "scrollbar-stable flex-1 overflow-y-auto p-panel" }]) {
     const page = fixture({ home: true });
     const pane = page.add(page.node("div", attributes));
     const emptySpace = page.add(page.node("div"), pane);
