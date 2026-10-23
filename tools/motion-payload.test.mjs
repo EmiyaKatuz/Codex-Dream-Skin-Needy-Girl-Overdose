@@ -226,7 +226,7 @@ async function runBuiltController(platform, payload) {
     ...node(), documentElement: root, body: node(), createElement: node, hidden: false,
     createElementNS(namespace, tagName) {
       assert.equal(namespace, "http://www.w3.org/2000/svg");
-      assert.ok(["svg", "path"].includes(tagName));
+      assert.ok(["svg", "g", "path"].includes(tagName), "allow the grouped P-chan pose frames");
       return { ...node(), namespaceURI: namespace, tagName };
     },
   };

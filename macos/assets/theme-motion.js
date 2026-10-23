@@ -22,13 +22,13 @@
     local: '[data-ds-part="composer"], [data-ds-part="thread"], [data-angel-component="composer"], [data-angel-component="activity"], .composer-surface-chrome, .dream-activity, .thread-scroll-container',
     dialog: '[role="dialog"][aria-modal="true"]',
     permission: '[role="alertdialog"], [data-angel-component="permission"], .dream-permission',
-    activity: '[data-angel-component="activity-header"], .dream-activity-header',
+    activity: '[data-angel-component="activity-header"], .dream-activity-header, [class~="group/activity-header"], [data-angel-component="environment-header"], [data-angel-component="sidebar-section"], [data-angel-component="activity-header"] [aria-expanded], .dream-activity-header [aria-expanded], [class~="group/activity-header"] [aria-expanded], [data-angel-component="environment-header"] [aria-expanded], [data-angel-component="sidebar-section"] [aria-expanded]',
     edited: '[data-angel-component="edited-card"], .dream-edited-card',
     menu: '[data-angel-component="composer-palette"], [data-angel-component="settings-menu"], .dream-composer-palette, [role="menu"], [role="listbox"]',
     projectCard: '[data-app-action-sidebar-project-row][data-app-action-sidebar-project-id]',
     agent: '[data-app-action-sidebar-thread-row][data-app-action-sidebar-thread-kind="local"][data-app-action-sidebar-thread-id], [data-angel-component="subagent-row"], .dream-subagent-row, [data-dream-motion-agent-id]',
     item: '[data-local-conversation-item-target-ids]',
-    homeCard: '.angel-preset-card, .dream-generated-preset, .dream-codex-preset, [data-testid="home-suggestion"]',
+    homeCard: '.angel-preset-card, .dream-generated-preset, .dream-codex-preset, [data-testid="home-suggestion"], .group\\/home-suggestions button, [data-feature="home-suggestions"] button, [data-testid="home-suggestions"] button',
   };
   const TRACK = [...Object.values(SELECTORS), '[aria-busy]'].join(", ");
   const safeCall = (callback, fallback = null) => { try { return callback(); } catch { return fallback; } };
@@ -95,7 +95,6 @@
   const tracked = new Map();
   const feedback = new Map();
   const seen = new Set(handoff?.session?.routeKey === currentRouteKey ? handoff.session.seen : []);
-  const seenNodes = new WeakSet();
   const media = safeCall(() => window.matchMedia("(prefers-reduced-motion: reduce)"));
   const transparencyMedia = safeCall(() => window.matchMedia("(prefers-reduced-transparency: reduce)"));
   const forcedColorsMedia = safeCall(() => window.matchMedia("(forced-colors: active)"));
@@ -159,7 +158,9 @@
     if (!node || paused || mode === "off" || !config.settings.effects[effect]
       || !visible(node) || (!feedback.has(node) && feedback.size >= MAX_FEEDBACK)) return;
     // An existing native entrance animation owns its timing and transform.
-    if (!node.hasAttribute(OWNED) && safeCall(() => getComputedStyle(node).animationName, "unknown") !== "none") return;
+    const animation = safeCall(() => getComputedStyle(node).animationName, "unknown");
+    if (!node.hasAttribute(OWNED) && animation !== "none"
+      && !(feedback.has(node) && animation.split(",").every((name) => name.trim().startsWith("dream-motion-")))) return;
     const name = `${PREFIX}${kind}`;
     const entries = feedback.get(node) || new Map();
     if (entries.has(name)) cancelTimer(entries.get(name));
@@ -194,7 +195,12 @@
     metrics.visitedNodes += 1;
     if (!tracked.has(node)) {
       if (tracked.size >= MAX_NODES) { metrics.droppedNodes += 1; return false; }
-      tracked.set(node, { agentKey: null, itemKey: null, initial, entered: false, expanded: node.getAttribute("aria-expanded"), visible: visible(node) });
+      const shown = visible(node);
+      tracked.set(node, { agentKey: null, itemKey: null, initial, entered: false,
+        menuOpen: initial && shown && matches(node, SELECTORS.menu) && node.getAttribute("data-state") !== "closed",
+        permissionOpen: initial && shown && matches(node, '[role="alertdialog"]')
+          && node.getAttribute("aria-modal") === "true" && node.getAttribute("data-state") === "open",
+        expanded: node.getAttribute("aria-expanded"), visible: shown });
       intersection?.observe(node);
     } else {
       tracked.get(node).visible = visible(node);
@@ -240,20 +246,53 @@
   const pixelCharacter = () => {
     const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     svg.setAttribute("viewBox", "0 0 24 28");
+    svg.setAttribute("data-dream-motion-mascot", "p-chan");
     svg.setAttribute("aria-hidden", "true");
     svg.setAttribute("focusable", "false");
+    // Self-contained pixel interpretation of P-chan's pink cat motif. Each
+    // state changes the face, front paws and tail inside the original canvas.
     const shapes = {
-      hair: "M5 3h14v2h2v17h-5V8H8v14H3V5h2z", face: "M7 6h10v11H7z",
-      fringe: "M6 4h12v5h-3V7h-2v3h-2V7H9v3H6z", ribbon: "M2 6h4v4H2zm16 0h4v4h-4z",
-      body: "M7 18h10v8H7z", collar: "M7 18h10v2h-3l-2 3-2-3H7z",
-      arms: "M5 19h2v6H5zm12 0h2v6h-2z", eyes: "M9 11h2v2H9zm4 0h2v2h-2z",
-      smile: "M10 15h4v1h-4z", focus: "M9 11h2v1H9zm4 0h2v1h-2z",
-      surprise: "M11 14h2v3h-2z", rest: "M8 12h3v1H8zm5 0h3v1h-3z",
-      heart: "M19 17h2v1h1v2h-1v1h-1v-1h-1z",
+      outline: "M3 2h3v1h2v2h8V3h2V2h3v8h1v8h-2v2h-3v6H7v-1H5v-5H3v-3H2V10h1z",
+      body: "M4 4h2v1h2v2h8V5h2V4h2v7h1v6h-2v2h-3v2h1v4H7v-4h1v-2H5v-2H3v-6h1z",
     };
-    for (const [part, path] of Object.entries(shapes)) {
-      const node = document.createElementNS("http://www.w3.org/2000/svg", "path");
-      node.setAttribute("data-dream-motion-part", part); node.setAttribute("d", path); svg.appendChild(node);
+    const ears = "M4 5h2v2h2v2H5V8H4zm14 0h2v3h-1v1h-3V7h2z";
+    const eyes = "M5 12h5v6H5zm9 0h5v6h-5z";
+    const shine = "M6 12h2v2H6zm2 4h1v1H8zm7-4h2v2h-2zm2 4h1v1h-1z";
+    const rest = "M5 15h1v1h3v-1h1v2H5zm9 0h1v1h3v-1h1v2h-5z";
+    const brows = "M5 10h2V9h3v1H8v1H5zm9-1h3v1h2v1h-3v-1h-2z";
+    const mouth = "M10 20h1v-1h2v1h1v1h-1v-1h-2v1h-1z";
+    const focus = "M5 13h5v1H5zm9 0h5v1h-5zM6 15h3v2H6zm9 0h3v2h-3z";
+    const poses = {
+      unknown: { ears, brows, eyes, "eye-shine": shine, mouth,
+        paws: "M6 22h3v3H6zm9 0h3v3h-3z", tail: "M18 24h2v-3h2v4h-1v1h-4v-1h1z" },
+      idle: { ears, rest, mouth: "M11 20h2v1h-2z",
+        paws: "M6 23h4v2H6zm8 0h4v2h-4z", tail: "M18 24h3v-2h1v3h-2v1h-6v-1h4z" },
+      busy: { ears, focus, mouth,
+        paws: "M8 22h4v2H8zm5-1h4v2h-4z", tail: "M18 24h2v-4h2v5h-4z" },
+      streaming: { ears, focus, mouth: "M11 19h2v2h-2z",
+        paws: "M4 19h3v3H4zm10 3h4v2h-4z", tail: "M18 24h2v-2h2v3h-4z" },
+      "needs-attention": { ears, brows, eyes, "eye-shine": shine, surprise: "M11 19h2v3h-2z",
+        paws: "M3 18h4v3H3zm14 0h4v3h-4z", tail: "M19 24h1v-5h2v6h-4v-1z" },
+      completed: { ears, eyes, "eye-shine": shine, smile: "M10 19h1v1h2v-1h1v2h-4z",
+        paws: "M2 16h4v3H2zm16 0h4v3h-4z", tail: "M18 24h2v-3h1v-1h1v4h-1v1h-3z",
+        heart: "M10 22h1v1h2v-1h1v2h-1v1h-2v-1h-1z" },
+      failed: { ears: "M4 7h3v2H5v1H4zm13 0h3v3h-1V9h-2z", rest, brows, mouth,
+        tears: "M5 18h1v2H5zm13 0h1v2h-1z",
+        paws: "M6 24h3v2H6zm9 0h3v2h-3z", tail: "M18 25h4v1h-5v-1z" },
+      cancelled: { ears, rest, mouth: "M10 20h4v1h-4z",
+        paws: "M7 23h3v2H7zm7 0h3v2h-3z", tail: "M17 24h4v1h-2v1h-7v-1h5z" },
+    };
+    const appendShapes = (parent, parts) => {
+      for (const [part, path] of Object.entries(parts)) {
+        const node = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        node.setAttribute("data-dream-motion-part", part); node.setAttribute("d", path); parent.appendChild(node);
+      }
+    };
+    appendShapes(svg, shapes);
+    for (const [pose, parts] of Object.entries(poses)) {
+      const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
+      group.setAttribute("data-dream-motion-pose", pose);
+      appendShapes(group, parts); svg.appendChild(group);
     }
     return svg;
   };
@@ -318,7 +357,7 @@
           for (const node of hit.childNodes || []) {
             if (++children > 32 || (node.nodeType === 3 && node.textContent?.trim())) { text = true; break; }
           }
-          const blocked = hit.closest?.('button, a, input, textarea, select, [contenteditable="true"], [role="button"], [role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"], svg, img, canvas, [data-ds-part="composer"], [data-angel-component="composer"], .composer-surface-chrome, [data-local-conversation-item-target-ids], [data-app-action-timeline-scroll], [data-app-shell-pane-frame], pre, code, diffs-container, [data-angel-component="activity"], .dream-activity, .dream-soul-hud')
+          const blocked = hit.closest?.('button, a, input, textarea, select, [contenteditable="true"], [role="button"], [role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"], svg, img, canvas, [data-ds-part="composer"], [data-angel-component="composer"], .composer-surface-chrome, [data-local-conversation-item-target-ids], [data-app-action-timeline-scroll], [data-app-shell-pane-frame], pre, code, diffs-container, [data-angel-component="activity"], .dream-activity, .dream-soul-hud, [data-angel-component="settings-content"], [data-angel-component="settings-surface"], [data-angel-component="settings-row"], .dream-settings-content, .dream-settings-surface, .dream-settings-row, [class~="scrollbar-stable"][class~="flex-1"][class~="overflow-y-auto"][class~="p-panel"]')
             || text
             || /auto|scroll/.test(safeCall(() => getComputedStyle(hit).overflowY, ""));
           checked.set(hit, !blocked);
@@ -528,37 +567,58 @@
     if (paused || mode === "off") { clearFeedback(); cancelSnapshot(); }
     reconcileOwned();
     placeDecorations();
+    // Cards without stable native identities get only the first visible
+    // batch. Recycled DOM cannot be distinguished safely from new content.
+    const anonymousHomeBatch = !seen.has("home:anonymous-batch");
+    let usedAnonymousHomeBatch = false;
     for (const [node, item] of tracked) {
       bindNodeState(node, item);
+      const projectId = matches(node, SELECTORS.projectCard) ? node.getAttribute("data-app-action-sidebar-project-id") : null;
+      if (projectId !== item.projectId) { clearNodeFeedback(node); node.removeAttribute(`${PREFIX}index`); item.entered = false; item.projectId = projectId; }
+      if (matches(node, SELECTORS.menu)) {
+        const open = item.visible && node.getAttribute("data-state") !== "closed";
+        if (!open && item.menuOpen) clearNodeFeedback(node);
+        if (open && !item.menuOpen) signal(node, "enter", "menu", 180, "interactions");
+        item.menuOpen = open;
+      }
+      const permissionOpen = isCurrentDialog(node);
+      if (!permissionOpen && item.permissionOpen) clearNodeFeedback(node);
+      if (permissionOpen && !item.permissionOpen) signal(node, "enter", "permission", 500);
+      item.permissionOpen = permissionOpen;
+      const editKey = matches(node, SELECTORS.edited) ? entryKey(node) : null;
+      if ((editKey || item.editKey || matches(node, SELECTORS.edited)) && item.editKey !== editKey) {
+        const initial = item.editKey === undefined && item.initial;
+        clearNodeFeedback(node);
+        item.editKey = editKey; item.editEntered = initial;
+        if (initial && editKey) remember(editKey);
+      }
+      if (editKey && item.visible && !item.editEntered) {
+        item.editEntered = true;
+        if (remember(editKey)) signal(node, "enter", "edited-card", 350);
+      }
       const expanded = node.getAttribute("aria-expanded");
       if (matches(node, SELECTORS.activity) && item.expanded === "false" && expanded === "true") {
         signal(node, "feedback", "expanded", 220, "interactions");
       }
       item.expanded = expanded;
-      const projectId = matches(node, SELECTORS.projectCard) ? node.getAttribute("data-app-action-sidebar-project-id") : null;
-      if (projectId !== item.projectId) { clearNodeFeedback(node); node.removeAttribute(`${PREFIX}index`); item.entered = false; item.projectId = projectId; }
+      const presetId = node.getAttribute("data-dream-preset-id");
+      if (presetId !== item.presetId) { item.entered = false; item.presetId = presetId; }
       if (item.entered || !item.visible) continue;
       item.entered = true;
       if (projectId && projectId.length <= 512 && !/[\x00-\x1f\x7f-\x9f]/.test(projectId) && projectIndex < 4 && remember(`project:${projectId}`)) {
         attr(node, `${PREFIX}index`, String(projectIndex++)); signal(node, "enter", "project-card", 340, "interactions");
       }
       if (matches(node, SELECTORS.homeCard) && route === "home" && homeIndex < 4) {
-        const index = homeIndex++;
-        if (remember(`home:${index}`)) {
+        const key = id(presetId) ? `home:${config.themeId}:${presetId}` : null;
+        if (key ? remember(key) : anonymousHomeBatch) {
+          const index = homeIndex++;
+          if (!key) usedAnonymousHomeBatch = true;
           attr(node, `${PREFIX}index`, String(index));
           signal(node, "enter", "home-card", 350, "interactions");
         }
-      } else if (!item.initial && !seenNodes.has(node)) {
-        if (isCurrentDialog(node)) signal(node, "enter", "permission", 500);
-        else if (matches(node, SELECTORS.menu) && node.getAttribute("data-state") !== "closed") signal(node, "enter", "menu", 180, "interactions");
-        else if (matches(node, SELECTORS.edited)) {
-          const key = entryKey(node);
-          if (key && remember(key)) signal(node, "enter", "edited-card", 350);
-        }
       }
-      if (matches(node, SELECTORS.edited)) { const key = entryKey(node); if (key) remember(key); }
-      seenNodes.add(node);
     }
+    if (usedAnonymousHomeBatch) remember("home:anonymous-batch");
   };
   const schedule = () => {
     if (!active() || frame !== null || composition) return;
@@ -599,6 +659,9 @@
       if (mutation.target?.closest?.(`[${OWNED}]`)) continue;
       if (mutation.type === "attributes" && ["class", "style"].includes(mutation.attributeName)) {
         if (backgroundCharacterNode) changed = true;
+        if (tracked.has(mutation.target) && matches(mutation.target, SELECTORS.menu)) {
+          trackNode(mutation.target); changed = true;
+        }
         continue; // Geometry invalidation never widens state/identity scans.
       }
       // A newly mounted/removed native leaf or a visibility change can cover
@@ -608,8 +671,11 @@
         || [...(mutation.addedNodes || []), ...(mutation.removedNodes || [])]
           .some((node) => node.nodeType === 3 || (node.nodeType === 1 && !node.hasAttribute(OWNED))))) changed = true;
       if (mutation.type === "attributes") {
+        if (["data-content-search-unit-key", "data-local-conversation-item-target-ids"].includes(mutation.attributeName)
+          && [...tracked.keys()].some((node) => matches(node, SELECTORS.edited) && mutation.target.contains(node))) changed = true;
         if (!tracked.has(mutation.target) && !matches(mutation.target, TRACK)) continue;
-        trackNode(mutation.target);
+        if (mutation.attributeName === "data-angel-component") scan(mutation.target);
+        else trackNode(mutation.target);
         changed = true;
       } else {
         for (const node of mutation.addedNodes || []) {
@@ -972,7 +1038,7 @@
   refresh();
   observer?.observe(root, { attributes: true, attributeFilter: ["data-dream-skin", "data-dream-theme"] });
   observer?.observe(document.body, { subtree: true, childList: true, attributes: true,
-    attributeFilter: ["class", "style", "data-ds-part", "data-angel-component", "aria-busy", "aria-expanded", "aria-modal", "data-state", "hidden", "aria-hidden", "href", "data-dream-motion-agent-id", "data-local-conversation-item-target-ids", "data-app-action-sidebar-project-id", "data-app-action-sidebar-thread-id", "data-app-action-sidebar-thread-host-id", "data-app-action-sidebar-thread-kind"] });
+    attributeFilter: ["class", "style", "data-ds-part", "data-angel-component", "aria-busy", "aria-expanded", "aria-modal", "data-state", "hidden", "aria-hidden", "href", "data-dream-motion-agent-id", "data-content-search-unit-key", "data-dream-preset-id", "data-local-conversation-item-target-ids", "data-app-action-sidebar-project-id", "data-app-action-sidebar-thread-id", "data-app-action-sidebar-thread-host-id", "data-app-action-sidebar-thread-kind"] });
   listen(media, "change", refresh);
   listen(transparencyMedia, "change", refresh);
   listen(forcedColorsMedia, "change", refresh);
@@ -994,10 +1060,11 @@
       ambientNode.style.setProperty("--dream-motion-parallax-y", `${pointer.y.toFixed(2)}px`);
     });
   });
-  listen(document, "pointerdown", (event) => {
+  const press = (event) => {
     if (paused || composition || mode === "off" || !config.settings.effects.interactions) return;
+    if (event.type === "keydown" && (event.repeat || event.isComposing || !["Enter", " "].includes(event.key))) return;
     const button = event.target?.closest?.('button, [role="button"]');
-    if (!button || button.disabled || button.getAttribute("aria-disabled") === "true" || !button.closest?.(SELECTORS.local)
+    if (!button || button.disabled || button.getAttribute("aria-disabled") === "true" || !button.closest?.(`${SELECTORS.local}, [data-ds-part="sidebar"], [data-angel-component="sidebar-control"], [data-angel-component="sidebar-new-task"], [data-angel-component="settings-control"], [data-angel-component="settings-row"], [data-angel-component="settings-segment"], [data-angel-component="environment-action"]`)
       || safeCall(() => getComputedStyle(button).animationName, "unknown") !== "none") return;
     signal(button, "press", "edge", 180, "interactions");
     const icon = query(button, "svg");
@@ -1010,7 +1077,10 @@
       && box.left >= bounds.left + 2 && box.top >= bounds.top + 2 && box.right <= bounds.right - 2 && box.bottom <= bounds.bottom - 2) {
       signal(icon, "press", "icon", 180, "interactions");
     }
-  });
+  };
+  listen(document, "pointerdown", press);
+  listen(document, "keydown", (event) => press({ type: "keydown", target: event.target, key: event.key,
+    repeat: event.repeat, isComposing: event.isComposing }));
   listen(window, "compositionstart", () => { composition += 1; refresh(); });
   listen(window, "compositionend", () => {
     composition = Math.max(0, composition - 1);

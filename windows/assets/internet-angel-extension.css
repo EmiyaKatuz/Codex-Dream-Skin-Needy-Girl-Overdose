@@ -2143,6 +2143,17 @@ html:root[data-dream-skin="active"][data-dream-theme="internet-angel"]:is(.dream
   aside[data-angel-component="settings-sidebar"] {
   background: linear-gradient(145deg, rgb(22 21 71 / .98), rgb(48 31 101 / .96)) !important;
 }
+/* Pair paper text with an opaque surface. The type exclusions keep this
+   scoped rule above the platform's four-exclusion generic light-input rule. */
+html:root[data-dream-skin="active"][data-dream-theme="internet-angel"]:is(.dream-theme-light, [data-dream-shell="light"])
+  [data-angel-component="settings-input"]:not([type="checkbox"]):not([type="radio"]) {
+  color: var(--angel-paper) !important;
+  background: rgb(23 19 45) !important;
+}
+html:root[data-dream-skin="active"][data-dream-theme="internet-angel"]:is(.dream-theme-light, [data-dream-shell="light"])
+  [data-angel-component="settings-sidebar"] [data-settings-panel-slug] {
+  color: var(--angel-paper) !important;
+}
 html:root[data-dream-skin="active"][data-dream-theme="internet-angel"]:is(.dream-theme-light, [data-dream-shell="light"])
   [data-angel-component="settings-nav"] [data-settings-panel-slug]:is(:hover, :focus-visible, [aria-current="page"]) {
   color: var(--angel-paper) !important;

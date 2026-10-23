@@ -104,6 +104,63 @@ html.codex-dream-skin.dream-choten-art[data-dream-skin="active"] :is(
   background-color: transparent !important;
 }
 
+/* Acrylic omits the classifier stylesheet. Keep its owned Modern Home deck
+   in the same normal flow so neither the grid nor its cards cover controls. */
+html[data-dream-skin="active"] .dream-home:has(> [class~="group/home-composer-layout"])
+  > #codex-dream-skin-presets {
+  position: relative !important;
+  inset: auto !important;
+  z-index: auto !important;
+  order: -1;
+  flex: 0 0 auto;
+  align-self: center;
+  width: calc(100% - 48px) !important;
+  max-width: 1040px;
+  margin: 28px 24px 16px;
+  transform: none !important;
+}
+html[data-dream-skin="active"] .dream-home:has(> [class~="group/home-composer-layout"])
+  #codex-dream-skin-presets .dream-generated-preset {
+  height: auto !important;
+  min-height: 86px !important;
+  max-height: none !important;
+}
+html[data-dream-skin="active"]:has([class~="group/home-composer-layout"])
+  #codex-dream-skin-chrome .dream-angel-stage > :not(.dream-angel-frame, .dream-angel-spark-field, .dream-angel-live-ticker) {
+  display: none !important;
+}
+@media (max-height: 760px) {
+  html[data-dream-skin="active"] .dream-home:has(> [class~="group/home-composer-layout"])
+    > #codex-dream-skin-presets {
+    margin-top: 12px !important;
+    margin-bottom: 8px !important;
+  }
+  html[data-dream-skin="active"] .dream-home:has(> [class~="group/home-composer-layout"])
+    #codex-dream-skin-presets .dream-presets-grid {
+    grid-template-rows: none !important;
+    grid-auto-rows: auto !important;
+  }
+  html[data-dream-skin="active"] .dream-home:has(> [class~="group/home-composer-layout"])
+    #codex-dream-skin-presets button.dream-generated-preset {
+    grid-template: auto / 36px minmax(0, 1fr) !important;
+    min-height: 64px !important;
+    padding: 8px !important;
+  }
+  html[data-dream-skin="active"] .dream-home:has(> [class~="group/home-composer-layout"])
+    #codex-dream-skin-presets :is(.dream-preset-channel, small, em) {
+    display: none !important;
+  }
+  html[data-dream-skin="active"] .dream-home:has(> [class~="group/home-composer-layout"])
+    #codex-dream-skin-presets :is(.dream-preset-icon, strong) {
+    grid-row: 1 !important;
+  }
+  html[data-dream-skin="active"] .dream-home:has(> [class~="group/home-composer-layout"])
+    #codex-dream-skin-presets .dream-preset-icon {
+    width: 32px !important;
+    height: 32px !important;
+  }
+}
+
 /* One blur layer for each large, non-overlapping piece of window chrome. */
 html.codex-dream-skin.dream-choten-art[data-dream-skin="active"] :is(
   aside.app-shell-left-panel,

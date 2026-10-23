@@ -78,8 +78,10 @@ function fixture({ home = false, bodyless = false, reduced = false } = {}) {
     matches(selector) {
       // Ordinary tag, class and attribute matching, independent of controller selectors.
       return selector.split(",").some((part) => {
-        const attributes = [...part.matchAll(/\[([\w-]+)(?:="([^"]*)")?\]/g)];
-        if (!attributes.every(([, name, value]) => value === undefined ? this.hasAttribute(name) : this.getAttribute(name) === value)) return false;
+        const attributes = [...part.matchAll(/\[([\w-]+)(?:([~]?=)"([^"]*)")?\]/g)];
+        if (!attributes.every(([, name, operator, value]) => operator === "~="
+          ? (this.getAttribute(name) || "").split(/\s+/).includes(value)
+          : operator === "=" ? this.getAttribute(name) === value : this.hasAttribute(name))) return false;
         const rest = part.replace(/\[[^\]]+\]/g, "").trim();
         if (!rest) return attributes.length > 0;
         if (/^\.[\w-]+$/.test(rest)) return this.className.split(/\s+/).includes(rest.slice(1));
@@ -387,6 +389,121 @@ test("bounded one-shot feedback preserves native animation and deduplicates stab
   page.add(menu); page.flush();
   assert.equal(menu.getAttribute("data-dream-motion-enter"), null);
   page.state.cleanup();
+});
+
+test("force-mounted menus animate each opening but never replay an already-open initial menu", () => {
+  const page = fixture();
+  const menu = page.add(page.node("section", { role: "menu", "data-state": "closed", hidden: "" }));
+  const existing = page.add(page.node("section", { role: "menu", "data-state": "open" }));
+  page.install();
+  assert.equal(existing.getAttribute("data-dream-motion-enter"), null);
+  page.attribute(menu, "hidden", null); page.attribute(menu, "data-state", "open"); page.flush();
+  assert.equal(menu.getAttribute("data-dream-motion-enter"), "menu");
+  page.attribute(menu, "data-state", "closed"); page.flush();
+  assert.equal(menu.getAttribute("data-dream-motion-enter"), null, "closing cancels feedback immediately");
+  page.attribute(menu, "data-state", "open"); page.flush();
+  assert.equal(menu.getAttribute("data-dream-motion-enter"), "menu");
+  page.advance(181); page.attribute(menu, "aria-expanded", "true"); page.flush();
+  assert.equal(menu.getAttribute("data-dream-motion-enter"), null, "an unchanged open state does not restart feedback");
+  page.state.cleanup();
+});
+
+test("recycled edit batches animate only unseen identities and retain no stale feedback", () => {
+  for (const identity of ["data-content-search-unit-key", "data-local-conversation-item-target-ids"]) {
+    const page = fixture();
+    const unit = page.add(page.node("section", { [identity]: "historical-batch" }));
+    const edited = page.add(page.node("section", { "data-angel-component": "edited-card" }), unit);
+    page.install();
+    assert.equal(edited.getAttribute("data-dream-motion-enter"), null);
+    page.attribute(unit, identity, "new-batch"); page.flush();
+    assert.equal(edited.getAttribute("data-dream-motion-enter"), "edited-card");
+    page.attribute(unit, identity, "historical-batch"); page.flush();
+    assert.equal(edited.getAttribute("data-dream-motion-enter"), null);
+    page.attribute(unit, identity, "new-batch"); page.flush();
+    assert.equal(edited.getAttribute("data-dream-motion-enter"), null, "virtualized remounts must not replay results");
+    page.attribute(unit, identity, "next-batch"); page.flush();
+    assert.equal(edited.getAttribute("data-dream-motion-enter"), "edited-card");
+    page.state.cleanup();
+  }
+});
+
+test("an initially hidden permission dialog gets one status cue per explicit opening", () => {
+  const page = fixture();
+  const prompt = page.add(page.node("section", { role: "alertdialog", "aria-modal": "true", "data-state": "closed", hidden: "" }));
+  page.install();
+  page.attribute(prompt, "hidden", null); page.attribute(prompt, "data-state", "open"); page.flush();
+  assert.equal(prompt.getAttribute("data-dream-motion-enter"), "permission");
+  assert.equal(page.state.inspect().state, "needs-attention");
+  page.attribute(prompt, "data-state", "closed"); page.flush();
+  assert.equal(prompt.getAttribute("data-dream-motion-enter"), null);
+  page.attribute(prompt, "data-state", "open"); page.flush();
+  assert.equal(prompt.getAttribute("data-dream-motion-enter"), "permission");
+  page.advance(501); page.attribute(prompt, "aria-expanded", "true"); page.flush();
+  assert.equal(prompt.getAttribute("data-dream-motion-enter"), null);
+  page.state.cleanup();
+});
+
+test("Home presets deduplicate stable identities and anonymous native cards use one bounded batch", () => {
+  const page = fixture({ home: true }); page.install();
+  const card = (identity) => page.node("button", { class: "angel-preset-card", "data-dream-preset-id": identity });
+  const first = page.add(card("explore")); page.flush();
+  assert.equal(first.getAttribute("data-dream-motion-enter"), "home-card");
+  first.remove();
+  const remount = page.add(card("explore")); page.flush();
+  assert.equal(remount.getAttribute("data-dream-motion-enter"), null);
+  const second = page.add(card("build")); page.flush();
+  assert.equal(second.getAttribute("data-dream-motion-index"), "1", "duplicates must not consume the four-card budget");
+  page.state.cleanup();
+  const native = fixture({ home: true }); native.install();
+  const cards = Array.from({ length: 5 }, () => native.add(native.node("button", { "data-testid": "home-suggestion" })));
+  native.flush();
+  assert.equal(cards.filter((node) => node.getAttribute("data-dream-motion-enter")).length, 4);
+  native.state.cleanup();
+  const single = fixture({ home: true }); single.install();
+  const original = single.add(single.node("button", { "data-testid": "home-suggestion" })); single.flush();
+  assert.equal(original.getAttribute("data-dream-motion-enter"), "home-card");
+  original.remove();
+  const recycled = single.add(single.node("button", { "data-testid": "home-suggestion" })); single.flush();
+  assert.equal(recycled.getAttribute("data-dream-motion-enter"), null, "unknown native identities must not replay on remount");
+  single.state.cleanup();
+});
+
+test("skin press feedback does not suppress disclosure feedback while native animations retain ownership", () => {
+  const page = fixture(); page.install();
+  const button = page.add(page.node("button", { "data-angel-component": "activity-header", "aria-expanded": "false" })); page.flush();
+  page.document.dispatch("pointerdown", { target: button });
+  assert.equal(button.getAttribute("data-dream-motion-press"), "edge");
+  button.computed.animationName = "dream-motion-highlight";
+  page.attribute(button, "aria-expanded", "true"); page.flush();
+  assert.equal(button.getAttribute("data-dream-motion-feedback"), "expanded");
+  page.advance(501); button.computed.animationName = "native-popover";
+  page.attribute(button, "aria-expanded", "false"); page.flush();
+  page.attribute(button, "aria-expanded", "true"); page.flush();
+  assert.equal(button.getAttribute("data-dream-motion-feedback"), null);
+  page.state.cleanup();
+});
+
+test("keyboard actions share press feedback in sidebars and settings without repeat or IME replay", () => {
+  for (const component of ["sidebar-control", "sidebar-new-task", "settings-control", "settings-segment", "environment-action"]) {
+    const page = fixture(); page.install();
+    const button = page.add(page.node("button", { "data-angel-component": component }), page.body);
+    const icon = button.appendChild(page.node("svg"));
+    button.rect = { left: 0, top: 0, width: 40, height: 40, right: 40, bottom: 40 };
+    icon.rect = { left: 8, top: 8, width: 24, height: 24, right: 32, bottom: 32 };
+    for (const key of ["Enter", " "]) {
+      page.document.dispatch("keydown", { target: button, key });
+      assert.equal(icon.getAttribute("data-dream-motion-press"), "icon");
+      page.advance(181);
+      page.document.dispatch("keydown", { target: button, key, repeat: true });
+      assert.equal(icon.getAttribute("data-dream-motion-press"), null);
+      page.document.dispatch("keydown", { target: button, key, isComposing: true });
+      assert.equal(icon.getAttribute("data-dream-motion-press"), null);
+    }
+    button.setAttribute("disabled", ""); button.disabled = true;
+    page.document.dispatch("keydown", { target: button, key: "Enter" });
+    assert.equal(icon.getAttribute("data-dream-motion-press"), null);
+    page.state.cleanup();
+  }
 });
 
 test("explicit task events are bound to route, task, run and monotonic revision", () => {
@@ -916,9 +1033,17 @@ test("project cards use bounded real path identities and avoid remount replays",
   page.state.cleanup();
 });
 
-test("standalone pixel character exposes state poses without mutating artwork", () => {
+test("standalone P-chan keeps decorative cat poses without mutating artwork", () => {
   const page = nativeFixture(); const character = motionRole(page, "character");
-  assert.ok(character.querySelector("svg")); assert.equal(character.querySelectorAll("[data-dream-motion-part]").length, 13);
+  const svg = character.querySelector("svg");
+  assert.equal(svg.getAttribute("data-dream-motion-mascot"), "p-chan");
+  assert.equal(svg.getAttribute("viewBox"), "0 0 24 28");
+  assert.equal(svg.getAttribute("aria-hidden"), "true");
+  assert.equal(svg.getAttribute("focusable"), "false");
+  assert.equal(svg.querySelectorAll("[data-dream-motion-pose]").length, 8);
+  for (const part of ["ears", "tail", "paws", "eye-shine", "focus", "rest", "smile", "surprise", "heart"]) {
+    assert.ok(svg.querySelector(`[data-dream-motion-part="${part}"]`), `${part} must be present for cat poses`);
+  }
   page.start(); page.delta(); assert.equal(character.getAttribute("data-dream-motion-state"), "streaming");
   page.finish("failed"); assert.equal(character.getAttribute("data-dream-motion-state"), "failed");
   assert.equal(page.global.__CODEX_DREAM_SKIN_STATE__.artUrl, "blob:app://old-art"); page.state.cleanup();
@@ -1043,15 +1168,19 @@ test("ambient placement checks its full 104px height plus parallax margins", () 
   assert.equal(motionRole(page, "ambient").style.getPropertyValue("visibility"), "hidden"); page.state.cleanup();
 });
 
-test("decorations avoid empty native diff panes and timeline regions", () => {
-  for (const attributes of [{ "data-app-shell-pane-frame": "true" }, { "data-app-action-timeline-scroll": "" }]) {
+test("decorations avoid empty native panes, timelines and settings surfaces", () => {
+  for (const attributes of [{ "data-app-shell-pane-frame": "true" }, { "data-app-action-timeline-scroll": "" },
+    { "data-angel-component": "settings-content" }, { "data-angel-component": "settings-surface" },
+    { "data-angel-component": "settings-row" }, { class: "dream-settings-content" },
+    { class: "dream-settings-surface" }, { class: "dream-settings-row" },
+    { class: "scrollbar-stable flex-1 overflow-y-auto p-panel" }]) {
     const page = fixture({ home: true });
     const pane = page.add(page.node("div", attributes));
     const emptySpace = page.add(page.node("div"), pane);
     page.document.elementFromPoint = () => emptySpace;
     page.install(configuration("full"));
     for (const role of ["status", "character", "ambient"]) {
-      assert.equal(motionRole(page, role).style.getPropertyValue("visibility"), "hidden");
+      assert.equal(motionRole(page, role).style.getPropertyValue("visibility"), "hidden", JSON.stringify({ attributes, role }));
     }
     page.state.cleanup();
   }

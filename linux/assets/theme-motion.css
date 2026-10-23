@@ -236,14 +236,22 @@ html:root[data-dream-motion]:not([data-dream-motion="off"])[data-dream-motion-pa
    their own animation. Standalone rotate composes with native transforms. */
 html:root[data-dream-motion]:not([data-dream-motion="off"])[data-dream-motion-paused="false"][data-dream-motion-interactions="on"] :is(
   [data-angel-component="activity-header"], [data-angel-component="environment-header"],
-  [data-angel-component="sidebar-section"]
+  [data-angel-component="sidebar-section"],
+  [data-angel-component="activity-header"] [aria-expanded], .dream-activity-header [aria-expanded],
+  [class~="group/activity-header"] [aria-expanded],
+  [data-angel-component="environment-header"] [aria-expanded],
+  [data-angel-component="sidebar-section"] [aria-expanded]
 )[aria-expanded] > :is(svg[data-lucide="chevron-right"], svg.lucide-chevron-right, [data-slot="chevron"]) {
   transition: rotate 140ms var(--dream-motion-ease) !important;
 }
 
 html:root[data-dream-motion]:not([data-dream-motion="off"])[data-dream-motion-paused="false"][data-dream-motion-interactions="on"] :is(
   [data-angel-component="activity-header"], [data-angel-component="environment-header"],
-  [data-angel-component="sidebar-section"]
+  [data-angel-component="sidebar-section"],
+  [data-angel-component="activity-header"] [aria-expanded], .dream-activity-header [aria-expanded],
+  [class~="group/activity-header"] [aria-expanded],
+  [data-angel-component="environment-header"] [aria-expanded],
+  [data-angel-component="sidebar-section"] [aria-expanded]
 )[aria-expanded="true"] > :is(svg[data-lucide="chevron-right"], svg.lucide-chevron-right, [data-slot="chevron"]) {
   rotate: 90deg;
 }
@@ -254,8 +262,10 @@ html:root[data-dream-motion]:not([data-dream-motion="off"])[data-dream-motion-pa
 html:root[data-dream-motion]:not([data-dream-motion="off"])[data-dream-motion-paused="false"][data-dream-motion-interactions="on"] :is(
   [data-dream-motion-enter="home-card"], [data-dream-motion-enter="menu"],
   [data-dream-motion-enter="project-card"],
-  [data-dream-motion-enter="edited-card"], [data-dream-motion-enter="permission"],
   [data-dream-motion-feedback="expanded"]
+),
+html:root[data-dream-motion]:not([data-dream-motion="off"])[data-dream-motion-paused="false"][data-dream-motion-status="on"] :is(
+  [data-dream-motion-enter="edited-card"], [data-dream-motion-enter="permission"]
 ) {
   outline: 1px solid var(--dream-motion-accent);
   outline-offset: -1px;
@@ -395,8 +405,8 @@ html:root[data-dream-motion="full"][data-dream-motion-paused="false"][data-dream
   animation-play-state: running;
 }
 
-/* A self-contained pixel character is created only for the known built-in
-   Angel theme. It never alters the face or eyes of a wallpaper photograph. */
+/* P-chan stays inside the existing character reservation. Its pink fur and
+   dark outline stay recognizable in both light and dark built-in themes. */
 html:root[data-dream-motion] [data-dream-motion-owned][data-dream-motion-role="character"] {
   position: fixed;
   right: 38px;
@@ -416,21 +426,25 @@ html:root[data-dream-motion] [data-dream-motion-owned][data-dream-motion-role="c
   shape-rendering: crispEdges;
 }
 
-html:root[data-dream-motion] [data-dream-motion-owned][data-dream-motion-role="character"] :is([data-dream-motion-part="hair"], [data-dream-motion-part="fringe"], [data-dream-motion-part="collar"]) { fill: var(--dream-motion-paper); }
-html:root[data-dream-motion] [data-dream-motion-owned][data-dream-motion-role="character"] :is([data-dream-motion-part="face"], [data-dream-motion-part="arms"]) { fill: #ffd9e8; }
-html:root[data-dream-motion] [data-dream-motion-owned][data-dream-motion-role="character"] :is([data-dream-motion-part="ribbon"], [data-dream-motion-part="heart"]) { fill: var(--dream-motion-attention); }
-html:root[data-dream-motion] [data-dream-motion-owned][data-dream-motion-role="character"] [data-dream-motion-part="body"] { fill: var(--dream-motion-accent); }
-html:root[data-dream-motion] [data-dream-motion-owned][data-dream-motion-role="character"] :is([data-dream-motion-part="eyes"], [data-dream-motion-part="smile"], [data-dream-motion-part="focus"], [data-dream-motion-part="surprise"], [data-dream-motion-part="rest"]) { fill: var(--angel-ink, #392451); }
-html:root[data-dream-motion] [data-dream-motion-owned][data-dream-motion-role="character"] :is([data-dream-motion-part="focus"], [data-dream-motion-part="surprise"], [data-dream-motion-part="rest"], [data-dream-motion-part="heart"]) { display: none; }
+html:root[data-dream-motion] [data-dream-motion-owned][data-dream-motion-role="character"] [data-dream-motion-part="outline"] { fill: #64344f; }
+html:root[data-dream-motion] [data-dream-motion-owned][data-dream-motion-role="character"] :is([data-dream-motion-part="body"], [data-dream-motion-part="tail"]) { fill: #f2a9c8; }
+html:root[data-dream-motion] [data-dream-motion-owned][data-dream-motion-role="character"] [data-dream-motion-part="ears"] { fill: #d77dab; }
+html:root[data-dream-motion] [data-dream-motion-owned][data-dream-motion-role="character"] [data-dream-motion-part="paws"] { fill: #ffd2e5; }
+html:root[data-dream-motion] [data-dream-motion-owned][data-dream-motion-role="character"] :is([data-dream-motion-part="paws"], [data-dream-motion-part="tail"]) { stroke: #64344f; stroke-width: 1; paint-order: stroke fill; }
+html:root[data-dream-motion] [data-dream-motion-owned][data-dream-motion-role="character"] [data-dream-motion-part="tears"] { fill: #9bd9ed; }
+html:root[data-dream-motion] [data-dream-motion-owned][data-dream-motion-role="character"] [data-dream-motion-part="eye-shine"] { fill: #fff5fa; }
+html:root[data-dream-motion] [data-dream-motion-owned][data-dream-motion-role="character"] [data-dream-motion-part="heart"] { fill: var(--dream-motion-attention); }
+html:root[data-dream-motion] [data-dream-motion-owned][data-dream-motion-role="character"] :is([data-dream-motion-part="eyes"], [data-dream-motion-part="brows"], [data-dream-motion-part="mouth"], [data-dream-motion-part="smile"], [data-dream-motion-part="focus"], [data-dream-motion-part="surprise"], [data-dream-motion-part="rest"]) { fill: #392439; }
+html:root[data-dream-motion] [data-dream-motion-owned][data-dream-motion-role="character"] [data-dream-motion-pose] { display: none; }
 
-html:root[data-dream-motion] [data-dream-motion-owned][data-dream-motion-role="character"]:is([data-dream-motion-state="busy"], [data-dream-motion-state="streaming"]) :is([data-dream-motion-part="eyes"], [data-dream-motion-part="smile"]),
-html:root[data-dream-motion] [data-dream-motion-owned][data-dream-motion-role="character"]:is([data-dream-motion-state="needs-attention"], [data-dream-motion-state="failed"]) [data-dream-motion-part="smile"],
-html:root[data-dream-motion] [data-dream-motion-owned][data-dream-motion-role="character"]:is([data-dream-motion-state="idle"], [data-dream-motion-state="cancelled"]) [data-dream-motion-part="eyes"] { display: none; }
-
-html:root[data-dream-motion] [data-dream-motion-owned][data-dream-motion-role="character"]:is([data-dream-motion-state="busy"], [data-dream-motion-state="streaming"]) [data-dream-motion-part="focus"],
-html:root[data-dream-motion] [data-dream-motion-owned][data-dream-motion-role="character"]:is([data-dream-motion-state="needs-attention"], [data-dream-motion-state="failed"]) [data-dream-motion-part="surprise"],
-html:root[data-dream-motion] [data-dream-motion-owned][data-dream-motion-role="character"]:is([data-dream-motion-state="idle"], [data-dream-motion-state="cancelled"]) [data-dream-motion-part="rest"],
-html:root[data-dream-motion] [data-dream-motion-owned][data-dream-motion-role="character"][data-dream-motion-state="completed"] [data-dream-motion-part="heart"] { display: inline; }
+html:root[data-dream-motion] [data-dream-motion-owned][data-dream-motion-role="character"][data-dream-motion-state="unknown"] [data-dream-motion-pose="unknown"],
+html:root[data-dream-motion] [data-dream-motion-owned][data-dream-motion-role="character"][data-dream-motion-state="idle"] [data-dream-motion-pose="idle"],
+html:root[data-dream-motion] [data-dream-motion-owned][data-dream-motion-role="character"][data-dream-motion-state="busy"] [data-dream-motion-pose="busy"],
+html:root[data-dream-motion] [data-dream-motion-owned][data-dream-motion-role="character"][data-dream-motion-state="streaming"] [data-dream-motion-pose="streaming"],
+html:root[data-dream-motion] [data-dream-motion-owned][data-dream-motion-role="character"][data-dream-motion-state="needs-attention"] [data-dream-motion-pose="needs-attention"],
+html:root[data-dream-motion] [data-dream-motion-owned][data-dream-motion-role="character"][data-dream-motion-state="completed"] [data-dream-motion-pose="completed"],
+html:root[data-dream-motion] [data-dream-motion-owned][data-dream-motion-role="character"][data-dream-motion-state="failed"] [data-dream-motion-pose="failed"],
+html:root[data-dream-motion] [data-dream-motion-owned][data-dream-motion-role="character"][data-dream-motion-state="cancelled"] [data-dream-motion-pose="cancelled"] { display: inline; }
 
 html:root[data-dream-motion="full"][data-dream-motion-paused="false"][data-dream-motion-character="on"][data-dream-motion-route="home"] [data-dream-motion-owned][data-dream-motion-role="character"] {
   animation: dream-motion-character 8s ease-in-out infinite;
@@ -562,8 +576,15 @@ html:root[data-dream-motion]:is([data-dream-motion="off"], [data-dream-motion-pa
   transition: none !important;
 }
 
-html:root[data-dream-motion]:is([data-dream-motion="off"], [data-dream-motion-paused="true"], [data-dream-motion-interactions="off"]) :is(
+html:root[data-dream-motion]:is([data-dream-motion="off"], [data-dream-motion-paused="true"]) :is(
   [data-dream-motion-enter], [data-dream-motion-feedback="expanded"], [data-dream-motion-press]
+),
+html:root[data-dream-motion][data-dream-motion-interactions="off"] :is(
+  [data-dream-motion-enter="home-card"], [data-dream-motion-enter="project-card"],
+  [data-dream-motion-enter="menu"], [data-dream-motion-feedback="expanded"], [data-dream-motion-press]
+),
+html:root[data-dream-motion][data-dream-motion-status="off"] :is(
+  [data-dream-motion-enter="edited-card"], [data-dream-motion-enter="permission"]
 ) {
   animation: none !important;
 }

@@ -28,7 +28,7 @@ const fixture = `<!doctype html><html><head><title>Dream Skin motion playback fi
   <textarea aria-label="Prompt">Native prompt fixture</textarea><svg id="native-spinner" viewBox="0 0 16 16"><path d="M8 1L8 5"/></svg>
   </section></main></body></html>`;
 
-async function launch(t, material = 'system') {
+async function launch(t, material = 'system', platform = 'windows') {
   const {chromium} = createRequire(import.meta.url)(process.env.PLAYWRIGHT_MODULE_PATH || 'playwright');
   // Windows runners may expose TEMP with an 8.3 alias. The production reader
   // deliberately rejects redirected/noncanonical ancestors, so hand it the
@@ -52,7 +52,9 @@ async function launch(t, material = 'system') {
     await writeFile(preferences, JSON.stringify(value));
     assert.deepEqual(await readMotionSettings(preferences), value,
       'the fixture preferences must pass the same strict reader used by the injector');
-    const loaded = await loadPayload(undefined, null, material, {motionSettingsPath:preferences});
+    const loaded = platform === 'windows'
+      ? await loadPayload(undefined, null, material, {motionSettingsPath:preferences})
+      : await (await import(`../${platform}/scripts/injector.mjs`)).loadPayload(undefined, {motionSettingsPath:preferences});
     assert.equal(loaded.motionSettingsRejected, false, 'fixture preferences must not fall back to motion off');
     assert.deepEqual(loaded.motionSettings, value, 'the assembled payload must use the requested fixture preferences');
     await page.evaluate(loaded.payload);
@@ -66,6 +68,191 @@ async function launch(t, material = 'system') {
   await install();
   await page.waitForFunction(() => document.documentElement.getAttribute('data-dream-motion-paused') === 'false');
   return {page, install};
+}
+
+async function feedbackTargets(page) {
+  return page.evaluate(async () => {
+    document.querySelector('#feedback-fixture')?.remove();
+    const container = document.createElement('section');
+    container.id = 'feedback-fixture';
+    container.innerHTML = `<section id="feedback-permission" role="alertdialog" aria-modal="true" data-state="open">Approve fixture command?</section>
+      <section data-content-search-unit-key="feedback-file-batch"><section id="feedback-edit" class="dream-edited-card">Fixture file change</section></section>
+      <section id="feedback-menu" role="menu" data-state="open"><button role="menuitem">Fixture action</button></section>`;
+    document.querySelector('main').appendChild(container);
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    return Object.fromEntries(['permission', 'edit', 'menu'].map((name) => {
+      const node = document.querySelector(`#feedback-${name}`);
+      return [name, {entry:node.getAttribute('data-dream-motion-enter'), animation:getComputedStyle(node).animationName}];
+    }));
+  });
+}
+
+for (const [platform, material] of [['windows', 'system'], ['windows', 'acrylic'], ['macos', 'system'], ['linux', 'system']]) {
+  test(`${platform} ${material}: P-chan paints distinct task poses within the existing decoration bounds`, options, async (t) => {
+    const {page, install} = await launch(t, material, platform);
+    await install(settings('subtle'));
+    const character = page.locator(role('character'));
+    const before = await page.locator('textarea').boundingBox();
+    const frames = new Map();
+    for (const [index, state] of ['unknown', 'idle', 'busy', 'streaming', 'needs-attention', 'completed', 'failed', 'cancelled'].entries()) {
+      const pose = await page.evaluate(({index, state}) => {
+        const controller = window.__CODEX_DREAM_SKIN_MOTION_STATE__;
+        const identity = {schemaVersion:1, taskId:'pose-fixture', runId:`pose-${index}`, routeEpoch:controller.inspect().routeEpoch};
+        const bound = controller.bindTask(identity);
+        const active = controller.reportTaskState({...identity, revision:0, state:'busy'});
+        const accepted = controller.reportTaskState({...identity, revision:1, state});
+        const node = document.querySelector('[data-dream-motion-role="character"]');
+        for (const animation of node.getAnimations({subtree:true})) { animation.pause(); animation.currentTime = 0; }
+        const svg = node.querySelector('svg'), box = svg.getBoundingClientRect(), style = getComputedStyle(node);
+        const visiblePoses = [...svg.querySelectorAll('[data-dream-motion-pose]')]
+          .filter((group) => getComputedStyle(group).display !== 'none').map((group) => group.dataset.dreamMotionPose);
+        const shapes = [...svg.querySelectorAll('path')].filter((part) => !part.closest('[data-dream-motion-pose]')
+          || getComputedStyle(part.parentElement).display !== 'none');
+        return {bound, active, accepted, state:node.dataset.dreamMotionState, mascot:svg.dataset.dreamMotionMascot,
+          visiblePoses, visible:style.visibility, pointer:style.pointerEvents, width:box.width, height:box.height,
+          bounded:shapes.every((part) => {const b = part.getBoundingClientRect();
+            return b.left >= box.left && b.top >= box.top && b.right <= box.right && b.bottom <= box.bottom;})};
+      }, {index, state});
+      assert.ok(pose.bound && pose.active && pose.accepted, 'each pose must come from an accepted task-state report');
+      assert.equal(pose.state, state); assert.equal(pose.mascot, 'p-chan');
+      assert.deepEqual(pose.visiblePoses, [state], 'exactly one matching expression and posture frame must be painted');
+      assert.equal(pose.visible, 'visible'); assert.equal(pose.pointer, 'none');
+      assert.equal(pose.width, 48); assert.equal(pose.height, 56); assert.equal(pose.bounded, true);
+      frames.set(state, await character.screenshot());
+    }
+    for (const state of ['idle', 'busy', 'needs-attention', 'completed']) {
+      assert.ok(!frames.get('unknown').equals(frames.get(state)), `${state} must visibly change P-chan's expression`);
+    }
+    assert.equal(new Set([...frames.values()].map((frame) => frame.toString('base64'))).size, 8,
+      'all eight task states must have visually distinct expression and posture frames');
+    assert.deepEqual(await page.locator('textarea').boundingBox(), before, 'changing the mascot cannot move the native composer');
+    // Native settings content can have empty non-scrolling descendants. Those
+    // pixels still belong to the panel even when no text/control is hit.
+    await page.setContent(`<!doctype html><html><head><title>Settings placement fixture</title></head><body>
+      <main data-app-shell-main-surface style="position:fixed;inset:0">
+      <aside><nav><button data-settings-panel-slug="appearance">Appearance</button></nav></aside>
+      <section id="fixture-settings-panel" style="position:fixed!important;inset:0!important;width:100vw!important;height:100vh!important;max-width:none!important;z-index:100">
+      <div class="scrollbar-stable flex-1 overflow-y-auto p-panel" style="height:120px"><h1>Appearance</h1><input aria-label="Theme name" value="INTERNET ANGEL"></div>
+      </section>
+      </main></body></html>`);
+    await install(settings('subtle'));
+    assert.equal(await page.locator('#fixture-settings-panel').evaluate((node) => {
+      const box = node.getBoundingClientRect();
+      return box.left <= 0 && box.top <= 0 && box.right >= innerWidth && box.bottom >= innerHeight;
+    }), true, 'the fixture settings panel must fill the viewport on every platform');
+    assert.equal(await character.evaluate((node) => getComputedStyle(node).visibility), 'hidden',
+      'the character must withdraw when every placement belongs to a settings panel');
+    await install(settings('full', {character:false}));
+    assert.equal(await character.count(), 0, 'the character switch must remove P-chan');
+  });
+
+  test(`${platform} ${material}: light settings inputs retain contrast during keyboard interaction`, options, async (t) => {
+    const {page, install} = await launch(t, material, platform);
+    await page.emulateMedia({colorScheme:'light'});
+    await page.evaluate(() => {
+      const panel = document.createElement('section');
+      panel.innerHTML = `<aside><nav><button data-settings-panel-slug="general-settings" aria-current="page">General</button>
+        <button data-settings-panel-slug="appearance">Appearance</button></nav></aside>
+        <section><div class="scrollbar-stable flex-1 overflow-y-auto p-panel"><h1>Appearance</h1>
+        <label>Theme name <input id="fixture-setting-input" type="text" value="INTERNET ANGEL" placeholder="Theme name"></label></div></section>`;
+      document.querySelector('main').appendChild(panel);
+    });
+    await install(settings('subtle'));
+    const input = page.locator('#fixture-setting-input');
+    await input.fill('Keyboard feedback');
+    assert.equal(await input.inputValue(), 'Keyboard feedback');
+    // Read the painted inner-right pixel, away from text, caret and borders.
+    // Acrylic's translucent input must be measured over its actual ancestors.
+    const painted = await input.screenshot();
+    const contrast = await input.evaluate(async (node, screenshot) => {
+      const style = getComputedStyle(node), canvas = document.createElement('canvas');
+      const image = new Image(); image.src = screenshot; await image.decode();
+      canvas.width = image.naturalWidth; canvas.height = image.naturalHeight;
+      const context = canvas.getContext('2d');
+      context.drawImage(image, 0, 0);
+      const paintedBackground = [...context.getImageData(canvas.width - 8, Math.floor(canvas.height / 2), 1, 1).data].slice(0, 3);
+      const rgb = (color) => {
+        context.fillStyle = '#fff'; context.fillRect(0, 0, 1, 1);
+        context.fillStyle = color; context.fillRect(0, 0, 1, 1);
+        return [...context.getImageData(0, 0, 1, 1).data].slice(0, 3);
+      };
+      const luminance = (channels) => channels.map((channel) => {
+        const value = channel / 255; return value <= .04045 ? value / 12.92 : ((value + .055) / 1.055) ** 2.4;
+      }).reduce((sum, value, index) => sum + value * [.2126, .7152, .0722][index], 0);
+      const background = luminance(paintedBackground), foreground = luminance(rgb(style.color));
+      return {ratio:(Math.max(background, foreground) + .05) / (Math.min(background, foreground) + .05),
+        background:style.backgroundColor, component:node.getAttribute('data-angel-component')};
+    }, `data:image/png;base64,${painted.toString('base64')}`);
+    assert.ok(contrast.ratio >= 4.5, `settings input contrast must reach 4.5:1: ${JSON.stringify(contrast)}`);
+    if (contrast.component === 'settings-input') assert.equal(contrast.background, 'rgb(23, 19, 45)');
+  });
+
+  test(`${platform} ${material}: status and interaction entry feedback have independent switches`, options, async (t) => {
+    const {page, install} = await launch(t, material, platform);
+    await install(settings('subtle', {interactions:false}));
+    const statusOnly = await feedbackTargets(page);
+    assert.deepEqual(statusOnly.permission, {entry:'permission', animation:'dream-motion-highlight'});
+    assert.deepEqual(statusOnly.edit, {entry:'edited-card', animation:'dream-motion-highlight'});
+    assert.deepEqual(statusOnly.menu, {entry:null, animation:'none'});
+    await page.locator('#feedback-fixture').evaluate((node) => node.remove());
+    await install(settings('subtle', {status:false}));
+    const interactionsOnly = await feedbackTargets(page);
+    assert.deepEqual(interactionsOnly.permission, {entry:null, animation:'none'});
+    assert.deepEqual(interactionsOnly.edit, {entry:null, animation:'none'});
+    assert.deepEqual(interactionsOnly.menu, {entry:'menu', animation:'dream-motion-highlight'});
+  });
+
+  test(`${platform} ${material}: reused menus, edit batches and nested disclosures retain real feedback`, options, async (t) => {
+    const {page, install} = await launch(t, material, platform);
+    await page.evaluate(() => {
+      const container = document.createElement('section');
+      container.id = 'lifecycle-fixture';
+      container.innerHTML = `<button id="fixture-menu-toggle">Toggle fixture menu</button>
+        <section id="fixture-reused-menu" role="menu" data-state="closed" hidden><button role="menuitem">Fixture menu item</button></section>
+        <section id="fixture-edit-batch" data-content-search-unit-key="historical"><section id="fixture-reused-edit" class="[--thread-resource-card-row-padding-x:16px]">
+        <header class="group/turn-diff-header"><span class="font-medium text-token-foreground">Edited fixture.js</span></header>
+        <span class="turn-diff-default-subtitle">+1 -0</span><button>Undo</button><button>Review</button></section></section>
+        <section data-local-conversation-item-target-ids="fixture-tool"><section class="group/activity-header">
+        <button id="fixture-disclosure" aria-expanded="false"><svg data-lucide="chevron-right" width="16" height="16" viewBox="0 0 16 16"><path d="M5 2L11 8L5 14"/></svg>Show details</button>
+        </section><pre id="fixture-output" hidden>Readonly fixture output</pre></section>`;
+      document.querySelector('main').appendChild(container);
+      document.querySelector('#fixture-menu-toggle').onclick = () => {
+        const menu = document.querySelector('#fixture-reused-menu');
+        menu.hidden = !menu.hidden; menu.dataset.state = menu.hidden ? 'closed' : 'open';
+      };
+      document.querySelector('#fixture-disclosure').onclick = (event) => {
+        const button = event.currentTarget, open = button.getAttribute('aria-expanded') !== 'true';
+        button.setAttribute('aria-expanded', String(open)); document.querySelector('#fixture-output').hidden = !open;
+      };
+    });
+    await install(settings('subtle'));
+    for (let opening = 0; opening < 2; opening += 1) {
+      await page.locator('#fixture-menu-toggle').click();
+      await page.waitForFunction(() => document.querySelector('#fixture-reused-menu').getAttribute('data-dream-motion-enter') === 'menu');
+      assert.equal(await page.locator('#fixture-reused-menu').evaluate((node) => getComputedStyle(node).animationName), 'dream-motion-highlight');
+      await page.locator('#fixture-menu-toggle').click();
+      await page.waitForFunction(() => !document.querySelector('#fixture-reused-menu').hasAttribute('data-dream-motion-enter'));
+      await page.waitForFunction(() => !window.__CODEX_DREAM_SKIN_MOTION_STATE__.inspect().paused);
+    }
+    const edited = await page.evaluate(async () => {
+      const node = document.querySelector('#fixture-reused-edit'), before = node.getBoundingClientRect().toJSON();
+      document.querySelector('#fixture-edit-batch').setAttribute('data-content-search-unit-key', 'new-result');
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      return {entry:node.getAttribute('data-dream-motion-enter'), animation:getComputedStyle(node).animationName,
+        before, after:node.getBoundingClientRect().toJSON()};
+    });
+    assert.equal(edited.entry, 'edited-card'); assert.equal(edited.animation, 'dream-motion-highlight');
+    assert.deepEqual(edited.before, edited.after, 'a new batch cannot move or resize native content');
+    await page.locator('#fixture-disclosure').focus();
+    await page.keyboard.press('Enter');
+    await page.waitForFunction(() => !window.__CODEX_DREAM_SKIN_MOTION_STATE__.inspect().paused);
+    await page.waitForFunction(() => document.querySelector('#fixture-disclosure').getAttribute('data-dream-motion-feedback') === 'expanded');
+    assert.equal(await page.locator('#fixture-output').isVisible(), true, 'keyboard activation must keep the original disclosure action');
+    await page.waitForFunction(() => getComputedStyle(document.querySelector('#fixture-disclosure svg')).rotate === '90deg');
+    await page.keyboard.press('Enter');
+    assert.equal(await page.locator('#fixture-output').isVisible(), false);
+    await page.waitForFunction(() => getComputedStyle(document.querySelector('#fixture-disclosure svg')).rotate === 'none');
+  });
 }
 
 async function paintedSample(page, selector, name, properties, pseudo = null) {
@@ -207,6 +394,39 @@ async function assertWallpaperBlinkPaints(page, material, acrylicScene = true) {
 }
 
 for (const material of ['system', 'acrylic']) {
+  test(`Windows ${material}: modern Home presets leave the composer and Send control uncovered`, options, async (t) => {
+    const {page, install} = await launch(t, material);
+    await page.setContent(`<!doctype html><html><head><title>Modern Home layout fixture</title><style>
+      html,body{margin:0;width:100%;height:100%}*{box-sizing:border-box}
+      main{display:flex;height:100vh;min-width:0;position:fixed;inset:0}
+      .fixture-home{display:flex;flex:1;min-height:0;flex-direction:column;align-items:center;justify-content:center;overflow:auto}
+      .fixture-home>div{width:100%;display:flex;flex-direction:column;align-items:center}
+      .composer-surface-chrome{width:calc(100% - 48px);padding:12px}
+      textarea{display:block;width:100%;height:58px}footer{display:flex;justify-content:flex-end}
+      </style></head><body><main class="main-surface" data-app-shell-main-surface="true">
+      <div role="main" class="fixture-home"><div class="group/home-composer-layout"><span data-testid="home-icon">◇</span>
+      <h1>What will you build today?</h1><section class="composer-surface-chrome"><textarea id="home-prompt" aria-label="Prompt"></textarea>
+      <footer data-composer-footer-responsive><button id="home-send">Send</button></footer></section></div></div></main></body></html>`);
+    await install(settings());
+    for (const viewport of [{width:1366,height:900}, {width:520,height:780}, {width:760,height:600}]) {
+      await page.setViewportSize(viewport); await page.waitForTimeout(220);
+      const geometry = await page.evaluate(() => {
+        const deck = document.querySelector('#codex-dream-skin-presets').getBoundingClientRect();
+        const composer = document.querySelector('.composer-surface-chrome').getBoundingClientRect();
+        return {separated:deck.bottom <= composer.top, controls:['home-prompt', 'home-send'].map((id) => {
+          const node = document.getElementById(id), box = node.getBoundingClientRect();
+          const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
+          return {id, inView:box.x >= 0 && box.y >= 0 && box.right <= innerWidth && box.bottom <= innerHeight,
+            hit:hit === node || node.contains(hit)};
+        })};
+      });
+      assert.equal(geometry.separated, true, `Home presets must stay above the composer at ${JSON.stringify(viewport)}`);
+      assert.ok(geometry.controls.every((control) => control.inView && control.hit), JSON.stringify(geometry.controls));
+      await page.locator('#home-prompt').fill('Uncovered native composer');
+      assert.equal(await page.locator('#home-prompt').inputValue(), 'Uncovered native composer');
+    }
+  });
+
   test(`Windows ${material}: background character paints animated eyelids after resize and reinjection`, options, async (t) => {
     const {page, install} = await launch(t, material);
     let previousBox;

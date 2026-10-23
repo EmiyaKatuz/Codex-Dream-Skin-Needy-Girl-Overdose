@@ -26,6 +26,10 @@ $showEvent = [System.Threading.EventWaitHandle]::new($false,
 $acquired = $false
 $notify = $null
 $trayIcon = $null
+$trayRestingIcon = $null
+$script:trayBusyIcon = $null
+$script:trayMotionSettings = $null
+$script:trayOperationFeedbackReady = $false
 $menu = $null
 $trayActivityTimer = $null
 $showTimer = $null
@@ -58,6 +62,7 @@ try {
   } else {
     $notify.Icon = [System.Drawing.SystemIcons]::Application
   }
+  $trayRestingIcon = $notify.Icon
   $notify.Text = 'Codex Dream Skin'
   $notify.Visible = $true
   $menu = [System.Windows.Forms.ContextMenuStrip]::new()
@@ -254,6 +259,7 @@ try {
 
   function Invoke-DreamSkinTrayMotionCommand {
     param([Parameter(Mandatory = $true)][string[]]$Arguments)
+    $script:trayMotionSettings = $null
     $helper = Join-Path $SkillRoot 'assets\motion-settings.mjs'
     if (-not (Test-Path -LiteralPath $helper -PathType Leaf)) {
       throw (Get-DreamSkinTrayText -Key 'MotionUnavailable')
@@ -279,6 +285,7 @@ try {
           throw 'Invalid motion effect result.'
         }
       }
+      $script:trayMotionSettings = $settings
       return $settings
     } catch {
       throw (Get-DreamSkinTrayText -Key 'MotionSettingsFailed')
@@ -294,6 +301,8 @@ try {
         -Text (Get-DreamSkinTrayText -Key 'MotionUnavailable') -Action $null -Enabled $false
       [void]$menu.Items.Add($motionMenu)
       return
+    } finally {
+      if ($script:trayOperationFeedbackReady) { Update-DreamSkinTrayOperationIcon }
     }
     foreach ($option in @(
       @{ Value = 'system'; Label = (Get-DreamSkinTrayText -Key 'MotionSystem') },
@@ -343,6 +352,71 @@ try {
     [void]$menu.Items.Add($motionMenu)
   }
 
+  function New-DreamSkinTrayBusyIcon {
+    # One static, memory-only pixel hourglass. The BMP-in-ICO format also works
+    # in Windows PowerShell 5.1 without native icon handles or temporary files.
+    $stream = [System.IO.MemoryStream]::new()
+    $writer = [System.IO.BinaryWriter]::new($stream)
+    $source = $null
+    try {
+      $writer.Write([uint16]0); $writer.Write([uint16]1); $writer.Write([uint16]1)
+      $writer.Write([byte]32); $writer.Write([byte]32)
+      $writer.Write([byte]0); $writer.Write([byte]0)
+      $writer.Write([uint16]1); $writer.Write([uint16]32)
+      $writer.Write([uint32](40 + 32 * 32 * 4 + 32 * 4)); $writer.Write([uint32]22)
+      $writer.Write([uint32]40); $writer.Write([int32]32); $writer.Write([int32]64)
+      $writer.Write([uint16]1); $writer.Write([uint16]32)
+      $writer.Write([uint32]0); $writer.Write([uint32](32 * 32 * 4))
+      $writer.Write([int32]0); $writer.Write([int32]0)
+      $writer.Write([uint32]0); $writer.Write([uint32]0)
+      for ($row = 31; $row -ge 0; $row--) {
+        $y = [int][math]::Floor($row / 2)
+        for ($column = 0; $column -lt 32; $column++) {
+          $x = [int][math]::Floor($column / 2)
+          $pixel = [uint32]0
+          if (($y -in @(2, 3, 12, 13)) -and $x -ge 4 -and $x -le 11) {
+            $pixel = [uint32]4294932934 # pink frame, FF FF 79 C6
+          } elseif (($y -ge 4 -and $y -le 6 -and ($x -eq $y -or $x -eq 15 - $y)) -or
+            ($y -in @(7, 8) -and $x -in @(7, 8)) -or
+            ($y -ge 9 -and $y -le 11 -and ($x -eq 15 - $y -or $x -eq $y))) {
+            $pixel = [uint32]4294965247 # pale glass edge, FF FF F7 FF
+          } elseif (($y -in @(4, 5) -and $x -ge 6 -and $x -le 9) -or
+            ($y -in @(10, 11) -and $x -ge 6 -and $x -le 9)) {
+            $pixel = [uint32]4284740863 # cyan sand, FF 63 F4 FF
+          }
+          $writer.Write($pixel)
+        }
+      }
+      # A zero AND mask lets the 32-bit alpha channel own transparency.
+      $writer.Write([byte[]]::new(32 * 4))
+      $writer.Flush()
+      $stream.Position = 0
+      $source = [System.Drawing.Icon]::new($stream, 32, 32)
+      return $source.Clone()
+    } finally {
+      if ($null -ne $source) { $source.Dispose() }
+      $writer.Dispose()
+      $stream.Dispose()
+    }
+  }
+
+  function Update-DreamSkinTrayOperationIcon {
+    # Static feedback is valid with Windows' reduced-motion preference too:
+    # no timer changes frames, and no system animation setting is overridden.
+    $showBusy = $script:trayThemeBusy -and $null -ne $script:trayMotionSettings -and
+      $script:trayMotionSettings.mode -cne 'off' -and $script:trayMotionSettings.effects.status
+    $nextIcon = $trayRestingIcon
+    if ($showBusy) {
+      if ($null -eq $script:trayBusyIcon) {
+        try { $script:trayBusyIcon = New-DreamSkinTrayBusyIcon } catch { }
+      }
+      if ($null -ne $script:trayBusyIcon) { $nextIcon = $script:trayBusyIcon }
+    }
+    if ($null -ne $nextIcon -and -not [object]::ReferenceEquals($notify.Icon, $nextIcon)) {
+      $notify.Icon = $nextIcon
+    }
+  }
+
   function Update-DreamSkinTrayOperationState {
     # These are only the child processes started by this tray. An exited launch
     # is no longer busy; its exit alone never claims that a theme applied.
@@ -360,6 +434,7 @@ try {
     $notify.Text = if ($script:trayThemeBusy) {
       'Codex Dream Skin: ' + (Get-DreamSkinTrayText -Key 'ThemeOperationBusy')
     } else { 'Codex Dream Skin' }
+    if ($script:trayOperationFeedbackReady) { Update-DreamSkinTrayOperationIcon }
     if ($null -ne $script:trayBusyItem) { $script:trayBusyItem.Visible = $script:trayThemeBusy }
     foreach ($item in $script:trayThemeMenuItems) { $item.Enabled = -not $script:trayThemeBusy }
     if (-not $script:trayThemeBusy -and $null -ne $trayActivityTimer) {
@@ -649,6 +724,7 @@ try {
       Show-DreamSkinTrayError -Message $_.Exception.Message
     }
   })
+  $script:trayOperationFeedbackReady = $true
   $trayActivityTimer = [System.Windows.Forms.Timer]::new()
   $trayActivityTimer.Interval = 750
   $trayActivityTimer.add_Tick({ Update-DreamSkinTrayOperationState })
@@ -684,6 +760,7 @@ try {
   }
   $showEvent.Dispose()
   if ($null -ne $notify) { $notify.Dispose() }
+  if ($null -ne $script:trayBusyIcon) { $script:trayBusyIcon.Dispose() }
   if ($null -ne $trayIcon) { $trayIcon.Dispose() }
   if ($acquired) { try { $mutex.ReleaseMutex() } catch {} }
   $mutex.Dispose()
