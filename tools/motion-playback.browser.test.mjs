@@ -88,6 +88,61 @@ async function feedbackTargets(page) {
 }
 
 for (const [platform, material] of [['windows', 'system'], ['windows', 'acrylic'], ['macos', 'system'], ['linux', 'system']]) {
+  test(`${platform} ${material}: P-chan paints distinct task poses within the existing decoration bounds`, options, async (t) => {
+    const {page, install} = await launch(t, material, platform);
+    await install(settings('subtle'));
+    const character = page.locator(role('character'));
+    const before = await page.locator('textarea').boundingBox();
+    const frames = new Map();
+    for (const [index, state] of ['unknown', 'idle', 'busy', 'streaming', 'needs-attention', 'completed', 'failed', 'cancelled'].entries()) {
+      const pose = await page.evaluate(({index, state}) => {
+        const controller = window.__CODEX_DREAM_SKIN_MOTION_STATE__;
+        const identity = {schemaVersion:1, taskId:'pose-fixture', runId:`pose-${index}`, routeEpoch:controller.inspect().routeEpoch};
+        const bound = controller.bindTask(identity);
+        const active = controller.reportTaskState({...identity, revision:0, state:'busy'});
+        const accepted = controller.reportTaskState({...identity, revision:1, state});
+        const node = document.querySelector('[data-dream-motion-role="character"]');
+        for (const animation of node.getAnimations({subtree:true})) { animation.pause(); animation.currentTime = 0; }
+        const svg = node.querySelector('svg'), box = svg.getBoundingClientRect(), style = getComputedStyle(node);
+        const visiblePoses = [...svg.querySelectorAll('[data-dream-motion-pose]')]
+          .filter((group) => getComputedStyle(group).display !== 'none').map((group) => group.dataset.dreamMotionPose);
+        const shapes = [...svg.querySelectorAll('path')].filter((part) => !part.closest('[data-dream-motion-pose]')
+          || getComputedStyle(part.parentElement).display !== 'none');
+        return {bound, active, accepted, state:node.dataset.dreamMotionState, mascot:svg.dataset.dreamMotionMascot,
+          visiblePoses, visible:style.visibility, pointer:style.pointerEvents, width:box.width, height:box.height,
+          bounded:shapes.every((part) => {const b = part.getBoundingClientRect();
+            return b.left >= box.left && b.top >= box.top && b.right <= box.right && b.bottom <= box.bottom;})};
+      }, {index, state});
+      assert.ok(pose.bound && pose.active && pose.accepted, 'each pose must come from an accepted task-state report');
+      assert.equal(pose.state, state); assert.equal(pose.mascot, 'p-chan');
+      assert.deepEqual(pose.visiblePoses, [state], 'exactly one matching expression and posture frame must be painted');
+      assert.equal(pose.visible, 'visible'); assert.equal(pose.pointer, 'none');
+      assert.equal(pose.width, 48); assert.equal(pose.height, 56); assert.equal(pose.bounded, true);
+      frames.set(state, await character.screenshot());
+    }
+    for (const state of ['idle', 'busy', 'needs-attention', 'completed']) {
+      assert.ok(!frames.get('unknown').equals(frames.get(state)), `${state} must visibly change P-chan's expression`);
+    }
+    assert.equal(new Set([...frames.values()].map((frame) => frame.toString('base64'))).size, 8,
+      'all eight task states must have visually distinct expression and posture frames');
+    assert.deepEqual(await page.locator('textarea').boundingBox(), before, 'changing the mascot cannot move the native composer');
+    // Native settings content can have empty non-scrolling descendants. Those
+    // pixels still belong to the panel even when no text/control is hit.
+    await page.setContent(`<!doctype html><html><head><title>Settings placement fixture</title></head><body>
+      <main data-app-shell-main-surface style="position:fixed;inset:0">
+      <div class="scrollbar-stable flex-1 overflow-y-auto p-panel" style="position:fixed!important;inset:0!important;width:100vw!important;height:100vh!important;max-width:none!important;z-index:100"><div style="height:100%"></div></div>
+      </main></body></html>`);
+    await install(settings('subtle'));
+    assert.equal(await page.locator('.p-panel').evaluate((node) => {
+      const box = node.getBoundingClientRect();
+      return box.left <= 0 && box.top <= 0 && box.right >= innerWidth && box.bottom >= innerHeight;
+    }), true, 'the fixture settings panel must fill the viewport on every platform');
+    assert.equal(await character.evaluate((node) => getComputedStyle(node).visibility), 'hidden',
+      'the character must withdraw when every placement belongs to a settings panel');
+    await install(settings('full', {character:false}));
+    assert.equal(await character.count(), 0, 'the character switch must remove P-chan');
+  });
+
   test(`${platform} ${material}: light settings inputs retain contrast during keyboard interaction`, options, async (t) => {
     const {page, install} = await launch(t, material, platform);
     await page.emulateMedia({colorScheme:'light'});
@@ -336,6 +391,39 @@ async function assertWallpaperBlinkPaints(page, material, acrylicScene = true) {
 }
 
 for (const material of ['system', 'acrylic']) {
+  test(`Windows ${material}: modern Home presets leave the composer and Send control uncovered`, options, async (t) => {
+    const {page, install} = await launch(t, material);
+    await page.setContent(`<!doctype html><html><head><title>Modern Home layout fixture</title><style>
+      html,body{margin:0;width:100%;height:100%}*{box-sizing:border-box}
+      main{display:flex;height:100vh;min-width:0;position:fixed;inset:0}
+      .fixture-home{display:flex;flex:1;min-height:0;flex-direction:column;align-items:center;justify-content:center;overflow:auto}
+      .fixture-home>div{width:100%;display:flex;flex-direction:column;align-items:center}
+      .composer-surface-chrome{width:calc(100% - 48px);padding:12px}
+      textarea{display:block;width:100%;height:58px}footer{display:flex;justify-content:flex-end}
+      </style></head><body><main class="main-surface" data-app-shell-main-surface="true">
+      <div role="main" class="fixture-home"><div class="group/home-composer-layout"><span data-testid="home-icon">◇</span>
+      <h1>What will you build today?</h1><section class="composer-surface-chrome"><textarea id="home-prompt" aria-label="Prompt"></textarea>
+      <footer data-composer-footer-responsive><button id="home-send">Send</button></footer></section></div></div></main></body></html>`);
+    await install(settings());
+    for (const viewport of [{width:1366,height:900}, {width:520,height:780}, {width:760,height:600}]) {
+      await page.setViewportSize(viewport); await page.waitForTimeout(220);
+      const geometry = await page.evaluate(() => {
+        const deck = document.querySelector('#codex-dream-skin-presets').getBoundingClientRect();
+        const composer = document.querySelector('.composer-surface-chrome').getBoundingClientRect();
+        return {separated:deck.bottom <= composer.top, controls:['home-prompt', 'home-send'].map((id) => {
+          const node = document.getElementById(id), box = node.getBoundingClientRect();
+          const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
+          return {id, inView:box.x >= 0 && box.y >= 0 && box.right <= innerWidth && box.bottom <= innerHeight,
+            hit:hit === node || node.contains(hit)};
+        })};
+      });
+      assert.equal(geometry.separated, true, `Home presets must stay above the composer at ${JSON.stringify(viewport)}`);
+      assert.ok(geometry.controls.every((control) => control.inView && control.hit), JSON.stringify(geometry.controls));
+      await page.locator('#home-prompt').fill('Uncovered native composer');
+      assert.equal(await page.locator('#home-prompt').inputValue(), 'Uncovered native composer');
+    }
+  });
+
   test(`Windows ${material}: background character paints animated eyelids after resize and reinjection`, options, async (t) => {
     const {page, install} = await launch(t, material);
     let previousBox;

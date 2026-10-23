@@ -78,8 +78,10 @@ function fixture({ home = false, bodyless = false, reduced = false } = {}) {
     matches(selector) {
       // Ordinary tag, class and attribute matching, independent of controller selectors.
       return selector.split(",").some((part) => {
-        const attributes = [...part.matchAll(/\[([\w-]+)(?:="([^"]*)")?\]/g)];
-        if (!attributes.every(([, name, value]) => value === undefined ? this.hasAttribute(name) : this.getAttribute(name) === value)) return false;
+        const attributes = [...part.matchAll(/\[([\w-]+)(?:([~]?=)"([^"]*)")?\]/g)];
+        if (!attributes.every(([, name, operator, value]) => operator === "~="
+          ? (this.getAttribute(name) || "").split(/\s+/).includes(value)
+          : operator === "=" ? this.getAttribute(name) === value : this.hasAttribute(name))) return false;
         const rest = part.replace(/\[[^\]]+\]/g, "").trim();
         if (!rest) return attributes.length > 0;
         if (/^\.[\w-]+$/.test(rest)) return this.className.split(/\s+/).includes(rest.slice(1));
@@ -1031,9 +1033,17 @@ test("project cards use bounded real path identities and avoid remount replays",
   page.state.cleanup();
 });
 
-test("standalone pixel character exposes state poses without mutating artwork", () => {
+test("standalone P-chan keeps decorative cat poses without mutating artwork", () => {
   const page = nativeFixture(); const character = motionRole(page, "character");
-  assert.ok(character.querySelector("svg")); assert.equal(character.querySelectorAll("[data-dream-motion-part]").length, 13);
+  const svg = character.querySelector("svg");
+  assert.equal(svg.getAttribute("data-dream-motion-mascot"), "p-chan");
+  assert.equal(svg.getAttribute("viewBox"), "0 0 24 28");
+  assert.equal(svg.getAttribute("aria-hidden"), "true");
+  assert.equal(svg.getAttribute("focusable"), "false");
+  assert.equal(svg.querySelectorAll("[data-dream-motion-pose]").length, 8);
+  for (const part of ["ears", "tail", "paws", "eye-shine", "focus", "rest", "smile", "surprise", "heart"]) {
+    assert.ok(svg.querySelector(`[data-dream-motion-part="${part}"]`), `${part} must be present for cat poses`);
+  }
   page.start(); page.delta(); assert.equal(character.getAttribute("data-dream-motion-state"), "streaming");
   page.finish("failed"); assert.equal(character.getAttribute("data-dream-motion-state"), "failed");
   assert.equal(page.global.__CODEX_DREAM_SKIN_STATE__.artUrl, "blob:app://old-art"); page.state.cleanup();
@@ -1158,15 +1168,17 @@ test("ambient placement checks its full 104px height plus parallax margins", () 
   assert.equal(motionRole(page, "ambient").style.getPropertyValue("visibility"), "hidden"); page.state.cleanup();
 });
 
-test("decorations avoid empty native diff panes and timeline regions", () => {
-  for (const attributes of [{ "data-app-shell-pane-frame": "true" }, { "data-app-action-timeline-scroll": "" }]) {
+test("decorations avoid empty native panes, timelines and settings surfaces", () => {
+  for (const attributes of [{ "data-app-shell-pane-frame": "true" }, { "data-app-action-timeline-scroll": "" },
+    { "data-angel-component": "settings-content" }, { "data-angel-component": "settings-surface" },
+    { "data-angel-component": "settings-row" }, { class: "scrollbar-stable flex-1 overflow-y-auto p-panel" }]) {
     const page = fixture({ home: true });
     const pane = page.add(page.node("div", attributes));
     const emptySpace = page.add(page.node("div"), pane);
     page.document.elementFromPoint = () => emptySpace;
     page.install(configuration("full"));
     for (const role of ["status", "character", "ambient"]) {
-      assert.equal(motionRole(page, role).style.getPropertyValue("visibility"), "hidden");
+      assert.equal(motionRole(page, role).style.getPropertyValue("visibility"), "hidden", JSON.stringify({ attributes, role }));
     }
     page.state.cleanup();
   }

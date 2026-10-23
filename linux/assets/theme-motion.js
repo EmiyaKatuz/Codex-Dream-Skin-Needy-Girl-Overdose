@@ -246,20 +246,53 @@
   const pixelCharacter = () => {
     const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     svg.setAttribute("viewBox", "0 0 24 28");
+    svg.setAttribute("data-dream-motion-mascot", "p-chan");
     svg.setAttribute("aria-hidden", "true");
     svg.setAttribute("focusable", "false");
+    // Self-contained pixel interpretation of P-chan's pink cat motif. Each
+    // state changes the face, front paws and tail inside the original canvas.
     const shapes = {
-      hair: "M5 3h14v2h2v17h-5V8H8v14H3V5h2z", face: "M7 6h10v11H7z",
-      fringe: "M6 4h12v5h-3V7h-2v3h-2V7H9v3H6z", ribbon: "M2 6h4v4H2zm16 0h4v4h-4z",
-      body: "M7 18h10v8H7z", collar: "M7 18h10v2h-3l-2 3-2-3H7z",
-      arms: "M5 19h2v6H5zm12 0h2v6h-2z", eyes: "M9 11h2v2H9zm4 0h2v2h-2z",
-      smile: "M10 15h4v1h-4z", focus: "M9 11h2v1H9zm4 0h2v1h-2z",
-      surprise: "M11 14h2v3h-2z", rest: "M8 12h3v1H8zm5 0h3v1h-3z",
-      heart: "M19 17h2v1h1v2h-1v1h-1v-1h-1z",
+      outline: "M3 2h3v1h2v2h8V3h2V2h3v8h1v8h-2v2h-3v6H7v-1H5v-5H3v-3H2V10h1z",
+      body: "M4 4h2v1h2v2h8V5h2V4h2v7h1v6h-2v2h-3v2h1v4H7v-4h1v-2H5v-2H3v-6h1z",
     };
-    for (const [part, path] of Object.entries(shapes)) {
-      const node = document.createElementNS("http://www.w3.org/2000/svg", "path");
-      node.setAttribute("data-dream-motion-part", part); node.setAttribute("d", path); svg.appendChild(node);
+    const ears = "M4 5h2v2h2v2H5V8H4zm14 0h2v3h-1v1h-3V7h2z";
+    const eyes = "M5 12h5v6H5zm9 0h5v6h-5z";
+    const shine = "M6 12h2v2H6zm2 4h1v1H8zm7-4h2v2h-2zm2 4h1v1h-1z";
+    const rest = "M5 15h1v1h3v-1h1v2H5zm9 0h1v1h3v-1h1v2h-5z";
+    const brows = "M5 10h2V9h3v1H8v1H5zm9-1h3v1h2v1h-3v-1h-2z";
+    const mouth = "M10 20h1v-1h2v1h1v1h-1v-1h-2v1h-1z";
+    const focus = "M5 13h5v1H5zm9 0h5v1h-5zM6 15h3v2H6zm9 0h3v2h-3z";
+    const poses = {
+      unknown: { ears, brows, eyes, "eye-shine": shine, mouth,
+        paws: "M6 22h3v3H6zm9 0h3v3h-3z", tail: "M18 24h2v-3h2v4h-1v1h-4v-1h1z" },
+      idle: { ears, rest, mouth: "M11 20h2v1h-2z",
+        paws: "M6 23h4v2H6zm8 0h4v2h-4z", tail: "M18 24h3v-2h1v3h-2v1h-6v-1h4z" },
+      busy: { ears, focus, mouth,
+        paws: "M8 22h4v2H8zm5-1h4v2h-4z", tail: "M18 24h2v-4h2v5h-4z" },
+      streaming: { ears, focus, mouth: "M11 19h2v2h-2z",
+        paws: "M4 19h3v3H4zm10 3h4v2h-4z", tail: "M18 24h2v-2h2v3h-4z" },
+      "needs-attention": { ears, brows, eyes, "eye-shine": shine, surprise: "M11 19h2v3h-2z",
+        paws: "M3 18h4v3H3zm14 0h4v3h-4z", tail: "M19 24h1v-5h2v6h-4v-1z" },
+      completed: { ears, eyes, "eye-shine": shine, smile: "M10 19h1v1h2v-1h1v2h-4z",
+        paws: "M2 16h4v3H2zm16 0h4v3h-4z", tail: "M18 24h2v-3h1v-1h1v4h-1v1h-3z",
+        heart: "M10 22h1v1h2v-1h1v2h-1v1h-2v-1h-1z" },
+      failed: { ears: "M4 7h3v2H5v1H4zm13 0h3v3h-1V9h-2z", rest, brows, mouth,
+        tears: "M5 18h1v2H5zm13 0h1v2h-1z",
+        paws: "M6 24h3v2H6zm9 0h3v2h-3z", tail: "M18 25h4v1h-5v-1z" },
+      cancelled: { ears, rest, mouth: "M10 20h4v1h-4z",
+        paws: "M7 23h3v2H7zm7 0h3v2h-3z", tail: "M17 24h4v1h-2v1h-7v-1h5z" },
+    };
+    const appendShapes = (parent, parts) => {
+      for (const [part, path] of Object.entries(parts)) {
+        const node = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        node.setAttribute("data-dream-motion-part", part); node.setAttribute("d", path); parent.appendChild(node);
+      }
+    };
+    appendShapes(svg, shapes);
+    for (const [pose, parts] of Object.entries(poses)) {
+      const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
+      group.setAttribute("data-dream-motion-pose", pose);
+      appendShapes(group, parts); svg.appendChild(group);
     }
     return svg;
   };
@@ -324,7 +357,7 @@
           for (const node of hit.childNodes || []) {
             if (++children > 32 || (node.nodeType === 3 && node.textContent?.trim())) { text = true; break; }
           }
-          const blocked = hit.closest?.('button, a, input, textarea, select, [contenteditable="true"], [role="button"], [role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"], svg, img, canvas, [data-ds-part="composer"], [data-angel-component="composer"], .composer-surface-chrome, [data-local-conversation-item-target-ids], [data-app-action-timeline-scroll], [data-app-shell-pane-frame], pre, code, diffs-container, [data-angel-component="activity"], .dream-activity, .dream-soul-hud')
+          const blocked = hit.closest?.('button, a, input, textarea, select, [contenteditable="true"], [role="button"], [role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"], svg, img, canvas, [data-ds-part="composer"], [data-angel-component="composer"], .composer-surface-chrome, [data-local-conversation-item-target-ids], [data-app-action-timeline-scroll], [data-app-shell-pane-frame], pre, code, diffs-container, [data-angel-component="activity"], .dream-activity, .dream-soul-hud, [data-angel-component="settings-content"], [data-angel-component="settings-surface"], [data-angel-component="settings-row"], [class~="scrollbar-stable"][class~="flex-1"][class~="overflow-y-auto"][class~="p-panel"]')
             || text
             || /auto|scroll/.test(safeCall(() => getComputedStyle(hit).overflowY, ""));
           checked.set(hit, !blocked);
