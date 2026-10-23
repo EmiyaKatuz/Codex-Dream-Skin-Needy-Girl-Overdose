@@ -28,7 +28,7 @@ const fixture = `<!doctype html><html><head><title>Dream Skin motion playback fi
   <textarea aria-label="Prompt">Native prompt fixture</textarea><svg id="native-spinner" viewBox="0 0 16 16"><path d="M8 1L8 5"/></svg>
   </section></main></body></html>`;
 
-async function launch(t, material = 'system') {
+async function launch(t, material = 'system', platform = 'windows') {
   const {chromium} = createRequire(import.meta.url)(process.env.PLAYWRIGHT_MODULE_PATH || 'playwright');
   // Windows runners may expose TEMP with an 8.3 alias. The production reader
   // deliberately rejects redirected/noncanonical ancestors, so hand it the
@@ -52,7 +52,9 @@ async function launch(t, material = 'system') {
     await writeFile(preferences, JSON.stringify(value));
     assert.deepEqual(await readMotionSettings(preferences), value,
       'the fixture preferences must pass the same strict reader used by the injector');
-    const loaded = await loadPayload(undefined, null, material, {motionSettingsPath:preferences});
+    const loaded = platform === 'windows'
+      ? await loadPayload(undefined, null, material, {motionSettingsPath:preferences})
+      : await (await import(`../${platform}/scripts/injector.mjs`)).loadPayload(undefined, {motionSettingsPath:preferences});
     assert.equal(loaded.motionSettingsRejected, false, 'fixture preferences must not fall back to motion off');
     assert.deepEqual(loaded.motionSettings, value, 'the assembled payload must use the requested fixture preferences');
     await page.evaluate(loaded.payload);
@@ -66,6 +68,92 @@ async function launch(t, material = 'system') {
   await install();
   await page.waitForFunction(() => document.documentElement.getAttribute('data-dream-motion-paused') === 'false');
   return {page, install};
+}
+
+async function feedbackTargets(page) {
+  return page.evaluate(async () => {
+    document.querySelector('#feedback-fixture')?.remove();
+    const container = document.createElement('section');
+    container.id = 'feedback-fixture';
+    container.innerHTML = `<section id="feedback-permission" role="alertdialog" aria-modal="true" data-state="open">Approve fixture command?</section>
+      <section data-content-search-unit-key="feedback-file-batch"><section id="feedback-edit" class="dream-edited-card">Fixture file change</section></section>
+      <section id="feedback-menu" role="menu" data-state="open"><button role="menuitem">Fixture action</button></section>`;
+    document.querySelector('main').appendChild(container);
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    return Object.fromEntries(['permission', 'edit', 'menu'].map((name) => {
+      const node = document.querySelector(`#feedback-${name}`);
+      return [name, {entry:node.getAttribute('data-dream-motion-enter'), animation:getComputedStyle(node).animationName}];
+    }));
+  });
+}
+
+for (const [platform, material] of [['windows', 'system'], ['windows', 'acrylic'], ['macos', 'system'], ['linux', 'system']]) {
+  test(`${platform} ${material}: status and interaction entry feedback have independent switches`, options, async (t) => {
+    const {page, install} = await launch(t, material, platform);
+    await install(settings('subtle', {interactions:false}));
+    const statusOnly = await feedbackTargets(page);
+    assert.deepEqual(statusOnly.permission, {entry:'permission', animation:'dream-motion-highlight'});
+    assert.deepEqual(statusOnly.edit, {entry:'edited-card', animation:'dream-motion-highlight'});
+    assert.deepEqual(statusOnly.menu, {entry:null, animation:'none'});
+    await page.locator('#feedback-fixture').evaluate((node) => node.remove());
+    await install(settings('subtle', {status:false}));
+    const interactionsOnly = await feedbackTargets(page);
+    assert.deepEqual(interactionsOnly.permission, {entry:null, animation:'none'});
+    assert.deepEqual(interactionsOnly.edit, {entry:null, animation:'none'});
+    assert.deepEqual(interactionsOnly.menu, {entry:'menu', animation:'dream-motion-highlight'});
+  });
+
+  test(`${platform} ${material}: reused menus, edit batches and nested disclosures retain real feedback`, options, async (t) => {
+    const {page, install} = await launch(t, material, platform);
+    await page.evaluate(() => {
+      const container = document.createElement('section');
+      container.id = 'lifecycle-fixture';
+      container.innerHTML = `<button id="fixture-menu-toggle">Toggle fixture menu</button>
+        <section id="fixture-reused-menu" role="menu" data-state="closed" hidden><button role="menuitem">Fixture menu item</button></section>
+        <section id="fixture-edit-batch" data-content-search-unit-key="historical"><section id="fixture-reused-edit" class="[--thread-resource-card-row-padding-x:16px]">
+        <header class="group/turn-diff-header"><span class="font-medium text-token-foreground">Edited fixture.js</span></header>
+        <span class="turn-diff-default-subtitle">+1 -0</span><button>Undo</button><button>Review</button></section></section>
+        <section data-local-conversation-item-target-ids="fixture-tool"><section class="group/activity-header">
+        <button id="fixture-disclosure" aria-expanded="false"><svg data-lucide="chevron-right" width="16" height="16" viewBox="0 0 16 16"><path d="M5 2L11 8L5 14"/></svg>Show details</button>
+        </section><pre id="fixture-output" hidden>Readonly fixture output</pre></section>`;
+      document.querySelector('main').appendChild(container);
+      document.querySelector('#fixture-menu-toggle').onclick = () => {
+        const menu = document.querySelector('#fixture-reused-menu');
+        menu.hidden = !menu.hidden; menu.dataset.state = menu.hidden ? 'closed' : 'open';
+      };
+      document.querySelector('#fixture-disclosure').onclick = (event) => {
+        const button = event.currentTarget, open = button.getAttribute('aria-expanded') !== 'true';
+        button.setAttribute('aria-expanded', String(open)); document.querySelector('#fixture-output').hidden = !open;
+      };
+    });
+    await install(settings('subtle'));
+    for (let opening = 0; opening < 2; opening += 1) {
+      await page.locator('#fixture-menu-toggle').click();
+      await page.waitForFunction(() => document.querySelector('#fixture-reused-menu').getAttribute('data-dream-motion-enter') === 'menu');
+      assert.equal(await page.locator('#fixture-reused-menu').evaluate((node) => getComputedStyle(node).animationName), 'dream-motion-highlight');
+      await page.locator('#fixture-menu-toggle').click();
+      await page.waitForFunction(() => !document.querySelector('#fixture-reused-menu').hasAttribute('data-dream-motion-enter'));
+      await page.waitForFunction(() => !window.__CODEX_DREAM_SKIN_MOTION_STATE__.inspect().paused);
+    }
+    const edited = await page.evaluate(async () => {
+      const node = document.querySelector('#fixture-reused-edit'), before = node.getBoundingClientRect().toJSON();
+      document.querySelector('#fixture-edit-batch').setAttribute('data-content-search-unit-key', 'new-result');
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      return {entry:node.getAttribute('data-dream-motion-enter'), animation:getComputedStyle(node).animationName,
+        before, after:node.getBoundingClientRect().toJSON()};
+    });
+    assert.equal(edited.entry, 'edited-card'); assert.equal(edited.animation, 'dream-motion-highlight');
+    assert.deepEqual(edited.before, edited.after, 'a new batch cannot move or resize native content');
+    await page.locator('#fixture-disclosure').focus();
+    await page.keyboard.press('Enter');
+    await page.waitForFunction(() => !window.__CODEX_DREAM_SKIN_MOTION_STATE__.inspect().paused);
+    await page.waitForFunction(() => document.querySelector('#fixture-disclosure').getAttribute('data-dream-motion-feedback') === 'expanded');
+    assert.equal(await page.locator('#fixture-output').isVisible(), true, 'keyboard activation must keep the original disclosure action');
+    await page.waitForFunction(() => getComputedStyle(document.querySelector('#fixture-disclosure svg')).rotate === '90deg');
+    await page.keyboard.press('Enter');
+    assert.equal(await page.locator('#fixture-output').isVisible(), false);
+    await page.waitForFunction(() => getComputedStyle(document.querySelector('#fixture-disclosure svg')).rotate === 'none');
+  });
 }
 
 async function paintedSample(page, selector, name, properties, pseudo = null) {

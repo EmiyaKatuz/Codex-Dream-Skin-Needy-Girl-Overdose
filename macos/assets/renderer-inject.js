@@ -1052,6 +1052,7 @@
       const button = document.createElement("button");
       button.type = "button";
       button.className = `angel-preset-card angel-preset-${preset.tone}`;
+      button.setAttribute("data-dream-preset-id", preset.tone);
       button.setAttribute("aria-label", preset.title);
       button.innerHTML = `
         <span class="angel-preset-channel" aria-hidden="true">${preset.channel}</span>

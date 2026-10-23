@@ -885,6 +885,7 @@
         const button = document.createElement("button");
         button.type = "button";
         button.className = `dream-codex-preset dream-generated-preset ${preset.className}`;
+        button.setAttribute("data-dream-preset-id", preset.className);
         button.setAttribute("aria-label", preset.title);
         button.innerHTML = `
           <span class="dream-preset-channel" aria-hidden="true">${preset.channel}</span>

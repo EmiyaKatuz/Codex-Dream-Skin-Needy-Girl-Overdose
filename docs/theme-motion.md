@@ -70,4 +70,4 @@ Linux 的 `performanceMode` 控制布局和渲染质量，动效由本页设置�
 
 优先使用菜单或命令保存设置。配置文件最大 16 KiB；读取失败时显示配置错误并关闭主题动效。文件缺失时使用默认值。
 
-开发检查见[平台与开发](./platforms.md)，主题操作见[主题管理](./theme-management.md)。
+逐项实现与验证范围见[动效计划落实情况](./theme-motion-coverage.md)。开发检查见[平台与开发](./platforms.md)，主题操作见[主题管理](./theme-management.md)。

@@ -70,4 +70,4 @@ Default configuration; the mode and all five effect fields are required:
 
 Use menus or commands to save settings. The file limit is 16 KiB. A read failure reports a configuration error and disables theme motion; a missing file uses defaults.
 
-See [platforms and development](./platforms.en.md) for development checks and [theme management](./theme-management.en.md) for theme controls.
+See [roadmap coverage](./theme-motion-coverage.en.md) for individual effects and verification boundaries, [platforms and development](./platforms.en.md) for development checks, and [theme management](./theme-management.en.md) for theme controls.

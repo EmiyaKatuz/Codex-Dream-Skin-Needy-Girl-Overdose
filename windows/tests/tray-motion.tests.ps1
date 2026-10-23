@@ -6,6 +6,7 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $Root 'scripts\theme-windows.ps1')
 . (Join-Path $Root 'scripts\localization-windows.ps1')
 Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
 
 # Load only the helpers: never launch a tray, Codex process, or CDP session.
 $trayPath = Join-Path $Root 'scripts\tray-dream-skin.ps1'
@@ -17,7 +18,8 @@ $trayAst = [System.Management.Automation.Language.Parser]::ParseFile(
 if (@($parseErrors).Count -gt 0) { throw "Tray script syntax failed: $parseErrors" }
 $helperNames = @(
   'Get-DreamSkinTrayText', 'Add-DreamSkinTrayItem', 'Invoke-DreamSkinTrayMotionCommand',
-  'Add-DreamSkinTrayMotionMenu', 'Update-DreamSkinTrayOperationState',
+  'Add-DreamSkinTrayMotionMenu', 'New-DreamSkinTrayBusyIcon',
+  'Update-DreamSkinTrayOperationIcon', 'Update-DreamSkinTrayOperationState',
   'Invoke-DreamSkinTrayThemeOperation', 'Start-DreamSkinPowerShell'
 )
 foreach ($name in $helperNames) {
@@ -42,7 +44,10 @@ $script:trayThemeBusy = $false
 $script:trayBusyItem = [pscustomobject]@{ Visible = $false }
 $script:menuRebuilt = 0
 $script:launchedChildren = 0
-$notify = [pscustomobject]@{ Text = 'Codex Dream Skin' }
+$trayRestingIcon = [System.Drawing.SystemIcons]::Application
+$script:trayBusyIcon = $null
+$script:trayOperationFeedbackReady = $true
+$notify = [pscustomobject]@{ Text = 'Codex Dream Skin'; Icon = $trayRestingIcon }
 $trayActivityTimer = [pscustomobject]@{ Starts = 0; Stops = 0 }
 $trayActivityTimer | Add-Member -MemberType ScriptMethod -Name Start -Value { $this.Starts += 1 }
 $trayActivityTimer | Add-Member -MemberType ScriptMethod -Name Stop -Value { $this.Stops += 1 }
@@ -120,6 +125,7 @@ try {
   }
   [System.IO.File]::WriteAllText($motionPath, $preserved, [System.Text.UTF8Encoding]::new($false))
 
+  $null = Invoke-DreamSkinTrayMotionCommand -Arguments @('--set-effect', 'status', 'on')
   $operationItem = [pscustomobject]@{ Enabled = $true }
   $script:trayThemeMenuItems.Add($operationItem)
   $child = New-TrayProcessFixture
@@ -128,10 +134,54 @@ try {
   if (-not $script:trayThemeBusy -or $operationItem.Enabled -or -not $script:trayBusyItem.Visible) {
     throw 'A live theme child did not expose busy state and disable duplicate operations.'
   }
+  if ($null -eq $script:trayBusyIcon -or $script:trayBusyIcon.Width -ne 32 -or
+    $script:trayBusyIcon.Height -ne 32 -or
+    -not [object]::ReferenceEquals($notify.Icon, $script:trayBusyIcon)) {
+    throw 'A live operation did not display its memory-only hourglass icon.'
+  }
+  $firstBusyIcon = $script:trayBusyIcon
+  Update-DreamSkinTrayOperationState
+  if (-not [object]::ReferenceEquals($script:trayBusyIcon, $firstBusyIcon)) {
+    throw 'Busy polling must reuse one static icon instead of allocating frames.'
+  }
+  # Mode/status changes take effect on the next state update. There is no
+  # animation to conflict with Windows reduced-motion or high-contrast modes.
+  $null = Invoke-DreamSkinTrayMotionCommand -Arguments @('--set-mode', 'off')
+  Update-DreamSkinTrayOperationState
+  if (-not [object]::ReferenceEquals($notify.Icon, $trayRestingIcon) -or -not $script:trayThemeBusy) {
+    throw 'Motion off must withdraw the hourglass without hiding the operation status.'
+  }
+  foreach ($mode in @('system', 'subtle', 'full')) {
+    $null = Invoke-DreamSkinTrayMotionCommand -Arguments @('--set-mode', $mode)
+    Update-DreamSkinTrayOperationState
+    if (-not [object]::ReferenceEquals($notify.Icon, $firstBusyIcon)) {
+      throw "Enabled mode did not restore static operation feedback: $mode"
+    }
+  }
+  $null = Invoke-DreamSkinTrayMotionCommand -Arguments @('--set-effect', 'status', 'off')
+  Update-DreamSkinTrayOperationState
+  if (-not [object]::ReferenceEquals($notify.Icon, $trayRestingIcon)) {
+    throw 'The status switch must suppress the operation icon independently of mode.'
+  }
+  $null = Invoke-DreamSkinTrayMotionCommand -Arguments @('--set-effect', 'status', 'on')
+  Update-DreamSkinTrayOperationState
+  $validBusySettings = [System.IO.File]::ReadAllText($motionPath)
+  [System.IO.File]::WriteAllText($motionPath, $invalid, [System.Text.UTF8Encoding]::new($false))
+  Add-DreamSkinTrayMotionMenu
+  if (-not [object]::ReferenceEquals($notify.Icon, $trayRestingIcon) -or
+    $null -ne $script:trayMotionSettings) {
+    throw 'Unavailable settings must withdraw the busy decoration immediately.'
+  }
+  [System.IO.File]::WriteAllText($motionPath, $validBusySettings, [System.Text.UTF8Encoding]::new($false))
+  Add-DreamSkinTrayMotionMenu
+  if (-not [object]::ReferenceEquals($notify.Icon, $firstBusyIcon)) {
+    throw 'A successful menu refresh did not restore allowed static feedback.'
+  }
   $child.HasExited = $true
   Update-DreamSkinTrayOperationState
   if ($script:trayThemeBusy -or -not $operationItem.Enabled -or $script:trayBusyItem.Visible -or
-    -not $child.Disposed -or $notify.Text -cne 'Codex Dream Skin' -or $trayActivityTimer.Stops -lt 1) {
+    -not $child.Disposed -or $notify.Text -cne 'Codex Dream Skin' -or $trayActivityTimer.Stops -lt 1 -or
+    -not [object]::ReferenceEquals($notify.Icon, $trayRestingIcon)) {
     throw 'Exited theme children retained busy state, handles, or fabricated a success tooltip.'
   }
 
@@ -185,6 +235,8 @@ try {
   Write-Host 'Windows tray motion preferences and operation-state checks passed.'
 } finally {
   if ($null -ne $menu) { $menu.Dispose() }
+  $notify.Icon = $trayRestingIcon
+  if ($null -ne $script:trayBusyIcon) { $script:trayBusyIcon.Dispose() }
   foreach ($child in $script:trayThemeOperations) { $child.Dispose() }
   $script:trayThemeOperations.Clear()
   $env:DREAMSKIN_LANG = $originalLanguage

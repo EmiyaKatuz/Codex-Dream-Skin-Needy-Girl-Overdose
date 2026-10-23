@@ -236,14 +236,22 @@ html:root[data-dream-motion]:not([data-dream-motion="off"])[data-dream-motion-pa
    their own animation. Standalone rotate composes with native transforms. */
 html:root[data-dream-motion]:not([data-dream-motion="off"])[data-dream-motion-paused="false"][data-dream-motion-interactions="on"] :is(
   [data-angel-component="activity-header"], [data-angel-component="environment-header"],
-  [data-angel-component="sidebar-section"]
+  [data-angel-component="sidebar-section"],
+  [data-angel-component="activity-header"] [aria-expanded], .dream-activity-header [aria-expanded],
+  [class~="group/activity-header"] [aria-expanded],
+  [data-angel-component="environment-header"] [aria-expanded],
+  [data-angel-component="sidebar-section"] [aria-expanded]
 )[aria-expanded] > :is(svg[data-lucide="chevron-right"], svg.lucide-chevron-right, [data-slot="chevron"]) {
   transition: rotate 140ms var(--dream-motion-ease) !important;
 }
 
 html:root[data-dream-motion]:not([data-dream-motion="off"])[data-dream-motion-paused="false"][data-dream-motion-interactions="on"] :is(
   [data-angel-component="activity-header"], [data-angel-component="environment-header"],
-  [data-angel-component="sidebar-section"]
+  [data-angel-component="sidebar-section"],
+  [data-angel-component="activity-header"] [aria-expanded], .dream-activity-header [aria-expanded],
+  [class~="group/activity-header"] [aria-expanded],
+  [data-angel-component="environment-header"] [aria-expanded],
+  [data-angel-component="sidebar-section"] [aria-expanded]
 )[aria-expanded="true"] > :is(svg[data-lucide="chevron-right"], svg.lucide-chevron-right, [data-slot="chevron"]) {
   rotate: 90deg;
 }
@@ -254,8 +262,10 @@ html:root[data-dream-motion]:not([data-dream-motion="off"])[data-dream-motion-pa
 html:root[data-dream-motion]:not([data-dream-motion="off"])[data-dream-motion-paused="false"][data-dream-motion-interactions="on"] :is(
   [data-dream-motion-enter="home-card"], [data-dream-motion-enter="menu"],
   [data-dream-motion-enter="project-card"],
-  [data-dream-motion-enter="edited-card"], [data-dream-motion-enter="permission"],
   [data-dream-motion-feedback="expanded"]
+),
+html:root[data-dream-motion]:not([data-dream-motion="off"])[data-dream-motion-paused="false"][data-dream-motion-status="on"] :is(
+  [data-dream-motion-enter="edited-card"], [data-dream-motion-enter="permission"]
 ) {
   outline: 1px solid var(--dream-motion-accent);
   outline-offset: -1px;
@@ -562,8 +572,15 @@ html:root[data-dream-motion]:is([data-dream-motion="off"], [data-dream-motion-pa
   transition: none !important;
 }
 
-html:root[data-dream-motion]:is([data-dream-motion="off"], [data-dream-motion-paused="true"], [data-dream-motion-interactions="off"]) :is(
+html:root[data-dream-motion]:is([data-dream-motion="off"], [data-dream-motion-paused="true"]) :is(
   [data-dream-motion-enter], [data-dream-motion-feedback="expanded"], [data-dream-motion-press]
+),
+html:root[data-dream-motion][data-dream-motion-interactions="off"] :is(
+  [data-dream-motion-enter="home-card"], [data-dream-motion-enter="project-card"],
+  [data-dream-motion-enter="menu"], [data-dream-motion-feedback="expanded"], [data-dream-motion-press]
+),
+html:root[data-dream-motion][data-dream-motion-status="off"] :is(
+  [data-dream-motion-enter="edited-card"], [data-dream-motion-enter="permission"]
 ) {
   animation: none !important;
 }

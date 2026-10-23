@@ -22,13 +22,13 @@
     local: '[data-ds-part="composer"], [data-ds-part="thread"], [data-angel-component="composer"], [data-angel-component="activity"], .composer-surface-chrome, .dream-activity, .thread-scroll-container',
     dialog: '[role="dialog"][aria-modal="true"]',
     permission: '[role="alertdialog"], [data-angel-component="permission"], .dream-permission',
-    activity: '[data-angel-component="activity-header"], .dream-activity-header',
+    activity: '[data-angel-component="activity-header"], .dream-activity-header, [class~="group/activity-header"], [data-angel-component="environment-header"], [data-angel-component="sidebar-section"], [data-angel-component="activity-header"] [aria-expanded], .dream-activity-header [aria-expanded], [class~="group/activity-header"] [aria-expanded], [data-angel-component="environment-header"] [aria-expanded], [data-angel-component="sidebar-section"] [aria-expanded]',
     edited: '[data-angel-component="edited-card"], .dream-edited-card',
     menu: '[data-angel-component="composer-palette"], [data-angel-component="settings-menu"], .dream-composer-palette, [role="menu"], [role="listbox"]',
     projectCard: '[data-app-action-sidebar-project-row][data-app-action-sidebar-project-id]',
     agent: '[data-app-action-sidebar-thread-row][data-app-action-sidebar-thread-kind="local"][data-app-action-sidebar-thread-id], [data-angel-component="subagent-row"], .dream-subagent-row, [data-dream-motion-agent-id]',
     item: '[data-local-conversation-item-target-ids]',
-    homeCard: '.angel-preset-card, .dream-generated-preset, .dream-codex-preset, [data-testid="home-suggestion"]',
+    homeCard: '.angel-preset-card, .dream-generated-preset, .dream-codex-preset, [data-testid="home-suggestion"], .group\\/home-suggestions button, [data-feature="home-suggestions"] button, [data-testid="home-suggestions"] button',
   };
   const TRACK = [...Object.values(SELECTORS), '[aria-busy]'].join(", ");
   const safeCall = (callback, fallback = null) => { try { return callback(); } catch { return fallback; } };
@@ -95,7 +95,6 @@
   const tracked = new Map();
   const feedback = new Map();
   const seen = new Set(handoff?.session?.routeKey === currentRouteKey ? handoff.session.seen : []);
-  const seenNodes = new WeakSet();
   const media = safeCall(() => window.matchMedia("(prefers-reduced-motion: reduce)"));
   const transparencyMedia = safeCall(() => window.matchMedia("(prefers-reduced-transparency: reduce)"));
   const forcedColorsMedia = safeCall(() => window.matchMedia("(forced-colors: active)"));
@@ -159,7 +158,9 @@
     if (!node || paused || mode === "off" || !config.settings.effects[effect]
       || !visible(node) || (!feedback.has(node) && feedback.size >= MAX_FEEDBACK)) return;
     // An existing native entrance animation owns its timing and transform.
-    if (!node.hasAttribute(OWNED) && safeCall(() => getComputedStyle(node).animationName, "unknown") !== "none") return;
+    const animation = safeCall(() => getComputedStyle(node).animationName, "unknown");
+    if (!node.hasAttribute(OWNED) && animation !== "none"
+      && !(feedback.has(node) && animation.split(",").every((name) => name.trim().startsWith("dream-motion-")))) return;
     const name = `${PREFIX}${kind}`;
     const entries = feedback.get(node) || new Map();
     if (entries.has(name)) cancelTimer(entries.get(name));
@@ -194,7 +195,12 @@
     metrics.visitedNodes += 1;
     if (!tracked.has(node)) {
       if (tracked.size >= MAX_NODES) { metrics.droppedNodes += 1; return false; }
-      tracked.set(node, { agentKey: null, itemKey: null, initial, entered: false, expanded: node.getAttribute("aria-expanded"), visible: visible(node) });
+      const shown = visible(node);
+      tracked.set(node, { agentKey: null, itemKey: null, initial, entered: false,
+        menuOpen: initial && shown && matches(node, SELECTORS.menu) && node.getAttribute("data-state") !== "closed",
+        permissionOpen: initial && shown && matches(node, '[role="alertdialog"]')
+          && node.getAttribute("aria-modal") === "true" && node.getAttribute("data-state") === "open",
+        expanded: node.getAttribute("aria-expanded"), visible: shown });
       intersection?.observe(node);
     } else {
       tracked.get(node).visible = visible(node);
@@ -528,37 +534,58 @@
     if (paused || mode === "off") { clearFeedback(); cancelSnapshot(); }
     reconcileOwned();
     placeDecorations();
+    // Cards without stable native identities get only the first visible
+    // batch. Recycled DOM cannot be distinguished safely from new content.
+    const anonymousHomeBatch = !seen.has("home:anonymous-batch");
+    let usedAnonymousHomeBatch = false;
     for (const [node, item] of tracked) {
       bindNodeState(node, item);
+      const projectId = matches(node, SELECTORS.projectCard) ? node.getAttribute("data-app-action-sidebar-project-id") : null;
+      if (projectId !== item.projectId) { clearNodeFeedback(node); node.removeAttribute(`${PREFIX}index`); item.entered = false; item.projectId = projectId; }
+      if (matches(node, SELECTORS.menu)) {
+        const open = item.visible && node.getAttribute("data-state") !== "closed";
+        if (!open && item.menuOpen) clearNodeFeedback(node);
+        if (open && !item.menuOpen) signal(node, "enter", "menu", 180, "interactions");
+        item.menuOpen = open;
+      }
+      const permissionOpen = isCurrentDialog(node);
+      if (!permissionOpen && item.permissionOpen) clearNodeFeedback(node);
+      if (permissionOpen && !item.permissionOpen) signal(node, "enter", "permission", 500);
+      item.permissionOpen = permissionOpen;
+      const editKey = matches(node, SELECTORS.edited) ? entryKey(node) : null;
+      if ((editKey || item.editKey || matches(node, SELECTORS.edited)) && item.editKey !== editKey) {
+        const initial = item.editKey === undefined && item.initial;
+        clearNodeFeedback(node);
+        item.editKey = editKey; item.editEntered = initial;
+        if (initial && editKey) remember(editKey);
+      }
+      if (editKey && item.visible && !item.editEntered) {
+        item.editEntered = true;
+        if (remember(editKey)) signal(node, "enter", "edited-card", 350);
+      }
       const expanded = node.getAttribute("aria-expanded");
       if (matches(node, SELECTORS.activity) && item.expanded === "false" && expanded === "true") {
         signal(node, "feedback", "expanded", 220, "interactions");
       }
       item.expanded = expanded;
-      const projectId = matches(node, SELECTORS.projectCard) ? node.getAttribute("data-app-action-sidebar-project-id") : null;
-      if (projectId !== item.projectId) { clearNodeFeedback(node); node.removeAttribute(`${PREFIX}index`); item.entered = false; item.projectId = projectId; }
+      const presetId = node.getAttribute("data-dream-preset-id");
+      if (presetId !== item.presetId) { item.entered = false; item.presetId = presetId; }
       if (item.entered || !item.visible) continue;
       item.entered = true;
       if (projectId && projectId.length <= 512 && !/[\x00-\x1f\x7f-\x9f]/.test(projectId) && projectIndex < 4 && remember(`project:${projectId}`)) {
         attr(node, `${PREFIX}index`, String(projectIndex++)); signal(node, "enter", "project-card", 340, "interactions");
       }
       if (matches(node, SELECTORS.homeCard) && route === "home" && homeIndex < 4) {
-        const index = homeIndex++;
-        if (remember(`home:${index}`)) {
+        const key = id(presetId) ? `home:${config.themeId}:${presetId}` : null;
+        if (key ? remember(key) : anonymousHomeBatch) {
+          const index = homeIndex++;
+          if (!key) usedAnonymousHomeBatch = true;
           attr(node, `${PREFIX}index`, String(index));
           signal(node, "enter", "home-card", 350, "interactions");
         }
-      } else if (!item.initial && !seenNodes.has(node)) {
-        if (isCurrentDialog(node)) signal(node, "enter", "permission", 500);
-        else if (matches(node, SELECTORS.menu) && node.getAttribute("data-state") !== "closed") signal(node, "enter", "menu", 180, "interactions");
-        else if (matches(node, SELECTORS.edited)) {
-          const key = entryKey(node);
-          if (key && remember(key)) signal(node, "enter", "edited-card", 350);
-        }
       }
-      if (matches(node, SELECTORS.edited)) { const key = entryKey(node); if (key) remember(key); }
-      seenNodes.add(node);
     }
+    if (usedAnonymousHomeBatch) remember("home:anonymous-batch");
   };
   const schedule = () => {
     if (!active() || frame !== null || composition) return;
@@ -599,6 +626,9 @@
       if (mutation.target?.closest?.(`[${OWNED}]`)) continue;
       if (mutation.type === "attributes" && ["class", "style"].includes(mutation.attributeName)) {
         if (backgroundCharacterNode) changed = true;
+        if (tracked.has(mutation.target) && matches(mutation.target, SELECTORS.menu)) {
+          trackNode(mutation.target); changed = true;
+        }
         continue; // Geometry invalidation never widens state/identity scans.
       }
       // A newly mounted/removed native leaf or a visibility change can cover
@@ -608,8 +638,11 @@
         || [...(mutation.addedNodes || []), ...(mutation.removedNodes || [])]
           .some((node) => node.nodeType === 3 || (node.nodeType === 1 && !node.hasAttribute(OWNED))))) changed = true;
       if (mutation.type === "attributes") {
+        if (["data-content-search-unit-key", "data-local-conversation-item-target-ids"].includes(mutation.attributeName)
+          && [...tracked.keys()].some((node) => matches(node, SELECTORS.edited) && mutation.target.contains(node))) changed = true;
         if (!tracked.has(mutation.target) && !matches(mutation.target, TRACK)) continue;
-        trackNode(mutation.target);
+        if (mutation.attributeName === "data-angel-component") scan(mutation.target);
+        else trackNode(mutation.target);
         changed = true;
       } else {
         for (const node of mutation.addedNodes || []) {
@@ -972,7 +1005,7 @@
   refresh();
   observer?.observe(root, { attributes: true, attributeFilter: ["data-dream-skin", "data-dream-theme"] });
   observer?.observe(document.body, { subtree: true, childList: true, attributes: true,
-    attributeFilter: ["class", "style", "data-ds-part", "data-angel-component", "aria-busy", "aria-expanded", "aria-modal", "data-state", "hidden", "aria-hidden", "href", "data-dream-motion-agent-id", "data-local-conversation-item-target-ids", "data-app-action-sidebar-project-id", "data-app-action-sidebar-thread-id", "data-app-action-sidebar-thread-host-id", "data-app-action-sidebar-thread-kind"] });
+    attributeFilter: ["class", "style", "data-ds-part", "data-angel-component", "aria-busy", "aria-expanded", "aria-modal", "data-state", "hidden", "aria-hidden", "href", "data-dream-motion-agent-id", "data-content-search-unit-key", "data-dream-preset-id", "data-local-conversation-item-target-ids", "data-app-action-sidebar-project-id", "data-app-action-sidebar-thread-id", "data-app-action-sidebar-thread-host-id", "data-app-action-sidebar-thread-kind"] });
   listen(media, "change", refresh);
   listen(transparencyMedia, "change", refresh);
   listen(forcedColorsMedia, "change", refresh);
@@ -994,10 +1027,11 @@
       ambientNode.style.setProperty("--dream-motion-parallax-y", `${pointer.y.toFixed(2)}px`);
     });
   });
-  listen(document, "pointerdown", (event) => {
+  const press = (event) => {
     if (paused || composition || mode === "off" || !config.settings.effects.interactions) return;
+    if (event.type === "keydown" && (event.repeat || event.isComposing || !["Enter", " "].includes(event.key))) return;
     const button = event.target?.closest?.('button, [role="button"]');
-    if (!button || button.disabled || button.getAttribute("aria-disabled") === "true" || !button.closest?.(SELECTORS.local)
+    if (!button || button.disabled || button.getAttribute("aria-disabled") === "true" || !button.closest?.(`${SELECTORS.local}, [data-ds-part="sidebar"], [data-angel-component="sidebar-control"], [data-angel-component="sidebar-new-task"], [data-angel-component="settings-control"], [data-angel-component="settings-row"], [data-angel-component="settings-segment"], [data-angel-component="environment-action"]`)
       || safeCall(() => getComputedStyle(button).animationName, "unknown") !== "none") return;
     signal(button, "press", "edge", 180, "interactions");
     const icon = query(button, "svg");
@@ -1010,7 +1044,10 @@
       && box.left >= bounds.left + 2 && box.top >= bounds.top + 2 && box.right <= bounds.right - 2 && box.bottom <= bounds.bottom - 2) {
       signal(icon, "press", "icon", 180, "interactions");
     }
-  });
+  };
+  listen(document, "pointerdown", press);
+  listen(document, "keydown", (event) => press({ type: "keydown", target: event.target, key: event.key,
+    repeat: event.repeat, isComposing: event.isComposing }));
   listen(window, "compositionstart", () => { composition += 1; refresh(); });
   listen(window, "compositionend", () => {
     composition = Math.max(0, composition - 1);
