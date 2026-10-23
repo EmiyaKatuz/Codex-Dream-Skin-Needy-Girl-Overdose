@@ -88,6 +88,47 @@ async function feedbackTargets(page) {
 }
 
 for (const [platform, material] of [['windows', 'system'], ['windows', 'acrylic'], ['macos', 'system'], ['linux', 'system']]) {
+  test(`${platform} ${material}: light settings inputs retain contrast during keyboard interaction`, options, async (t) => {
+    const {page, install} = await launch(t, material, platform);
+    await page.emulateMedia({colorScheme:'light'});
+    await page.evaluate(() => {
+      const panel = document.createElement('section');
+      panel.innerHTML = `<aside><nav><button data-settings-panel-slug="general-settings" aria-current="page">General</button>
+        <button data-settings-panel-slug="appearance">Appearance</button></nav></aside>
+        <section><div class="scrollbar-stable flex-1 overflow-y-auto p-panel"><h1>Appearance</h1>
+        <label>Theme name <input id="fixture-setting-input" type="text" value="INTERNET ANGEL" placeholder="Theme name"></label></div></section>`;
+      document.querySelector('main').appendChild(panel);
+    });
+    await install(settings('subtle'));
+    const input = page.locator('#fixture-setting-input');
+    await input.fill('Keyboard feedback');
+    assert.equal(await input.inputValue(), 'Keyboard feedback');
+    // Read the painted inner-right pixel, away from text, caret and borders.
+    // Acrylic's translucent input must be measured over its actual ancestors.
+    const painted = await input.screenshot();
+    const contrast = await input.evaluate(async (node, screenshot) => {
+      const style = getComputedStyle(node), canvas = document.createElement('canvas');
+      const image = new Image(); image.src = screenshot; await image.decode();
+      canvas.width = image.naturalWidth; canvas.height = image.naturalHeight;
+      const context = canvas.getContext('2d');
+      context.drawImage(image, 0, 0);
+      const paintedBackground = [...context.getImageData(canvas.width - 8, Math.floor(canvas.height / 2), 1, 1).data].slice(0, 3);
+      const rgb = (color) => {
+        context.fillStyle = '#fff'; context.fillRect(0, 0, 1, 1);
+        context.fillStyle = color; context.fillRect(0, 0, 1, 1);
+        return [...context.getImageData(0, 0, 1, 1).data].slice(0, 3);
+      };
+      const luminance = (channels) => channels.map((channel) => {
+        const value = channel / 255; return value <= .04045 ? value / 12.92 : ((value + .055) / 1.055) ** 2.4;
+      }).reduce((sum, value, index) => sum + value * [.2126, .7152, .0722][index], 0);
+      const background = luminance(paintedBackground), foreground = luminance(rgb(style.color));
+      return {ratio:(Math.max(background, foreground) + .05) / (Math.min(background, foreground) + .05),
+        background:style.backgroundColor, component:node.getAttribute('data-angel-component')};
+    }, `data:image/png;base64,${painted.toString('base64')}`);
+    assert.ok(contrast.ratio >= 4.5, `settings input contrast must reach 4.5:1: ${JSON.stringify(contrast)}`);
+    if (contrast.component === 'settings-input') assert.equal(contrast.background, 'rgb(23, 19, 45)');
+  });
+
   test(`${platform} ${material}: status and interaction entry feedback have independent switches`, options, async (t) => {
     const {page, install} = await launch(t, material, platform);
     await install(settings('subtle', {interactions:false}));

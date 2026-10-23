@@ -23,7 +23,7 @@ This page maps the 17 client effects in the [original roadmap](./theme-animation
 | 13 | Background crossfade | Transfers a bounded old-image snapshot after the new image decodes; oversized or composite backgrounds switch directly, while decode errors retain the old theme |
 | 14 | Independent pixel-character poses and bundled wallpaper blinking | Focus, attention, calm and completion poses; wallpaper eyes require the verified bundled image and projection, never arbitrary user photos |
 | 15 | Stars, compact broadcast details and minimal parallax | Full-mode Home only when space permits; horizontal ±3px and vertical ±2px parallax; decorations avoid text, code, panels and controls |
-| 16 | Settings/tool selection and disclosure feedback | Reuses explicit selection, keyboard presses and nested disclosures without resizing native switches |
+| 16 | Settings/tool selection and disclosure feedback | Reuses explicit selection, keyboard presses and nested disclosures; light-mode inputs pair paper text with a dark violet surface without resizing native switches |
 | 17 | Native theme-operation busy feedback | macOS indicator/static icon and a memory-only static pink/cyan Windows hourglass; restores afterward, follows mode/status preferences and represents theme-tool operations only |
 
 ## Shared policy
