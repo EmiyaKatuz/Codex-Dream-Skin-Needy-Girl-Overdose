@@ -50,7 +50,23 @@ foreach ($required in @(
   'Global\CodexDreamSkin.$sid.AutoLaunch',
   '-MessageData $eventSignal -Action',
   '$eventSignal.WaitOne($waitMilliseconds)',
-  'Process events are unavailable; using the bounded polling fallback.'
+  'Process events are unavailable; using the bounded polling fallback.',
+  '$NotificationGuard',
+  'Get-DreamSkinNotificationCommandLinePlan',
+  'Invoke-DreamSkinNotificationGuard',
+  'Invoke-DreamSkinNotificationGuardHandoff',
+  'stock-notification-window',
+  'route-ambiguous',
+  'debug-intent',
+  'ExpectedBrowserId',
+  'ExpectedSessionId',
+  'Start-DreamSkinCodexDirect',
+  '--user-data-dir=$profilePath',
+  'CloseMainWindow',
+  'Stop-DreamSkinNotificationBrowser -Codex $Codex -ProcessId $processId',
+  'notification-guard.log',
+  'Notification guard process snapshot will retry',
+  'Notification guard stopped with its Dream Skin session'
 )) {
   if (-not $autoSource.Contains($required)) { throw "Automatic watcher safety contract is missing: $required" }
 }
@@ -59,6 +75,40 @@ if ($autoSource.Contains('Wait-Event')) {
 }
 if ($autoSource.Contains('-Port $Port -AutoRestartStock')) {
   throw 'Automatic handoff pins an explicit port instead of allowing the guarded launcher to select safely.'
+}
+$notificationForwardIndex = $autoSource.IndexOf(
+  '$null = Start-DreamSkinCodexDirect -Codex $Codex -Arguments @(',
+  [StringComparison]::Ordinal
+)
+$notificationIdentityIndex = $autoSource.IndexOf(
+  '$identity = Get-DreamSkinVerifiedCdpIdentity -Port ([int]$State.port) -Codex $Codex',
+  [StringComparison]::Ordinal
+)
+$notificationCloseIndex = $autoSource.IndexOf(
+  '$signalled = [bool]$processHandle.CloseMainWindow()',
+  [StringComparison]::Ordinal
+)
+$guardExecutionIndex = $autoSource.IndexOf(
+  'if ($NotificationGuard)',
+  [StringComparison]::Ordinal
+)
+$plainFileHelperIndex = $autoSource.IndexOf(
+  'function Assert-DreamSkinAutoLaunchPlainFile',
+  [StringComparison]::Ordinal
+)
+$logHelperIndex = $autoSource.IndexOf(
+  'function Write-DreamSkinAutoLaunchLog',
+  [StringComparison]::Ordinal
+)
+if ($notificationForwardIndex -lt 0 -or
+  $notificationIdentityIndex -le $notificationForwardIndex -or
+  $notificationCloseIndex -le $notificationIdentityIndex) {
+  throw 'Notification recovery must forward, re-verify the original Browser ID, then request a graceful stock-window close.'
+}
+if ($guardExecutionIndex -lt 0 -or
+  $plainFileHelperIndex -lt 0 -or $plainFileHelperIndex -ge $guardExecutionIndex -or
+  $logHelperIndex -lt 0 -or $logHelperIndex -ge $guardExecutionIndex) {
+  throw 'Notification guard helpers must be defined before notification-guard mode executes.'
 }
 
 foreach ($forbidden in @('Stop-Process', 'taskkill', 'Stop-DreamSkinCodex')) {
@@ -128,7 +178,13 @@ foreach ($required in @(
   '$directProcessId = Start-DreamSkinCodexDirect -Codex $codex -Arguments $arguments',
   'if ($debugLaunchAttempted -and -not $AutoRestartStock)',
   'Automatic handoff state validation failed; the exact launched Codex processes were preserved.',
-  'Automatic handoff startup rollback preserved the exact launched Codex processes.'
+  'Automatic handoff startup rollback preserved the exact launched Codex processes.',
+  'notification-window guard exited during startup',
+  '$autoLaunchScript = Join-Path (Split-Path -Parent $PSScriptRoot) ''scripts\auto-launch-dream-skin.ps1''',
+  "'-NotificationGuard'",
+  '-ManagedStatePath',
+  '$StatePath',
+  '$state.startupPhase = ''active'''
 )) {
   if (-not $startSource.Contains($required)) { throw "Automatic restart guard is missing: $required" }
 }
@@ -161,6 +217,11 @@ foreach ($required in @(
   '$ownerSessionId -ne $ExpectedSessionId',
   '$currentSessionId -eq $ExpectedSessionId',
   'Assert-DreamSkinAutoRestartControlClear -StateRoot $AutoRestartStateRoot',
+  '$targets = @(Get-DreamSkinCdpTargets -Port $Port)',
+  'function Stop-DreamSkinNotificationBrowser',
+  'Notification browser executable changed before cleanup.',
+  'Notification browser PID was reused before cleanup.',
+  'Stop-Process -InputObject $processHandle -Force',
   'Stop-Process -InputObject $processObject'
 )) {
   if (-not $commonSource.Contains($required)) {

@@ -198,7 +198,7 @@ try {
   $autoRestartExpectedSessionId = $null
   $autoSessionParameters = @{}
   if ($AutoRestartStock) {
-    $autoLaunchScript = Join-Path (Split-Path -Parent $Injector) 'auto-launch-dream-skin.ps1'
+    $autoLaunchScript = Join-Path (Split-Path -Parent $PSScriptRoot) 'scripts\auto-launch-dream-skin.ps1'
     $autoRestartReservation = Assert-DreamSkinAutoRestartReservation -StateRoot $StateRoot `
       -Token $AutoRestartReservationToken -ExpectedScriptPath $autoLaunchScript
     $autoRestartExpectedSessionId = [int]$autoRestartReservation.SessionId
@@ -1004,6 +1004,29 @@ try {
     }
     $state.startupPhase = 'active'
     Write-DreamSkinState -Path $StatePath -State $state
+    $autoLaunchScript = Join-Path (Split-Path -Parent $PSScriptRoot) 'scripts\auto-launch-dream-skin.ps1'
+    if (Test-Path -LiteralPath $autoLaunchScript -PathType Leaf) {
+      $guardPowerShell = (Get-Command powershell.exe -ErrorAction Stop).Source
+      $guardTokens = @(
+        '-NoProfile', '-WindowStyle', 'Hidden', '-ExecutionPolicy', 'RemoteSigned',
+        '-File', $autoLaunchScript, '-NotificationGuard',
+        '-ManagedStatePath', $StatePath
+      )
+      $guardArgumentLine = ($guardTokens | ForEach-Object {
+        ConvertTo-DreamSkinProcessArgument -Value "$_"
+      }) -join ' '
+      $guard = Start-Process -FilePath $guardPowerShell -ArgumentList $guardArgumentLine `
+        -WindowStyle Hidden -PassThru
+      try {
+        Start-Sleep -Milliseconds 300
+        $guard.Refresh()
+        if ($guard.HasExited) {
+          Write-Warning "The notification-window guard exited during startup. See $(Join-Path $StateRoot 'notification-guard.log')"
+        }
+      } finally {
+        $guard.Dispose()
+      }
+    }
   } catch {
     $startupError = $_
     $acrylicStopped = $true

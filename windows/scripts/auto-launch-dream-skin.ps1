@@ -6,6 +6,8 @@ param(
   [ValidateRange(250, 60000)][int]$StableZeroMilliseconds = 1000,
   [ValidateRange(0, 300000)][int]$GracePeriodMilliseconds = 3000,
   [ValidateRange(0, 300000)][int]$StartupBaselineMilliseconds = 10000,
+  [switch]$NotificationGuard,
+  [string]$ManagedStatePath,
   [switch]$SelfTest
 )
 
@@ -215,6 +217,83 @@ function Invoke-DreamSkinAutoLaunchTransition {
   return [pscustomobject]@{ State = $next; Action = 'restart'; Reason = 'stock-session-grace-complete' }
 }
 
+function Get-DreamSkinNotificationCommandLinePlan {
+  param([AllowNull()][string]$CommandLine)
+
+  $result = [pscustomobject][ordered]@{
+    Eligible = $false
+    RecoverableStockWindow = $false
+    Reason = 'uninspectable'
+    DeepLink = $null
+  }
+  if (-not $CommandLine) { return $result }
+  if ($CommandLine.Length -gt 32768) {
+    $result.Reason = 'command-line-too-large'
+    return $result
+  }
+
+  # Renderer, GPU and utility processes can carry codex:// text without owning
+  # the app window. Only the browser process is a notification activation.
+  if ([regex]::IsMatch($CommandLine, '(?i)(?:^|\s)"?--type\s*=')) {
+    $result.Reason = 'child-process'
+    return $result
+  }
+
+  $debugPattern = '(?i)--(?:remote-debugging-(?:address|port|pipe)|inspect(?:-brk|-port)?|' +
+    'auto-open-devtools-for-tabs|devtools)(?:=|\s|$)'
+  $candidate = $CommandLine
+  for ($decodePass = 0; $decodePass -lt 3; $decodePass++) {
+    if ([regex]::IsMatch($candidate, $debugPattern)) {
+      $result.Reason = 'debug-intent'
+      return $result
+    }
+    try {
+      $decoded = [Uri]::UnescapeDataString($candidate)
+    } catch {
+      $result.Reason = 'command-line-decode-failed'
+      return $result
+    }
+    if ($decoded -ceq $candidate) { break }
+    $candidate = $decoded
+  }
+
+  $routeMatches = [regex]::Matches(
+    $CommandLine,
+    '(?i)(?<!\S)"?(?<url>codex://[^\s"]{1,8192})"?'
+  )
+  if ($routeMatches.Count -eq 0) {
+    $result.Reason = 'route-missing'
+    $result.RecoverableStockWindow = $true
+    return $result
+  }
+  if ($routeMatches.Count -ne 1) {
+    $result.Reason = 'route-ambiguous'
+    return $result
+  }
+  $deepLink = $routeMatches[0].Groups['url'].Value
+  if (-not $deepLink -or $deepLink.Length -gt 8192 -or
+    @($deepLink.ToCharArray() | Where-Object { [char]::IsControl($_) }).Count -gt 0) {
+    $result.Reason = 'route-invalid'
+    return $result
+  }
+  try {
+    $route = [Uri]$deepLink
+    if (-not $route.IsAbsoluteUri -or $route.Scheme -cne 'codex') {
+      $result.Reason = 'route-invalid'
+      return $result
+    }
+  } catch {
+    $result.Reason = 'route-invalid'
+    return $result
+  }
+
+  $result.Eligible = $true
+  $result.RecoverableStockWindow = $true
+  $result.Reason = 'stock-notification-window'
+  $result.DeepLink = $deepLink
+  return $result
+}
+
 function Assert-DreamSkinAutoLaunchTest {
   param([Parameter(Mandatory = $true)][bool]$Condition, [Parameter(Mandatory = $true)][string]$Message)
   if (-not $Condition) { throw "Auto-launch self-test failed: $Message" }
@@ -349,6 +428,38 @@ function Invoke-DreamSkinAutoLaunchSelfTest {
   Assert-DreamSkinAutoLaunchTest (-not $step.State.Suppressed -and -not $step.State.UntrustedSinceZero) `
     'a stable trusted-zero boundary must clear the observation failure latch'
 
+  $notificationPlan = Get-DreamSkinNotificationCommandLinePlan `
+    -CommandLine '"C:\Program Files\WindowsApps\OpenAI.Codex\app\ChatGPT.exe" "codex://threads/example"'
+  Assert-DreamSkinAutoLaunchTest ($notificationPlan.Eligible -and
+    $notificationPlan.DeepLink -ceq 'codex://threads/example') `
+    'a stock browser process with one codex route must be eligible for notification recovery'
+  $rendererPlan = Get-DreamSkinNotificationCommandLinePlan `
+    -CommandLine '"C:\Program Files\WindowsApps\OpenAI.Codex\app\ChatGPT.exe" --type=renderer codex://threads/example'
+  Assert-DreamSkinAutoLaunchTest (-not $rendererPlan.Eligible -and
+    $rendererPlan.Reason -ceq 'child-process') `
+    'renderer and utility children must never be treated as notification windows'
+  $debugPlan = Get-DreamSkinNotificationCommandLinePlan `
+    -CommandLine '"C:\Program Files\WindowsApps\OpenAI.Codex\app\ChatGPT.exe" --remote-debugging-port=9335 codex://threads/example'
+  Assert-DreamSkinAutoLaunchTest (-not $debugPlan.Eligible -and
+    $debugPlan.Reason -ceq 'debug-intent') `
+    'a debug-enabled Codex browser must never enter notification recovery'
+  $encodedDebugPlan = Get-DreamSkinNotificationCommandLinePlan `
+    -CommandLine '"C:\Program Files\WindowsApps\OpenAI.Codex\app\ChatGPT.exe" codex://threads/example?path=%252D%252Dremote-debugging-port%253D9335'
+  Assert-DreamSkinAutoLaunchTest (-not $encodedDebugPlan.Eligible -and
+    $encodedDebugPlan.Reason -ceq 'debug-intent') `
+    'encoded debugging switches must remain rejected'
+  $missingRoutePlan = Get-DreamSkinNotificationCommandLinePlan `
+    -CommandLine '"C:\Program Files\WindowsApps\OpenAI.Codex\app\ChatGPT.exe"'
+  Assert-DreamSkinAutoLaunchTest (-not $missingRoutePlan.Eligible -and
+    $missingRoutePlan.RecoverableStockWindow -and
+    $missingRoutePlan.Reason -ceq 'route-missing') `
+    'a stock browser without an exposed route must remain recoverable through managed-window focus'
+  $ambiguousRoutePlan = Get-DreamSkinNotificationCommandLinePlan `
+    -CommandLine '"C:\Program Files\WindowsApps\OpenAI.Codex\app\ChatGPT.exe" codex://threads/one codex://threads/two'
+  Assert-DreamSkinAutoLaunchTest (-not $ambiguousRoutePlan.Eligible -and
+    $ambiguousRoutePlan.Reason -ceq 'route-ambiguous') `
+    'ambiguous codex routes must fail closed'
+
   Write-Host 'Codex Dream Skin auto-launch state machine self-test passed.'
 }
 
@@ -359,6 +470,468 @@ if ($SelfTest) {
 
 . (Join-Path $PSScriptRoot 'common-windows.ps1')
 . (Join-Path $PSScriptRoot 'theme-windows.ps1')
+
+function Assert-DreamSkinAutoLaunchPlainFile {
+  param([Parameter(Mandatory = $true)][string]$Path)
+  if (-not (Test-Path -LiteralPath $Path)) { return }
+  $item = Get-Item -LiteralPath $Path -Force -ErrorAction Stop
+  if ($item.PSIsContainer -or ($item.Attributes -band [IO.FileAttributes]::ReparsePoint)) {
+    throw "Auto-launch managed file is not a plain file: $Path"
+  }
+}
+
+function Write-DreamSkinAutoLaunchLog {
+  param(
+    [Parameter(Mandatory = $true)][string]$Path,
+    [Parameter(Mandatory = $true)][AllowEmptyString()][string]$Message
+  )
+
+  Assert-DreamSkinAutoLaunchPlainFile -Path $Path
+  $line = '[dream-skin-auto] ' + [DateTime]::UtcNow.ToString('o') + ' ' + $Message + "`r`n"
+  $encoding = [System.Text.UTF8Encoding]::New($false)
+  [System.IO.File]::AppendAllText($Path, $line, $encoding)
+}
+
+function Initialize-DreamSkinNotificationWindowActivation {
+  if ('CodexDreamSkinNotification.WindowActivationV1' -as [type]) { return }
+  Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+
+namespace CodexDreamSkinNotification {
+  public static class WindowActivationV1 {
+    private delegate bool EnumWindowsProc(IntPtr hwnd, IntPtr lParam);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct Rect {
+      public int Left;
+      public int Top;
+      public int Right;
+      public int Bottom;
+    }
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool EnumWindows(EnumWindowsProc callback, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool IsWindowVisible(IntPtr hwnd);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool IsIconic(IntPtr hwnd);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetWindowRect(IntPtr hwnd, out Rect rect);
+
+    [DllImport("user32.dll")]
+    private static extern uint GetWindowThreadProcessId(IntPtr hwnd, out uint processId);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetWindow(IntPtr hwnd, uint command);
+
+    [DllImport("user32.dll")]
+    private static extern int GetWindowLong(IntPtr hwnd, int index);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool ShowWindowAsync(IntPtr hwnd, int command);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetForegroundWindow(IntPtr hwnd);
+
+    public static int ActivateLargest(uint processId, int minimumWidth, int minimumHeight) {
+      IntPtr selected = IntPtr.Zero;
+      long selectedArea = -1;
+      EnumWindows((hwnd, _) => {
+        uint owner;
+        GetWindowThreadProcessId(hwnd, out owner);
+        if (owner != processId || !IsWindowVisible(hwnd)) return true;
+        if (GetWindow(hwnd, 4) != IntPtr.Zero) return true;
+        if ((GetWindowLong(hwnd, -20) & 0x00000080) != 0) return true;
+        Rect rect;
+        if (!GetWindowRect(hwnd, out rect)) return true;
+        int width = Math.Max(0, rect.Right - rect.Left);
+        int height = Math.Max(0, rect.Bottom - rect.Top);
+        if (width < minimumWidth || height < minimumHeight) return true;
+        long area = (long)width * height;
+        if (area > selectedArea) {
+          selected = hwnd;
+          selectedArea = area;
+        }
+        return true;
+      }, IntPtr.Zero);
+      if (selected == IntPtr.Zero) return 0;
+      ShowWindowAsync(selected, 9);
+      return SetForegroundWindow(selected) ? 2 : 1;
+    }
+  }
+}
+'@
+}
+
+function Invoke-DreamSkinNotificationGuardHandoff {
+  param(
+    [Parameter(Mandatory = $true)][object]$ProcessInfo,
+    [Parameter(Mandatory = $true)][object]$Plan,
+    [Parameter(Mandatory = $true)][object]$Codex,
+    [Parameter(Mandatory = $true)][object]$State,
+    [Parameter(Mandatory = $true)][string]$ExpectedBrowserId,
+    [Parameter(Mandatory = $true)][int]$ExpectedSessionId,
+    [Parameter(Mandatory = $true)][string]$LogPath
+  )
+
+  $processId = 0
+  if (-not [int]::TryParse("$($ProcessInfo.ProcessId)", [ref]$processId) -or $processId -le 0) {
+    throw 'The stock notification process ID is invalid.'
+  }
+  $processHandle = Get-Process -Id $processId -ErrorAction Stop
+  try {
+    $startTime = $processHandle.StartTime.ToUniversalTime().ToFileTimeUtc()
+    $hasStockWindow = $false
+    $windowDeadline = [DateTime]::UtcNow.AddSeconds(8)
+    do {
+      $processHandle.Refresh()
+      if ($processHandle.HasExited) { return $false }
+      if ($processHandle.MainWindowHandle -ne 0) {
+        $hasStockWindow = $true
+        break
+      }
+      Start-Sleep -Milliseconds 200
+    } while ([DateTime]::UtcNow -lt $windowDeadline)
+    if (-not $hasStockWindow) {
+      Write-DreamSkinAutoLaunchLog -Path $LogPath -Message (
+        "Notification guard found background stock PID $processId without a visible window."
+      )
+    }
+
+    # Re-read at the mutation boundary. PID reuse, a changed route, or a new
+    # debug argument cancels the handoff without touching either window.
+    $current = Get-CimInstance Win32_Process -Filter "ProcessId = $processId" -ErrorAction Stop
+    if ($null -eq $current -or [int]$current.SessionId -ne $ExpectedSessionId) {
+      return $false
+    }
+    $currentPath = Get-DreamSkinProcessExecutablePath -ProcessInfo $current
+    if (-not $currentPath -or
+      -not (Test-DreamSkinPathEqual -Left $currentPath -Right "$($Codex.Executable)")) {
+      return $false
+    }
+    $currentPlan = Get-DreamSkinNotificationCommandLinePlan -CommandLine "$($current.CommandLine)"
+    if (-not $currentPlan.RecoverableStockWindow -or
+      "$($currentPlan.DeepLink)" -cne "$($Plan.DeepLink)") {
+      return $false
+    }
+    $processHandle.Refresh()
+    if ($processHandle.HasExited -or
+      $processHandle.StartTime.ToUniversalTime().ToFileTimeUtc() -ne $startTime) {
+      return $false
+    }
+
+    $profilePath = [System.IO.Path]::GetFullPath("$($State.profilePath)")
+    $stateRoot = [System.IO.Path]::GetFullPath((Split-Path -Parent $LogPath))
+    if (-not (Test-DreamSkinPathWithin -Path $profilePath -Root $stateRoot)) {
+      throw 'The managed CDP profile is outside the Dream Skin state root.'
+    }
+
+    if ($currentPlan.DeepLink) {
+      # Launch the recovered route into the existing managed profile first. A
+      # same-profile Chromium launch forwards to the live Dream Skin browser and
+      # must not replace either process.
+      $null = Start-DreamSkinCodexDirect -Codex $Codex -Arguments @(
+        $currentPlan.DeepLink,
+        "--user-data-dir=$profilePath"
+      )
+    } else {
+      # Windows notification activation does not always expose its target route
+      # in Win32_Process.CommandLine. The existing skinned conversation remains
+      # the safe destination in that case; focus only its recorded process.
+      $managedPid = 0
+      $managedStart = 0L
+      if (-not [int]::TryParse("$($State.codexPid)", [ref]$managedPid) -or
+        $managedPid -le 0 -or
+        -not [long]::TryParse("$($State.codexStartTimeFileTimeUtc)", [ref]$managedStart) -or
+        $managedStart -le 0) {
+        throw 'The managed Codex window identity is unavailable for route-less notification recovery.'
+      }
+      $managedProcess = Get-Process -Id $managedPid -ErrorAction Stop
+      try {
+        if ($managedProcess.StartTime.ToUniversalTime().ToFileTimeUtc() -ne $managedStart) {
+          throw 'The managed Codex window PID was reused before route-less notification recovery.'
+        }
+        Initialize-DreamSkinNotificationWindowActivation
+        $activationResult = [CodexDreamSkinNotification.WindowActivationV1]::ActivateLargest(
+          [uint32]$managedPid, 320, 240
+        )
+        if ($activationResult -eq 0) {
+          throw 'Windows could not focus the managed Codex HWND for notification recovery.'
+        }
+        if ($activationResult -eq 1) {
+          Write-DreamSkinAutoLaunchLog -Path $LogPath -Message (
+            'Notification guard found the managed Codex HWND but Windows refused foreground activation; continuing cleanup.'
+          )
+        }
+      } finally {
+        $managedProcess.Dispose()
+      }
+    }
+    Start-Sleep -Milliseconds 1200
+    $identity = Get-DreamSkinVerifiedCdpIdentity -Port ([int]$State.port) -Codex $Codex `
+      -ExpectedSessionId $ExpectedSessionId
+    if ($null -eq $identity -or "$($identity.BrowserId)" -cne $ExpectedBrowserId) {
+      throw 'The managed Dream Skin browser identity changed before notification recovery completed.'
+    }
+
+    $processHandle.Refresh()
+    if ($processHandle.HasExited) { return $true }
+    if ($processHandle.StartTime.ToUniversalTime().ToFileTimeUtc() -ne $startTime) {
+      return $false
+    }
+    if ($hasStockWindow) {
+      $signalled = [bool]$processHandle.CloseMainWindow()
+      if ($signalled) {
+        $closeDeadline = [DateTime]::UtcNow.AddSeconds(15)
+        do {
+          $processHandle.Refresh()
+          if ($processHandle.HasExited) {
+            $recoveryMessage = if ($currentPlan.DeepLink) {
+              "Notification guard recovered and closed stock PID $processId after forwarding its route."
+            } else {
+              "Notification guard focused the managed window and closed stock PID $processId without an exposed route."
+            }
+            Write-DreamSkinAutoLaunchLog -Path $LogPath -Message $recoveryMessage
+            return $true
+          }
+          Start-Sleep -Milliseconds 250
+        } while ([DateTime]::UtcNow -lt $closeDeadline)
+      } else {
+        Write-DreamSkinAutoLaunchLog -Path $LogPath -Message (
+          "Notification guard could not request a graceful close for stock PID $processId."
+        )
+      }
+    }
+    try {
+      $stopped = Stop-DreamSkinNotificationBrowser -Codex $Codex -ProcessId $processId `
+        -ExpectedStartTimeFileTimeUtc $startTime -ExpectedSessionId $ExpectedSessionId
+    } catch {
+      Write-DreamSkinAutoLaunchLog -Path $LogPath -Message (
+        "Notification guard could not clean residual stock PID ${processId}: $($_.Exception.Message)"
+      )
+      return $false
+    }
+    if (-not $stopped) {
+      Write-DreamSkinAutoLaunchLog -Path $LogPath -Message (
+        "Notification guard could not fully stop residual stock PID $processId."
+      )
+      return $false
+    }
+    Write-DreamSkinAutoLaunchLog -Path $LogPath -Message (
+      "Notification guard closed the window and terminated identity-bound residual stock PID $processId."
+    )
+    return $true
+  } finally {
+    $processHandle.Dispose()
+  }
+}
+
+function Invoke-DreamSkinNotificationGuard {
+  param([Parameter(Mandatory = $true)][string]$StatePath)
+
+  $expectedStatePath = Join-Path $env:LOCALAPPDATA 'CodexDreamSkin\state.json'
+  if (-not (Test-DreamSkinPathEqual -Left $StatePath -Right $expectedStatePath)) {
+    throw 'The notification guard requires the managed Dream Skin state file.'
+  }
+  $state = Read-DreamSkinState -Path $StatePath
+  if ($null -eq $state -or "$($state.startupPhase)" -cne 'active' -or
+    -not $state.port -or -not $state.browserId -or -not $state.profilePath) {
+    return
+  }
+  $port = [int]$state.port
+  $expectedBrowserId = "$($state.browserId)"
+  $guardProcess = Get-Process -Id $PID -ErrorAction Stop
+  try { $expectedSessionId = [int]$guardProcess.SessionId } finally { $guardProcess.Dispose() }
+  $sid = [System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+  $mutex = [System.Threading.Mutex]::new(
+    $false,
+    "Local\CodexDreamSkin.$sid.NotificationGuard.$expectedBrowserId"
+  )
+  $acquired = $false
+  $eventSignal = [System.Threading.AutoResetEvent]::new($false)
+  $eventJobs = @()
+  $source = "CodexDreamSkin.NotificationGuard.$PID"
+  $logPath = Join-Path (Split-Path -Parent $StatePath) 'notification-guard.log'
+  $pauseMarkerPath = Join-Path (Split-Path -Parent $StatePath) 'paused'
+  try {
+    try { $acquired = $mutex.WaitOne(0) } catch [System.Threading.AbandonedMutexException] {
+      $acquired = $true
+    }
+    if (-not $acquired) { return }
+    Assert-DreamSkinAutoLaunchPlainFile -Path $logPath
+    Write-DreamSkinAutoLaunchLog -Path $logPath -Message 'Notification guard initializing with validated managed state.'
+    $installs = @(Get-DreamSkinRegisteredCodexInstalls)
+    $codex = Resolve-DreamSkinCodexInstallFromState -State $state -RegisteredInstalls $installs
+    if ($null -eq $codex) {
+      throw 'The notification guard could not bind the active Dream Skin state to a registered Codex install.'
+    }
+    Write-DreamSkinAutoLaunchLog -Path $logPath -Message 'Notification guard resolving the active CDP browser.'
+    $identity = Get-DreamSkinVerifiedCdpIdentity -Port $port -Codex $codex `
+      -ExpectedSessionId $expectedSessionId
+    if ($null -eq $identity -or "$($identity.BrowserId)" -cne $expectedBrowserId) {
+      throw 'The notification guard could not verify the active Dream Skin browser identity.'
+    }
+    Write-DreamSkinAutoLaunchLog -Path $logPath -Message 'Notification guard captured the active Codex process groups.'
+    $initial = Get-DreamSkinRegisteredCodexProcessSnapshot `
+      -RegisteredInstalls $installs -ExpectedSessionId $expectedSessionId
+    $baselineProcessKeys = [System.Collections.Generic.HashSet[string]]::new()
+    $initialProcesses = @{}
+    foreach ($process in @($initial.Processes)) {
+      $initialProcesses[[int]$process.ProcessId] = $process
+    }
+    foreach ($item in @($initial.TargetProcesses)) {
+      $processId = [int]$item.processId
+      $initialProcess = $initialProcesses[$processId]
+      $initialPlan = Get-DreamSkinNotificationCommandLinePlan `
+        -CommandLine "$($initialProcess.CommandLine)"
+      if (-not $initialPlan.RecoverableStockWindow) {
+        [void]$baselineProcessKeys.Add(
+          "${processId}:$([long]$item.startTimeFileTimeUtc)"
+        )
+      }
+    }
+    Write-DreamSkinAutoLaunchLog -Path $logPath -Message (
+      "Notification guard started for Browser ID $expectedBrowserId with $($baselineProcessKeys.Count) baseline processes."
+    )
+
+    try {
+      $eventJobs += Register-WmiEvent -Query (
+        "SELECT * FROM __InstanceCreationEvent WITHIN 1 WHERE " +
+        "TargetInstance ISA 'Win32_Process' AND TargetInstance.Name = 'ChatGPT.exe'"
+      ) -SourceIdentifier $source -MessageData $eventSignal -Action {
+        [void]$event.MessageData.Set()
+      } -ErrorAction Stop
+    } catch {
+      Write-DreamSkinAutoLaunchLog -Path $logPath -Message (
+        'Notification guard process events are unavailable; using bounded polling.'
+      )
+    }
+
+    $lastValidationAt = [DateTime]::MinValue
+    $lastSnapshotErrorAt = [DateTime]::MinValue
+    $lastSnapshotError = $null
+    $consecutiveValidationFailures = 0
+    while ($true) {
+      if ($eventJobs.Count -gt 0) {
+        [void]$eventSignal.WaitOne(2000)
+      } else {
+        Start-Sleep -Milliseconds 750
+      }
+      if (([DateTime]::UtcNow - $lastValidationAt).TotalSeconds -ge 5) {
+        try {
+          $liveState = Read-DreamSkinState -Path $StatePath
+          if ($null -eq $liveState -or "$($liveState.startupPhase)" -cne 'active' -or
+            [int]$liveState.port -ne $port -or
+            "$($liveState.browserId)" -cne $expectedBrowserId) {
+            $consecutiveValidationFailures += 1
+          } else {
+            $identity = Get-DreamSkinVerifiedCdpIdentity -Port $port -Codex $codex `
+              -ExpectedSessionId $expectedSessionId
+            if ($null -ne $identity -and
+              "$($identity.BrowserId)" -ceq $expectedBrowserId) {
+              $consecutiveValidationFailures = 0
+            } else {
+              $consecutiveValidationFailures += 1
+            }
+          }
+        } catch {
+          $consecutiveValidationFailures += 1
+        }
+        if ($consecutiveValidationFailures -ge 3) {
+          break
+        }
+        $lastValidationAt = [DateTime]::UtcNow
+        if ($consecutiveValidationFailures -gt 0) {
+          Start-Sleep -Milliseconds 500
+          continue
+        }
+      }
+      if (Test-Path -LiteralPath $pauseMarkerPath -PathType Leaf) { continue }
+
+      try {
+        $snapshot = Get-DreamSkinRegisteredCodexProcessSnapshot `
+          -RegisteredInstalls $installs -ExpectedSessionId $expectedSessionId
+      } catch {
+        $snapshotMessage = $_.Exception.Message
+        $now = [DateTime]::UtcNow
+        if ($snapshotMessage -cne $lastSnapshotError -or
+          ($now - $lastSnapshotErrorAt).TotalSeconds -ge 30) {
+          Write-DreamSkinAutoLaunchLog -Path $logPath -Message (
+            "Notification guard process snapshot will retry: $snapshotMessage"
+          )
+          $lastSnapshotError = $snapshotMessage
+          $lastSnapshotErrorAt = $now
+        }
+        Start-Sleep -Milliseconds 500
+        continue
+      }
+      foreach ($process in @($snapshot.Processes)) {
+        $processId = [int]$process.ProcessId
+        $processHandle = Get-Process -Id $processId -ErrorAction SilentlyContinue
+        if ($null -eq $processHandle) { continue }
+        try {
+          $processKey = "${processId}:$($processHandle.StartTime.ToUniversalTime().ToFileTimeUtc())"
+        } catch {
+          continue
+        } finally {
+          $processHandle.Dispose()
+        }
+        if ($baselineProcessKeys.Contains($processKey)) { continue }
+        [void]$baselineProcessKeys.Add($processKey)
+        $plan = Get-DreamSkinNotificationCommandLinePlan -CommandLine "$($process.CommandLine)"
+        if (-not $plan.RecoverableStockWindow) { continue }
+        try {
+          [void](Invoke-DreamSkinNotificationGuardHandoff `
+            -ProcessInfo $process -Plan $plan -Codex $codex -State $liveState `
+            -ExpectedBrowserId $expectedBrowserId -ExpectedSessionId $expectedSessionId `
+            -LogPath $logPath)
+        } catch {
+          Write-DreamSkinAutoLaunchLog -Path $logPath -Message (
+            "Notification guard left stock PID $processId untouched: $($_.Exception.Message)"
+          )
+        }
+      }
+    }
+    Write-DreamSkinAutoLaunchLog -Path $logPath -Message 'Notification guard stopped with its Dream Skin session.'
+  } finally {
+    foreach ($job in $eventJobs) { Remove-Job -Job $job -Force -ErrorAction SilentlyContinue }
+    Unregister-Event -SourceIdentifier $source -ErrorAction SilentlyContinue
+    Get-Event -SourceIdentifier $source -ErrorAction SilentlyContinue |
+      Remove-Event -ErrorAction SilentlyContinue
+    $eventSignal.Dispose()
+    if ($acquired) { try { $mutex.ReleaseMutex() } catch {} }
+    $mutex.Dispose()
+  }
+}
+
+if ($NotificationGuard) {
+  if (-not $ManagedStatePath) {
+    throw '-NotificationGuard requires -ManagedStatePath.'
+  }
+  try {
+    Invoke-DreamSkinNotificationGuard -StatePath ([System.IO.Path]::GetFullPath($ManagedStatePath))
+  } catch {
+    $errorLogPath = Join-Path (Split-Path -Parent ([System.IO.Path]::GetFullPath($ManagedStatePath))) `
+      'notification-guard-error.log'
+    try {
+      $line = '[dream-skin-auto] ' + [DateTime]::UtcNow.ToString('o') + ' ' +
+        $_.Exception.Message + "`r`n"
+      [System.IO.File]::AppendAllText($errorLogPath, $line, [System.Text.UTF8Encoding]::new($false))
+    } catch {}
+    throw
+  }
+  return
+}
 
 $script:DreamSkinAutoLaunchInstallCache = $null
 $script:DreamSkinAutoLaunchInstallCacheAt = [DateTime]::MinValue
@@ -483,26 +1056,6 @@ function Get-DreamSkinAutoLaunchLightObservation {
   }
 }
 
-function Assert-DreamSkinAutoLaunchPlainFile {
-  param([Parameter(Mandatory = $true)][string]$Path)
-  if (-not (Test-Path -LiteralPath $Path)) { return }
-  $item = Get-Item -LiteralPath $Path -Force -ErrorAction Stop
-  if ($item.PSIsContainer -or ($item.Attributes -band [IO.FileAttributes]::ReparsePoint)) {
-    throw "Auto-launch managed file is not a plain file: $Path"
-  }
-}
-
-function Write-DreamSkinAutoLaunchLog {
-  param(
-    [Parameter(Mandatory = $true)][string]$Path,
-    [Parameter(Mandatory = $true)][AllowEmptyString()][string]$Message
-  )
-
-  Assert-DreamSkinAutoLaunchPlainFile -Path $Path
-  $line = '[dream-skin-auto] ' + [DateTime]::UtcNow.ToString('o') + ' ' + $Message + "`r`n"
-  $encoding = [System.Text.UTF8Encoding]::new($false)
-  [System.IO.File]::AppendAllText($Path, $line, $encoding)
-}
 
 function Write-DreamSkinAutoLaunchState {
   param(

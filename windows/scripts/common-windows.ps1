@@ -1877,7 +1877,7 @@ function Get-DreamSkinVerifiedCdpIdentity {
   if (-not (Test-DreamSkinCodexPortOwner @ownerArguments)) { return $null }
   $browser = Get-DreamSkinCdpBrowserIdentity -Port $Port
   if ($null -eq $browser) { return $null }
-  $targets = Get-DreamSkinCdpTargets -Port $Port
+  $targets = @(Get-DreamSkinCdpTargets -Port $Port)
   if ($targets.Count -eq 0) { return $null }
   if (-not (Test-DreamSkinCodexPortOwner @ownerArguments)) { return $null }
   return [pscustomobject]@{
@@ -2822,6 +2822,42 @@ function Get-DreamSkinCodexProcessesExcept {
       -not $preserved.ContainsKey([int]$_.ProcessId)
     }
   )
+}
+
+function Stop-DreamSkinNotificationBrowser {
+  param(
+    [Parameter(Mandatory = $true)][object]$Codex,
+    [Parameter(Mandatory = $true)][int]$ProcessId,
+    [Parameter(Mandatory = $true)][long]$ExpectedStartTimeFileTimeUtc,
+    [Parameter(Mandatory = $true)][int]$ExpectedSessionId
+  )
+
+  if ($ProcessId -le 0 -or $ExpectedStartTimeFileTimeUtc -le 0 -or $ExpectedSessionId -lt 0) {
+    throw 'Notification browser process identity is invalid.'
+  }
+  $processInfo = Get-CimInstance Win32_Process -Filter "ProcessId = $ProcessId" -ErrorAction Stop
+  if ($null -eq $processInfo) { return $true }
+  if ([int]$processInfo.SessionId -ne $ExpectedSessionId) {
+    throw 'Notification browser Windows session changed before cleanup.'
+  }
+  $processPath = Get-DreamSkinProcessExecutablePath -ProcessInfo $processInfo
+  if (-not $processPath -or
+    -not (Test-DreamSkinPathEqual -Left $processPath -Right "$($Codex.Executable)")) {
+    throw 'Notification browser executable changed before cleanup.'
+  }
+  $processHandle = Get-Process -Id $ProcessId -ErrorAction Stop
+  try {
+    if ($processHandle.StartTime.ToUniversalTime().ToFileTimeUtc() -ne
+      $ExpectedStartTimeFileTimeUtc) {
+      throw 'Notification browser PID was reused before cleanup.'
+    }
+    if ($processHandle.HasExited) { return $true }
+    Stop-Process -InputObject $processHandle -Force -ErrorAction Stop
+    [void]$processHandle.WaitForExit(5000)
+    return $processHandle.HasExited
+  } finally {
+    $processHandle.Dispose()
+  }
 }
 
 function Stop-DreamSkinCodex {
