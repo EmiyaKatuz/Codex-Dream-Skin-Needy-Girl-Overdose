@@ -8,7 +8,7 @@
   <img src="windows/assets/dream-reference.jpg" alt="超天酱 INTERNET ANGEL 主题背景" width="900">
 </p>
 
-当前版本：**1.8.0** · [更新说明](./docs/releases/v1.8.0.md) · [下载](https://github.com/EmiyaKatuz/Codex-Dream-Skin-Needy-Girl-Overdose/releases/latest)
+当前版本 **1.9.1** · [更新说明](./docs/releases/v1.9.1.md) · [下载](https://github.com/EmiyaKatuz/Codex-Dream-Skin-Needy-Girl-Overdose/releases/latest)
 
 ## 功能
 
