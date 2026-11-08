@@ -50,6 +50,16 @@ powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\windows\scripts\
 
 Codex 正在运行时，启动器会询问是否重启。验证脚本检查 CDP 身份、皮肤版本、原生控件和装饰层；截图用于检查溢出和对比度。交互验收项见 [QA 清单](references/qa-inventory.md)。
 
+### Windows 通知兼容模式
+
+在支持的 x64 Store 版本上，可让皮肤窗口使用 Codex 的常用配置，使 Windows 激活请求交给同一个应用实例。先从 Codex 托盘菜单完全退出，再从仓库根目录运行：
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\windows\scripts\start-dream-skin.ps1 -UseOfficialProfile
+```
+
+使用安装版时，将脚本路径换成 `"$env:LOCALAPPDATA\CodexDreamSkin\engine\scripts\start-dream-skin.ps1"`。每次新启动时都需指定此选项。此模式下，常用 Codex 会话在应用运行期间可通过本机 CDP 访问。版本范围与调试访问说明见 [运行说明](references/runtime-notes.md) 和 [SECURITY.md](../SECURITY.md)。
+
 ## 主题与动态效果
 
 托盘提供背景替换、ZIP 导入、保存与切换主题、动态效果、暂停、重新应用和恢复入口。首次安装包含超天酱 JPEG 主题。

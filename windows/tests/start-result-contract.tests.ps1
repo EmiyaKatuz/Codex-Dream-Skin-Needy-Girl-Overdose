@@ -149,6 +149,14 @@ try {
     if ($accessDeniedCategory -cne 'cdp-direct-access-denied') {
       throw 'A blocked direct Store launch lost its bounded result category.'
     }
+    Set-Item 'function:Stop-DreamSkinCodex' -Value { throw 'Package-only activation attempted to stop Codex.' }
+    $packageOnly = Start-DreamSkinCodexForDebugging -Codex $fakeCodex `
+      -Arguments @('--remote-debugging-port=9335') -Port 9335 -PreserveProcessIds @() `
+      -PackageActivationOnly
+    if ($packageOnly.ProcessId -ne 101 -or $packageOnly.Strategy -cne 'package-activation' -or
+      $packageOnly.ArgumentStatus -cne 'protocol-redirected') {
+      throw 'Package-only activation did not preserve its first attempt and argument status.'
+    }
   } finally {
     foreach ($functionName in $launcherFunctionNames) {
       Set-Item ("function:$functionName") -Value $originalLauncherFunctions[$functionName]

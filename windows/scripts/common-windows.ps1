@@ -1569,7 +1569,8 @@ function Start-DreamSkinCodexForDebugging {
     [Parameter(Mandatory = $true)][object]$Codex,
     [Parameter(Mandatory = $true)][AllowEmptyCollection()][string[]]$Arguments,
     [Parameter(Mandatory = $true)][int]$Port,
-    [AllowEmptyCollection()][int[]]$PreserveProcessIds
+    [AllowEmptyCollection()][int[]]$PreserveProcessIds,
+    [switch]$PackageActivationOnly
   )
   $preservedProcessIds = if ($PSBoundParameters.ContainsKey('PreserveProcessIds')) {
     @($PreserveProcessIds)
@@ -1578,7 +1579,7 @@ function Start-DreamSkinCodexForDebugging {
   }
   $packageProcessId = Start-DreamSkinCodex -Codex $Codex -Arguments $Arguments
   $packageStatus = Wait-DreamSkinCodexDebugArgumentStatus -Codex $Codex -Port $Port
-  if ($packageStatus -ne 'protocol-redirected') {
+  if ($PackageActivationOnly -or $packageStatus -ne 'protocol-redirected') {
     return [pscustomobject]@{
       ProcessId = $packageProcessId
       Strategy = 'package-activation'
@@ -1842,13 +1843,16 @@ function Test-DreamSkinCodexPortOwner {
   param(
     [int]$Port,
     [Parameter(Mandatory = $true)][object]$Codex,
-    [ValidateRange(0, 2147483647)][int]$ExpectedSessionId
+    [ValidateRange(0, 2147483647)][int]$ExpectedSessionId,
+    [ValidateRange(1, 2147483647)][int]$ExpectedProcessId
   )
   $enforceSession = $PSBoundParameters.ContainsKey('ExpectedSessionId')
+  $enforceProcess = $PSBoundParameters.ContainsKey('ExpectedProcessId')
   $listeners = @(Get-DreamSkinPortListeners -Port $Port)
   if ($listeners.Count -eq 0) { return $false }
   foreach ($listener in $listeners) {
     if ($listener.LocalAddress -notin @('127.0.0.1', '::1')) { return $false }
+    if ($enforceProcess -and [int]$listener.OwningProcess -ne $ExpectedProcessId) { return $false }
     $process = Get-CimInstance Win32_Process -Filter "ProcessId = $([int]$listener.OwningProcess)" -ErrorAction SilentlyContinue
     $processPath = if ($process) { Get-DreamSkinProcessExecutablePath -ProcessInfo $process } else { $null }
     $ownerSessionId = -1
@@ -1868,11 +1872,15 @@ function Get-DreamSkinVerifiedCdpIdentity {
   param(
     [int]$Port,
     [Parameter(Mandatory = $true)][object]$Codex,
-    [ValidateRange(0, 2147483647)][int]$ExpectedSessionId
+    [ValidateRange(0, 2147483647)][int]$ExpectedSessionId,
+    [ValidateRange(1, 2147483647)][int]$ExpectedProcessId
   )
   $ownerArguments = @{ Port = $Port; Codex = $Codex }
   if ($PSBoundParameters.ContainsKey('ExpectedSessionId')) {
     $ownerArguments.ExpectedSessionId = $ExpectedSessionId
+  }
+  if ($PSBoundParameters.ContainsKey('ExpectedProcessId')) {
+    $ownerArguments.ExpectedProcessId = $ExpectedProcessId
   }
   if (-not (Test-DreamSkinCodexPortOwner @ownerArguments)) { return $null }
   $browser = Get-DreamSkinCdpBrowserIdentity -Port $Port
