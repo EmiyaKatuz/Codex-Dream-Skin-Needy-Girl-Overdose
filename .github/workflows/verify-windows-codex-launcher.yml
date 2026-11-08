@@ -9,16 +9,12 @@ permissions:
 
 jobs:
   launcher:
-    name: Store ${{ matrix.version }} official profile
+    name: Store 26.1103.4239.0 ${{ matrix.profile }} profile
     runs-on: windows-latest
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - version: 26.1027.3384.0
-            sha256: D442A3D7D5C229F45E5E11995711AC2619C8DBC89E3FA2BC185287DC8DB8E76E
-          - version: 26.1103.4239.0
-            sha256: 9A5FDF536327CE471F9594B0AC6E369244EC3EBFD5E09EC5A66524575DBAA60C
+        profile: [official, isolated]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -29,8 +25,8 @@ jobs:
       - name: Install the signed Codex package
         shell: pwsh
         env:
-          CODEX_VERSION: ${{ matrix.version }}
-          CODEX_SHA256: ${{ matrix.sha256 }}
+          CODEX_VERSION: 26.1103.4239.0
+          CODEX_SHA256: 9A5FDF536327CE471F9594B0AC6E369244EC3EBFD5E09EC5A66524575DBAA60C
         run: |
           $ErrorActionPreference = 'Stop'
           $installer = Join-Path $env:RUNNER_TEMP 'ChatGPT-x64.msix'
@@ -47,6 +43,8 @@ jobs:
           }
       - name: Start and verify the skinned Codex browser
         shell: pwsh
+        env:
+          PROFILE_MODE: ${{ matrix.profile }}
         run: |
           $ErrorActionPreference = 'Stop'
           . .\windows\scripts\common-windows.ps1
@@ -60,14 +58,64 @@ jobs:
           }
           $token = [guid]::NewGuid().ToString('N')
           $startScript = '.\windows\scripts\start-dream-skin.ps1'
-          & powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File $startScript -Port $port -UseOfficialProfile -ResultToken $token
-          if ($LASTEXITCODE -ne 0) {
+          $probe = Start-Job -ScriptBlock {
+          @'
+          import {setTimeout as sleep} from "node:timers/promises";
+          const expected = "127.0.0.1:19335";
+          const expression = "(() => { const text = document.body?.innerText || ''; return { signIn: /sign in with chatgpt|continue with chatgpt|sign in to codex|use an api key|continue with an api key|log in|sign up/i.test(text), onboardingRoute: /onboard|sign.?in|login|auth/i.test(location.pathname), composer: Boolean(document.querySelector('[contenteditable=true]')), visible: document.visibilityState === 'visible' }; })()";
+          function inspect(url) {
+            return new Promise((resolve, reject) => {
+              const socket = new WebSocket(url);
+              const timer = setTimeout(() => { socket.close(); reject(new Error("timeout")); }, 2500);
+              socket.onopen = () => socket.send(JSON.stringify({ id: 1, method: "Runtime.evaluate", params: { expression, returnByValue: true } }));
+              socket.onerror = () => { clearTimeout(timer); reject(new Error("socket")); };
+              socket.onmessage = ({data}) => {
+                const packet = JSON.parse(data);
+                if (packet.id !== 1) return;
+                clearTimeout(timer); socket.close(); resolve(packet.result?.result?.value);
+              };
+            });
+          }
+          let last = [];
+          for (let i = 0; i < 60; i++) {
+            try {
+              const targets = await fetch("http://" + expected + "/json/list", { signal: AbortSignal.timeout(1000) }).then(r => r.json());
+              last = await Promise.all(targets.filter(t => t.type === "page" && t.webSocketDebuggerUrl && new URL(t.webSocketDebuggerUrl).host === expected)
+                .map(t => inspect(t.webSocketDebuggerUrl).catch(() => null)));
+              if (last.some(t => t?.signIn || t?.onboardingRoute || t?.composer) || (i > 20 && last.length)) break;
+            } catch {}
+            await sleep(700);
+          }
+          console.log(JSON.stringify({windowEvidence: last}));
+          '@ | node.exe --input-type=module -
+          }
+          $startOptions = @('-Port', "$port", '-ResultToken', $token)
+          if ($env:PROFILE_MODE -eq 'official') { $startOptions += '-UseOfficialProfile' }
+          & powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File $startScript @startOptions
+          $startExitCode = $LASTEXITCODE
+          Receive-Job -Job $probe -Wait -AutoRemoveJob
+          if ($startExitCode -ne 0) {
+            try {
+              $verification = Read-DreamSkinUtf8File -Path (Join-Path $stateRoot 'verify.log') | ConvertFrom-Json
+              foreach ($target in @($verification.targets)) {
+                if (-not $target.result) { continue }
+                $r = $target.result
+                [pscustomobject]@{
+                  installed = $r.installed
+                  stylePresent = $r.stylePresent
+                  viewportPass = $r.readiness.viewportPass
+                  documentPass = $r.readiness.documentPass
+                  windowPass = $r.readiness.windowPass
+                  structurePass = $r.readiness.structurePass
+                } | ConvertTo-Json -Compress | Write-Host
+              }
+            } catch { Write-Host 'No structured renderer result was available.' }
             $result = Read-DreamSkinStartResult -StateRoot $stateRoot -Token $token
             Write-Host "Dream Skin startup result: $($result.category); appearance recovery: $($result.appearanceRecovery)"
             throw 'Dream Skin could not complete verified startup on the hosted Windows desktop.'
           }
           $state = Read-DreamSkinState -Path (Join-Path $stateRoot 'state.json')
-          if (-not $state.browserId -or $state.profilePath -or $state.port -ne $port) {
+          if (-not $state.browserId -or ([bool]$state.profilePath -eq ($env:PROFILE_MODE -eq 'official')) -or $state.port -ne $port) {
             throw 'The verified state did not record the requested official profile and browser.'
           }
           $codex = Get-DreamSkinCodexInstall
