@@ -3,6 +3,7 @@
 ## Unreleased
 
 - 修复 Windows 皮肤会话验证对空页面列表和单个 CDP 页面的处理。
+- 新增 Windows 通知兼容模式。支持的 x64 Store 版本可显式使用官方配置，让普通 Windows 激活与皮肤共用同一个 Codex 实例。
 
 ## 1.9.0 - 2026-10-23
 

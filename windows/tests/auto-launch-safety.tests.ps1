@@ -116,7 +116,7 @@ foreach ($required in @(
   '-ExpectedAutoRestartTargets @($autoRestartReservation.TargetProcesses)',
   'Assert-DreamSkinAutoRestartStableZero -StateRoot $StateRoot',
   '$autoRestartExpectedSessionId = [int]$autoRestartReservation.SessionId',
-  '$autoSessionParameters = @{ ExpectedSessionId = $autoRestartExpectedSessionId }',
+  '$sessionParameters.ExpectedSessionId = $autoRestartExpectedSessionId',
   '-ExpectedSessionId $autoRestartExpectedSessionId',
   'Get-DreamSkinRecordedStateSessionOwnership',
   'A live Dream Skin session in another Windows session owns the shared managed state.',
@@ -126,7 +126,8 @@ foreach ($required in @(
   'codexPid = [int]$win32Window.ProcessId',
   'codexStartTimeFileTimeUtc = [long]$win32Window.StartTimeFileTimeUtc',
   '$directProcessId = Start-DreamSkinCodexDirect -Codex $codex -Arguments $arguments',
-  'if ($debugLaunchAttempted -and -not $AutoRestartStock)',
+  '$allowCodexRollback = -not ($AutoRestartStock -or $UseOfficialProfile)',
+  'if ($debugLaunchAttempted -and $allowCodexRollback)',
   'Automatic handoff state validation failed; the exact launched Codex processes were preserved.',
   'Automatic handoff startup rollback preserved the exact launched Codex processes.'
 )) {

@@ -20,12 +20,17 @@ visible conversation or workspace data and act with the renderer's privileges.
 A host firewall does not isolate one local process from another, and loopback
 binding must not be described as a sandbox or a trust boundary.
 
+On Windows, explicitly launching with `-UseOfficialProfile` makes the regular
+Codex session available to that local CDP listener for the life of the app.
+
 调试端口只绑定 `127.0.0.1`，因此其他电脑不能直接连接；但 CDP 本身没有认证。
 只要带 CDP 参数启动的 Codex 仍在运行，同一台电脑上的其他进程就可能尝试连接。
 
 CDP 能读取页面内容、在 renderer 中执行 JavaScript，并操作当前会话。因此，恶意本机
 进程可能读取可见的对话或工作区数据，并以 renderer 的权限执行操作。本机防火墙不能
 隔离同一设备上的两个进程；“仅回环”不能被理解为沙箱或身份认证边界。
+
+在 Windows 上显式使用 `-UseOfficialProfile` 启动后，应用运行期间，常用 Codex 会话可通过该本机 CDP 端口访问。
 
 ## When exposure starts and ends / 风险窗口何时开始和结束
 

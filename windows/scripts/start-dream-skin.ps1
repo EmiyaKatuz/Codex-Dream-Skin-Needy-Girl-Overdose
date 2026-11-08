@@ -6,6 +6,7 @@ param(
   [string]$AutoRestartReservationToken,
   [switch]$PromptRestart,
   [string]$ProfilePath,
+  [switch]$UseOfficialProfile,
   [switch]$ForegroundInjector,
   [ValidateRange(0, 300000)][int]$OperationLockTimeoutMilliseconds = 0,
   [switch]$RequireUnpaused,
@@ -16,6 +17,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $PortExplicit = $PSBoundParameters.ContainsKey('Port')
 $ProfilePathExplicit = $PSBoundParameters.ContainsKey('ProfilePath') -and [bool]$ProfilePath
+$allowCodexRollback = -not ($AutoRestartStock -or $UseOfficialProfile)
 $Injector = Join-Path $PSScriptRoot 'injector.mjs'
 . (Join-Path $PSScriptRoot 'common-windows.ps1')
 . (Join-Path $PSScriptRoot 'theme-windows.ps1')
@@ -119,12 +121,36 @@ function Restore-DreamSkinStartupThemeSelection {
   return 'restored'
 }
 
+function Assert-DreamSkinOfficialProfileLaunchReady {
+  param([object]$Codex, [int]$ExpectedSessionId)
+
+  # Match the exact Store packages verified with the official profile and AUMID.
+  if ($Codex.PackageFullName -notin @(
+    'OpenAI.Codex_26.1027.3384.0_x64__2p2nqsd0c76g0',
+    'OpenAI.Codex_26.1103.4239.0_x64__2p2nqsd0c76g0'
+  )) {
+    throw 'This Codex Store build has not been verified with -UseOfficialProfile.'
+  }
+  $registeredInstalls = @(Get-DreamSkinRegisteredCodexInstalls)
+  if ($registeredInstalls.Count -eq 0 -or
+    $registeredInstalls[0].PackageFullName -ine $Codex.PackageFullName -or
+    -not (Test-DreamSkinPathEqual -Left $registeredInstalls[0].Executable -Right $Codex.Executable)) {
+    throw 'The registered Codex package changed during launch preparation. Start Dream Skin again.'
+  }
+  $snapshot = Get-DreamSkinRegisteredCodexProcessSnapshot -RegisteredInstalls $registeredInstalls `
+    -ExpectedSessionId $ExpectedSessionId
+  if (@($snapshot.TargetProcesses).Count -gt 0) {
+    throw 'Quit Codex from its tray menu before starting with -UseOfficialProfile.'
+  }
+}
+
 $StateRoot = Join-Path $env:LOCALAPPDATA 'CodexDreamSkin'
 $operationLock = $null
 $startFailureCategory = 'internal-start-failure'
 $appearanceTransaction = $null
 $appearanceRecovery = 'not-needed'
 $themeSelectionTransaction = $null
+$debugLaunchAttempted = $false
 try {
   $operationLock = Enter-DreamSkinOperationLock `
     -TimeoutMilliseconds $OperationLockTimeoutMilliseconds
@@ -137,6 +163,11 @@ try {
   if (-not $AutoRestartStock -and $AutoRestartReservationToken) {
     throw '-AutoRestartReservationToken is only valid with -AutoRestartStock.'
   }
+  if ($UseOfficialProfile -and ($ProfilePath -or $env:CODEX_ELECTRON_USER_DATA_PATH -or
+    $RestartExisting -or $AutoRestartStock -or $PromptRestart -or $ForegroundInjector -or
+    $SavedThemeDirectory)) {
+    throw '-UseOfficialProfile requires a standalone background launch with the default Codex data path.'
+  }
   Assert-DreamSkinPort -Port $Port
   if ($SavedThemeDirectory -and $ForegroundInjector) {
     throw 'Saved-theme selection requires the verified background startup operation.'
@@ -145,6 +176,15 @@ try {
   $node = Get-DreamSkinNodeRuntime
   $currentCodex = Get-DreamSkinCodexInstall
   $codex = $currentCodex
+  $sessionParameters = @{}
+  if ($UseOfficialProfile) {
+    $launcherProcess = Get-Process -Id $PID -ErrorAction Stop
+    try { $officialProfileSessionId = [int]$launcherProcess.SessionId } finally {
+      $launcherProcess.Dispose()
+    }
+    Assert-DreamSkinOfficialProfileLaunchReady -Codex $codex -ExpectedSessionId $officialProfileSessionId
+    $sessionParameters.ExpectedSessionId = $officialProfileSessionId
+  }
   $windowEffects = Read-DreamSkinWindowEffects -StateRoot $StateRoot
   $windowMaterial = $windowEffects.WindowMaterial
   $acrylicTransparencyReady = $false
@@ -173,11 +213,8 @@ try {
   $configPaths = Resolve-DreamSkinConfigPaths -StateRoot $StateRoot -BindBackup
   $ConfigPath = $configPaths.ConfigPath
   $BackupPath = $configPaths.BackupPath
-  if (-not $ProfilePathExplicit) {
-    # Chromium 136+ ignores remote-debugging switches for its default data
-    # directory. Keep Dream Skin on a separate persistent profile so current
-    # Codex builds can expose CDP without weakening or modifying the official
-    # profile. A caller-provided path remains an explicit advanced override.
+  if (-not $UseOfficialProfile -and -not $ProfilePathExplicit) {
+    # Older Store builds require a separate persistent data path to expose CDP.
     $ProfilePath = [System.IO.Path]::GetFullPath((Join-Path $StateRoot 'cdp-profile'))
     Ensure-DreamSkinManagedDirectory -Path $ProfilePath -Root $StateRoot
   }
@@ -196,13 +233,12 @@ try {
   $autoLaunchScript = $null
   $autoRestartReservation = $null
   $autoRestartExpectedSessionId = $null
-  $autoSessionParameters = @{}
   if ($AutoRestartStock) {
     $autoLaunchScript = Join-Path (Split-Path -Parent $Injector) 'auto-launch-dream-skin.ps1'
     $autoRestartReservation = Assert-DreamSkinAutoRestartReservation -StateRoot $StateRoot `
       -Token $AutoRestartReservationToken -ExpectedScriptPath $autoLaunchScript
     $autoRestartExpectedSessionId = [int]$autoRestartReservation.SessionId
-    $autoSessionParameters = @{ ExpectedSessionId = $autoRestartExpectedSessionId }
+    $sessionParameters.ExpectedSessionId = $autoRestartExpectedSessionId
   }
 
   $previousState = Read-DreamSkinState -Path $StatePath
@@ -240,24 +276,24 @@ try {
     (Test-DreamSkinPathEqual -Left $savedPathCandidate.Executable -Right $currentCodex.Executable))
   if ($null -ne $savedPathCandidate -and $null -eq $savedCodex -and -not $candidateMatchesCurrent) {
     $unverifiedSavedRunning =
-      (Get-DreamSkinCodexProcesses -Codex $savedPathCandidate @autoSessionParameters).Count -gt 0
+      (Get-DreamSkinCodexProcesses -Codex $savedPathCandidate @sessionParameters).Count -gt 0
     $unverifiedSavedOwnsPort = Test-DreamSkinCodexPortOwner -Port $Port `
-      -Codex $savedPathCandidate @autoSessionParameters
+      -Codex $savedPathCandidate @sessionParameters
     if ($unverifiedSavedRunning -or $unverifiedSavedOwnsPort) {
       throw 'The saved Codex path is still active but no longer matches a registered OpenAI.Codex package. Close it manually; state was preserved.'
     }
   }
 
-  $currentProcesses = @(Get-DreamSkinCodexProcesses -Codex $currentCodex @autoSessionParameters)
+  $currentProcesses = @(Get-DreamSkinCodexProcesses -Codex $currentCodex @sessionParameters)
   $codexToStop = $currentCodex
   $cdpIdentity = Get-DreamSkinVerifiedCdpIdentity -Port $Port -Codex $currentCodex `
-    @autoSessionParameters
+    @sessionParameters
   if ($null -eq $cdpIdentity) {
     # After a Store auto-update the running (older) package still owns the
     # verified endpoint while Get-DreamSkinCodexInstall already resolves to
     # the new one.  Adopt the running install instead of restarting it.
     $runningRegistered = Get-DreamSkinVerifiedCdpIdentityForAnyRegistered -Port $Port `
-      @autoSessionParameters
+      @sessionParameters
     if ($null -ne $runningRegistered) {
       $cdpIdentity = $runningRegistered.Identity
       $codex = $runningRegistered.Codex
@@ -267,9 +303,9 @@ try {
   $savedIsDifferent = [bool]($null -ne $savedCodex -and
     -not (Test-DreamSkinPathEqual -Left $savedCodex.Executable -Right $currentCodex.Executable))
   if ($savedIsDifferent) {
-    $savedProcesses = Get-DreamSkinCodexProcesses -Codex $savedCodex @autoSessionParameters
+    $savedProcesses = Get-DreamSkinCodexProcesses -Codex $savedCodex @sessionParameters
     $savedOwnsPort = Test-DreamSkinCodexPortOwner -Port $Port -Codex $savedCodex `
-      @autoSessionParameters
+      @sessionParameters
     if ($currentProcesses.Count -gt 0 -and ($savedProcesses.Count -gt 0 -or $savedOwnsPort)) {
       throw 'Multiple registered Codex package versions are active. Close them manually before starting Dream Skin.'
     }
@@ -278,7 +314,7 @@ try {
         throw 'The saved Codex listener is active but its process cannot be managed safely; state was preserved.'
       }
       $savedIdentity = Get-DreamSkinVerifiedCdpIdentity -Port $Port -Codex $savedCodex `
-        @autoSessionParameters
+        @sessionParameters
       if ($null -ne $savedIdentity) {
         $codex = $savedCodex
         $codexToStop = $savedCodex
@@ -328,7 +364,7 @@ try {
   $codexProcesses = @(if (Test-DreamSkinPathEqual -Left $codexToStop.Executable -Right $currentCodex.Executable) {
     $currentProcesses
   } else {
-    Get-DreamSkinCodexProcesses -Codex $codexToStop @autoSessionParameters
+    Get-DreamSkinCodexProcesses -Codex $codexToStop @sessionParameters
   })
   if ($AutoRestartStock) {
     # Revalidate both the reservation and the complete registered Codex process
@@ -426,13 +462,15 @@ try {
   }
 
   $launchedWithCdp = $false
-  $debugLaunchAttempted = $false
   $debugLaunch = $null
   $debugLaunchBaselineProcessIds = @()
   # Latches positive renderer evidence when only the native-window probe is inconclusive.
   $skinLooksRendered = $false
   $acrylicDescriptor = $null
   try {
+    if ($UseOfficialProfile) {
+      Assert-DreamSkinOfficialProfileLaunchReady -Codex $codex -ExpectedSessionId $officialProfileSessionId
+    }
     if ($pendingAppearanceTransaction) {
       $startFailureCategory = 'state-reconciliation-failed'
       try {
@@ -475,8 +513,9 @@ try {
         SelectedFingerprint = $selectedFingerprint
       }
     }
-    if ($null -eq (Get-DreamSkinVerifiedCdpIdentity -Port $Port -Codex $codex `
-        @autoSessionParameters)) {
+    $cdpOwnerParameters = $sessionParameters.Clone()
+    if ($UseOfficialProfile -or $null -eq (Get-DreamSkinVerifiedCdpIdentity -Port $Port -Codex $codex `
+        @sessionParameters)) {
       # Codex is closed on this path; sync the appearanceTheme pin to the
       # active theme before launching (config writes race the app while it runs).
       try {
@@ -503,7 +542,10 @@ try {
       if ($ProfilePathExplicit) {
         New-Item -ItemType Directory -Force -Path $ProfilePath | Out-Null
       }
-      $arguments += "--user-data-dir=$ProfilePath"
+      if ($ProfilePath) { $arguments += "--user-data-dir=$ProfilePath" }
+      if ($UseOfficialProfile) {
+        Assert-DreamSkinOfficialProfileLaunchReady -Codex $codex -ExpectedSessionId $officialProfileSessionId
+      }
       if ($AutoRestartStock) {
         try {
           Assert-DreamSkinAutoRestartControlClear -StateRoot $StateRoot
@@ -528,7 +570,7 @@ try {
         # broad cleanup/retry. Any failure preserves every process it created.
         $directProcessId = Start-DreamSkinCodexDirect -Codex $codex -Arguments $arguments
         $directStatus = Wait-DreamSkinCodexDebugArgumentStatus -Codex $codex -Port $Port `
-          @autoSessionParameters
+          @sessionParameters
         if ($directStatus -in @('protocol-redirected', 'not-forwarded')) {
           throw "Automatic Dream Skin direct launch did not retain the CDP arguments ($directStatus); its processes were preserved."
         }
@@ -539,12 +581,18 @@ try {
           PackageArgumentStatus = 'not-attempted'
         }
       } else {
-        $debugLaunchBaselineProcessIds = @(
-          Get-DreamSkinCodexProcesses -Codex $codex @autoSessionParameters |
-            ForEach-Object { [int]$_.ProcessId }
-        )
+        if (-not $UseOfficialProfile) {
+          $debugLaunchBaselineProcessIds = @(
+            Get-DreamSkinCodexProcesses -Codex $codex @sessionParameters |
+              ForEach-Object { [int]$_.ProcessId }
+          )
+        }
         $debugLaunch = Start-DreamSkinCodexForDebugging -Codex $codex -Arguments $arguments `
-          -Port $Port -PreserveProcessIds $debugLaunchBaselineProcessIds
+          -Port $Port -PreserveProcessIds $debugLaunchBaselineProcessIds `
+          -PackageActivationOnly:$UseOfficialProfile
+        if ($UseOfficialProfile) {
+          $cdpOwnerParameters.ExpectedProcessId = [int]$debugLaunch.ProcessId
+        }
       }
       $launchedWithCdp = $true
       if ($debugLaunch.Strategy -eq 'direct-store-executable' -and
@@ -556,10 +604,10 @@ try {
     $startFailureCategory = 'cdp-endpoint-unavailable'
     $deadline = (Get-Date).AddSeconds(45)
     $cdpIdentity = Get-DreamSkinVerifiedCdpIdentity -Port $Port -Codex $codex `
-      @autoSessionParameters
+      @cdpOwnerParameters
     while ($null -eq $cdpIdentity) {
       $argumentStatus = Get-DreamSkinCodexDebugArgumentStatus `
-        -Processes @(Get-DreamSkinCodexProcesses -Codex $codex @autoSessionParameters) `
+        -Processes @(Get-DreamSkinCodexProcesses -Codex $codex @sessionParameters) `
         -Port $Port
       if ($argumentStatus -eq 'protocol-redirected') {
         throw "Codex $($codex.Version) converted the CDP argument into a codex:// navigation path instead of opening a debugging endpoint."
@@ -572,12 +620,17 @@ try {
       }
       Start-Sleep -Milliseconds 400
       $cdpIdentity = Get-DreamSkinVerifiedCdpIdentity -Port $Port -Codex $codex `
-        @autoSessionParameters
+        @cdpOwnerParameters
     }
     $win32Window = Wait-DreamSkinWin32WindowEvidence -Codex $codex `
-      -TimeoutMilliseconds 30000 @autoSessionParameters
+      -TimeoutMilliseconds 30000 @sessionParameters
     if ($null -eq $win32Window) {
       throw 'Codex exposed CDP without a verified visible Win32 HWND owned by the registered executable.'
+    }
+    if ($UseOfficialProfile -and
+      ([int]$win32Window.ProcessId -ne $cdpOwnerParameters.ExpectedProcessId -or
+        -not (Test-DreamSkinCodexPortOwner -Port $Port -Codex $codex @cdpOwnerParameters))) {
+      throw 'The Codex window and debugging listener did not match the official activation.'
     }
     $win32WindowArgs = @(
       '--win32-window-pid', "$($win32Window.ProcessId)",
@@ -604,7 +657,7 @@ try {
     $injectorWindowArgs = $win32WindowArgs + @('--window-material', $windowMaterial)
   } catch {
     $launchError = $_
-    if ($debugLaunchAttempted -and -not $AutoRestartStock) {
+    if ($debugLaunchAttempted -and $allowCodexRollback) {
       try {
         Stop-DreamSkinCodex -Codex $codex `
           -PreserveProcessIds $debugLaunchBaselineProcessIds -AllowForce
@@ -612,8 +665,21 @@ try {
         Write-Warning 'Launch rollback could not fully close the failed CDP session.'
       }
     }
-    $failedLaunchClosed =
-      (Get-DreamSkinCodexProcesses -Codex $codex @autoSessionParameters).Count -eq 0
+    $failedLaunchClosed = $false
+    if ($UseOfficialProfile) {
+      if ($null -ne $appearanceTransaction) {
+        try {
+          $snapshot = Get-DreamSkinRegisteredCodexProcessSnapshot `
+            -RegisteredInstalls @(Get-DreamSkinRegisteredCodexInstalls) `
+            -ExpectedSessionId $officialProfileSessionId
+          $failedLaunchClosed = @($snapshot.TargetProcesses).Count -eq 0
+        } catch {
+          $failedLaunchClosed = $false
+        }
+      }
+    } else {
+      $failedLaunchClosed = (Get-DreamSkinCodexProcesses -Codex $codex @sessionParameters).Count -eq 0
+    }
     if ($null -ne $appearanceTransaction) {
       if ($failedLaunchClosed) {
         $appearanceRecovery = Invoke-DreamSkinStartupAppearanceRecovery `
@@ -628,7 +694,7 @@ try {
         -Codex $currentCodex -ExpectedSessionId $autoRestartExpectedSessionId `
         -FailureMessage "Automatic Dream Skin launch failed: $($launchError.Exception.Message)"
     }
-    if (-not $AutoRestartStock -and
+    if ($allowCodexRollback -and
       ($closedExistingCodex -or $debugLaunchAttempted) -and $failedLaunchClosed) {
       if ($debugLaunchAttempted) {
         Write-Warning 'Dream Skin launch failed; reopening Codex without a debugging port.'
@@ -670,8 +736,10 @@ try {
     $pauseCleared = $true
   } catch {
     if ($launchedWithCdp) {
-      if ($AutoRestartStock) {
-        Write-Warning 'Automatic handoff state validation failed; the exact launched Codex processes were preserved.'
+      if (-not $allowCodexRollback) {
+        if ($AutoRestartStock) {
+          Write-Warning 'Automatic handoff state validation failed; the exact launched Codex processes were preserved.'
+        }
         if ($null -ne $appearanceTransaction) { $appearanceRecovery = 'blocked' }
       } else {
         $stateRollbackClosed = $false
@@ -864,7 +932,10 @@ try {
       codexStartTimeFileTimeUtc = [long]$win32Window.StartTimeFileTimeUtc
       codexSessionId = [int]$win32Window.SessionId
       browserId = $cdpIdentity.BrowserId
-      profilePath = $ProfilePath
+      profilePath = if ($launchedWithCdp) { $ProfilePath } elseif ($null -ne $previousState -and
+        $previousState.PSObject.Properties['profilePath'] -and
+        $previousState.PSObject.Properties['browserId'] -and
+        "$($previousState.browserId)" -ceq $cdpIdentity.BrowserId) { $previousState.profilePath } else { $null }
       themeDir = $themePaths.Active
       pauseFile = $themePaths.PauseFile
       windowMaterial = $windowMaterial
@@ -1070,7 +1141,7 @@ try {
     if ($injectorStopped -and -not $launchedWithCdp -and -not $skinLooksRendered) {
       try {
         $rollbackIdentity = Get-DreamSkinVerifiedCdpIdentity -Port $Port -Codex $codex `
-          @autoSessionParameters
+          @sessionParameters
         if ($null -ne $rollbackIdentity -and $rollbackIdentity.BrowserId -ceq $cdpIdentity.BrowserId) {
           $removal = Invoke-DreamSkinNative -FilePath $node.Path -ArgumentList @(
             $Injector, '--remove', '--port', "$Port",
@@ -1085,8 +1156,10 @@ try {
       Remove-Item -LiteralPath $StatePath -Force -ErrorAction SilentlyContinue
     }
     if ($launchedWithCdp -and -not $skinLooksRendered) {
-      if ($AutoRestartStock) {
-        Write-Warning 'Automatic handoff startup rollback preserved the exact launched Codex processes.'
+      if (-not $allowCodexRollback) {
+        if ($AutoRestartStock) {
+          Write-Warning 'Automatic handoff startup rollback preserved the exact launched Codex processes.'
+        }
         if ($null -ne $appearanceTransaction) { $appearanceRecovery = 'blocked' }
       } else {
         $rendererRollbackClosed = $false
@@ -1107,7 +1180,7 @@ try {
           Write-Warning 'Startup rollback could not fully close Codex; close Codex to ensure its CDP port is closed.'
         }
       }
-    } elseif ($skinLooksRendered -and $ResultToken -and $launchedWithCdp -and
+    } elseif ($skinLooksRendered -and $ResultToken -and $launchedWithCdp -and -not $UseOfficialProfile -and
       $null -ne $appearanceTransaction) {
       # One-click apply has a parent theme-file transaction. Leaving the new
       # appearance/session alive would make any parent file rollback produce a
@@ -1182,6 +1255,9 @@ try {
   }
 } catch {
   $startError = $_
+  if ($UseOfficialProfile -and $debugLaunchAttempted) {
+    Write-Warning 'Quit Codex completely to close any local debugging listener started for this launch.'
+  }
   if ($null -ne $themeSelectionTransaction -and $null -ne $operationLock) {
     try {
       if ($appearanceRecovery -in @('blocked', 'conflict-preserved')) {

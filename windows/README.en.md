@@ -50,6 +50,16 @@ powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\windows\scripts\
 
 The launcher asks before restarting a running Codex session. Verification checks the CDP identity, skin version, native controls, and decorative layers. Use the screenshot to check overflow and contrast. See the [QA checklist](references/qa-inventory.md) for interaction checks.
 
+### Windows notification compatibility
+
+On supported x64 Store builds, Dream Skin can use the normal Codex profile so Windows activation reaches the same app instance. Quit Codex from its tray menu and run the following from the repository root.
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\windows\scripts\start-dream-skin.ps1 -UseOfficialProfile
+```
+
+For an installed copy, use `"$env:LOCALAPPDATA\CodexDreamSkin\engine\scripts\start-dream-skin.ps1"` as the script path. Specify the option each time you start a new session. Your regular Codex session is accessible through local CDP while the app is running in this mode. See [Runtime notes](references/runtime-notes.md) and [SECURITY.md](../SECURITY.md) for supported builds and the local access boundary.
+
 ## Themes and motion
 
 The tray provides background replacement, ZIP import, theme saving and switching, motion settings, pause, reapply, and restore. The initial installation includes the Internet Angel JPEG theme.
