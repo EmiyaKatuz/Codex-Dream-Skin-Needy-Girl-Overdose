@@ -83,3 +83,62 @@ try {
 }
 
 Write-Output 'PASS: stale listener port recovery falls back to the next free loopback port.'
+
+& {
+  Set-StrictMode -Version 2.0
+  $fixture = [pscustomobject]@{ Targets = @(); OwnerChecks = 0; LoseOwner = $false }
+
+  function Test-DreamSkinCodexPortOwner {
+    param([int]$Port, [object]$Codex, [int]$ExpectedSessionId)
+    if ($Port -ne 9335 -or $ExpectedSessionId -ne 7) {
+      throw 'CDP identity verification must preserve the expected port and Windows session.'
+    }
+    $fixture.OwnerChecks += 1
+    return (-not $fixture.LoseOwner -or $fixture.OwnerChecks -eq 1)
+  }
+
+  function Get-DreamSkinCdpBrowserIdentity {
+    param([int]$Port)
+    return [pscustomobject]@{
+      BrowserId = 'browser-123'
+      WebSocketDebuggerUrl = "ws://127.0.0.1:$Port/devtools/browser/browser-123"
+      Browser = 'Codex test browser'
+    }
+  }
+
+  function Get-DreamSkinCdpTargets {
+    param([int]$Port)
+    return $fixture.Targets
+  }
+
+  $identityArguments = @{
+    Port = 9335
+    Codex = [pscustomobject]@{ Executable = 'C:\Synthetic\ChatGPT.exe' }
+    ExpectedSessionId = 7
+  }
+  $fixture.Targets = @([pscustomobject]@{ id = 'page-one' })
+  $identity = Get-DreamSkinVerifiedCdpIdentity @identityArguments
+  if ($null -eq $identity -or $identity.BrowserId -cne 'browser-123' -or $identity.TargetCount -ne 1) {
+    throw 'CDP identity verification rejected a browser with one page target.'
+  }
+
+  $fixture.Targets += [pscustomobject]@{ id = 'page-two' }
+  $identity = Get-DreamSkinVerifiedCdpIdentity @identityArguments
+  if ($null -eq $identity -or $identity.TargetCount -ne 2) {
+    throw 'CDP identity verification returned the wrong count for multiple page targets.'
+  }
+
+  $fixture.OwnerChecks = 0
+  $fixture.LoseOwner = $true
+  if ($null -ne (Get-DreamSkinVerifiedCdpIdentity @identityArguments) -or $fixture.OwnerChecks -ne 2) {
+    throw 'CDP identity verification accepted a changed listener owner.'
+  }
+
+  $fixture.Targets = @()
+  $fixture.LoseOwner = $false
+  if ($null -ne (Get-DreamSkinVerifiedCdpIdentity @identityArguments)) {
+    throw 'CDP identity verification accepted a browser without a page target.'
+  }
+}
+
+Write-Output 'PASS: CDP identity handles zero, one, and multiple page targets and rechecks the listener owner.'
