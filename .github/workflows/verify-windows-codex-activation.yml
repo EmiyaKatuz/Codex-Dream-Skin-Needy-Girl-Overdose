@@ -1,0 +1,138 @@
+name: Verify Windows Codex activation
+on:
+  push:
+    branches:
+      - verify/windows-codex-activation
+permissions:
+  contents: read
+jobs:
+  activation:
+    name: Windows application profile
+    runs-on: windows-latest
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [official, isolated]
+    steps:
+      - name: Verify official Codex application launch
+        shell: pwsh
+        env:
+          PROFILE_MODE: ${{ matrix.profile }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $version = '26.1027.3384.0'
+          $packageFile = Join-Path $env:RUNNER_TEMP 'ChatGPT-x64.msix'
+          $sha = 'D442A3D7D5C229F45E5E11995711AC2619C8DBC89E3FA2BC185287DC8DB8E76E'
+          $url = "https://persistent.oaistatic.com/codex-app-prod/releases/$version/ChatGPT-x64.msix"
+          Write-Host "OS $([Environment]::OSVersion.Version) profile $env:PROFILE_MODE"
+          $existing = @(Get-AppxPackage -Name OpenAI.Codex)
+          if ($existing.Count -gt 0) { throw 'Expected a clean test runner.' }
+          curl.exe --fail --silent --show-error --max-time 240 $url -o $packageFile
+          if ($LASTEXITCODE -ne 0 -or (Get-FileHash -Algorithm SHA256 $packageFile).Hash -cne $sha) {
+            throw 'The official package download did not match its published SHA256.'
+          }
+          Add-AppxPackage -Path $packageFile
+          $package = Get-AppxPackage -Name OpenAI.Codex
+          if (-not $package -or $package.Version.ToString() -cne $version -or $package.SignatureKind -ne 'Store') {
+            throw 'The expected Store package is not registered.'
+          }
+          $manifest = Get-AppxPackageManifest -Package $package
+          $entry = @($manifest.Package.Applications.Application | Where-Object { $_.Executable -ieq 'app/ChatGPT.exe' })
+          if ($entry.Count -ne 1) { throw 'Unexpected application entry point.' }
+          $exe = [IO.Path]::GetFullPath((Join-Path $package.InstallLocation $entry[0].Executable))
+          $aumid = "$($package.PackageFamilyName)!$($entry[0].Id)"
+          $session = (Get-Process -Id $PID).SessionId
+          function Get-CodexBrowsers {
+            @(Get-CimInstance Win32_Process -Filter "Name = 'ChatGPT.exe'" |
+              Where-Object { $_.SessionId -eq $session -and $_.ExecutablePath -ieq $exe -and $_.CommandLine -and
+                $_.CommandLine -notmatch '(?:^|\s)"?--type=' })
+          }
+          Add-Type -TypeDefinition @'
+          using System;
+          using System.Runtime.InteropServices;
+          [ComImport, Guid("2e941141-7f97-4756-ba1d-9decde894a3d"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+          interface IActivationManager {
+            [PreserveSig]
+            int ActivateApplication([MarshalAs(UnmanagedType.LPWStr)] string app,
+              [MarshalAs(UnmanagedType.LPWStr)] string args, uint options, out uint pid);
+          }
+          [ComImport, Guid("45BA127D-10A8-46EA-8AB7-56EA9078943C")]
+          class ActivationManager { }
+          public static class CodexTestActivation {
+            public static uint Run(string app, string args) {
+              var m = (IActivationManager)new ActivationManager();
+              try {
+                uint pid;
+                Marshal.ThrowExceptionForHR(m.ActivateApplication(app, args, 0, out pid));
+                return pid;
+              } finally { Marshal.ReleaseComObject(m); }
+            }
+          }
+          '@
+          $port = 19335
+          $argsLine = "--remote-debugging-address=127.0.0.1 --remote-debugging-port=$port"
+          if ($env:PROFILE_MODE -ceq 'isolated') {
+            $profile = Join-Path $env:RUNNER_TEMP 'codex-profile'
+            $argsLine += ' "--user-data-dir=' + $profile + '"'
+          }
+          $launchPid = [CodexTestActivation]::Run($aumid, $argsLine)
+          Write-Host "Packaged activation reported PID $launchPid"
+          function Get-BrowserEndpoint {
+            $listeners = @(Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue)
+            if (-not $listeners.Count) { return }
+            $browsers = @(Get-CodexBrowsers)
+            foreach ($listener in $listeners) {
+              if ($listener.LocalAddress -notin @('127.0.0.1','::1') -or $listener.OwningProcess -notin $browsers.ProcessId) {
+                throw 'Unexpected debug listener ownership.'
+              }
+            }
+            $identity = Invoke-RestMethod -Uri "http://127.0.0.1:$port/json/version" -TimeoutSec 3 -MaximumRedirection 0
+            if ($identity.webSocketDebuggerUrl -notmatch "^ws://127[.]0[.]0[.]1:$port/devtools/browser/[A-Za-z0-9._-]+$") {
+              throw 'Unexpected Browser ID endpoint.'
+            }
+            [pscustomobject]@{ Owner = [int]$listeners[0].OwningProcess; BrowserUrl = $identity.webSocketDebuggerUrl }
+          }
+          $endpoint = $null
+          for ($i = 0; $i -lt 20 -and -not $endpoint; $i++) {
+            Start-Sleep -Seconds 2
+            $endpoint = Get-BrowserEndpoint
+          }
+          if (-not $endpoint) {
+            $browserRows = @(Get-CodexBrowsers)
+            $raw = @($browserRows | Where-Object { $_.CommandLine -match "(?:^|\s)""?--remote-debugging-port=$port(?=\s|""|$)" })
+            $redirected = @($browserRows | Where-Object { $_.CommandLine -match '(?i)codex://.*remote-debugging-port' })
+            Write-Host "Browser processes $($browserRows.Count) raw switch $($raw.Count) protocol redirect $($redirected.Count)"
+            if (-not $redirected.Count -and $browserRows.Count -gt 0) {
+              throw 'Packaged activation did not produce a verified loopback endpoint.'
+            }
+            # The ephemeral runner contains only this test installation.
+            foreach ($row in $browserRows) {
+              $process = Get-Process -Id $row.ProcessId -ErrorAction SilentlyContinue
+              if ($process -and $process.SessionId -eq $session -and $process.Path -ieq $exe) {
+                Stop-Process -InputObject $process -ErrorAction Stop
+                [void]$process.WaitForExit(10000)
+              }
+            }
+            $direct = Start-Process -FilePath $exe -ArgumentList $argsLine -PassThru
+            Write-Host "Direct launch reported PID $($direct.Id)"
+            for ($i = 0; $i -lt 20 -and -not $endpoint; $i++) {
+              Start-Sleep -Seconds 2
+              $endpoint = Get-BrowserEndpoint
+            }
+          }
+          if (-not $endpoint) { throw 'No verified loopback CDP endpoint appeared.' }
+          Write-Host "Verified CDP owner PID $($endpoint.Owner)"
+          $activationPid = [CodexTestActivation]::Run($aumid, '')
+          Write-Host "Ordinary AUMID activation reported PID $activationPid"
+          Start-Sleep -Seconds 12
+          $after = Get-BrowserEndpoint
+          $browserIds = @(Get-CodexBrowsers | ForEach-Object { [int]$_.ProcessId })
+          $additional = @($browserIds | Where-Object { $_ -ne $endpoint.Owner })
+          if (-not $after -or $after.Owner -ne $endpoint.Owner -or $after.BrowserUrl -cne $endpoint.BrowserUrl) {
+            throw 'Ordinary activation replaced or lost the original CDP browser.'
+          }
+          Write-Host "Additional browser processes $($additional.Count)"
+          if ($env:PROFILE_MODE -ceq 'official' -and $additional.Count) {
+            throw 'Ordinary activation created another browser in the official profile case.'
+          }
