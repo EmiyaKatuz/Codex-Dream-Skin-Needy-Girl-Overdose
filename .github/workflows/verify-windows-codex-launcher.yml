@@ -1,0 +1,85 @@
+name: Verify the Windows notification profile launcher
+
+on:
+  push:
+    branches: [verify/windows-codex-launcher]
+
+permissions:
+  contents: read
+
+jobs:
+  launcher:
+    name: Store ${{ matrix.version }} official profile
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - version: 26.1027.3384.0
+            sha256: D442A3D7D5C229F45E5E11995711AC2619C8DBC89E3FA2BC185287DC8DB8E76E
+          - version: 26.1103.4239.0
+            sha256: 9A5FDF536327CE471F9594B0AC6E369244EC3EBFD5E09EC5A66524575DBAA60C
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: "22"
+      - name: Install the signed Codex package
+        shell: pwsh
+        env:
+          CODEX_VERSION: ${{ matrix.version }}
+          CODEX_SHA256: ${{ matrix.sha256 }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $installer = Join-Path $env:RUNNER_TEMP 'ChatGPT-x64.msix'
+          $url = "https://persistent.oaistatic.com/codex-app-prod/releases/$env:CODEX_VERSION/ChatGPT-x64.msix"
+          curl.exe --fail --silent --show-error --location --retry 2 --max-time 180 --output $installer $url
+          if ($LASTEXITCODE -ne 0) { throw 'Codex package download failed.' }
+          if ((Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash -cne $env:CODEX_SHA256) {
+            throw 'The downloaded package did not match its published SHA256.'
+          }
+          Add-AppxPackage -Path $installer
+          $package = Get-AppxPackage -Name OpenAI.Codex
+          if ($package.SignatureKind -ne 'Store' -or "$($package.Version)" -cne $env:CODEX_VERSION) {
+            throw 'The signed Store package registration did not match the matrix build.'
+          }
+      - name: Start and verify the skinned Codex browser
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          . .\windows\scripts\common-windows.ps1
+          $stateRoot = Join-Path $env:LOCALAPPDATA 'CodexDreamSkin'
+          $port = 19335
+          $token = [guid]::NewGuid().ToString('N')
+          $startScript = '.\windows\scripts\start-dream-skin.ps1'
+          & powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File $startScript -Port $port -UseOfficialProfile -ResultToken $token
+          if ($LASTEXITCODE -ne 0) {
+            $result = Read-DreamSkinStartResult -StateRoot $stateRoot -Token $token
+            Write-Host "Dream Skin startup result: $($result.category); appearance recovery: $($result.appearanceRecovery)"
+            throw 'Dream Skin could not complete verified startup on the hosted Windows desktop.'
+          }
+          $state = Read-DreamSkinState -Path (Join-Path $stateRoot 'state.json')
+          if (-not $state.browserId -or $state.profilePath -or $state.port -ne $port) {
+            throw 'The verified state did not record the requested official profile and browser.'
+          }
+          $codex = Get-DreamSkinCodexInstall
+          $owner = @{
+            Port = $port
+            Codex = $codex
+            ExpectedProcessId = [int]$state.codexPid
+            ExpectedSessionId = [int]$state.codexSessionId
+          }
+          $null = Start-DreamSkinCodex -Codex $codex
+          Start-Sleep -Seconds 8
+          Start-Process 'codex://settings'
+          Start-Sleep -Seconds 8
+          $after = Get-DreamSkinVerifiedCdpIdentity @owner
+          if ($null -eq $after -or $after.BrowserId -cne $state.browserId) {
+            throw 'Package or protocol activation did not retain the skinned Codex browser.'
+          }
+          $otherBrowsers = @(Get-DreamSkinCodexProcesses -Codex $codex -ExpectedSessionId $state.codexSessionId |
+            Where-Object { $_.ProcessId -ne $state.codexPid -and $_.CommandLine -notmatch '(?:^|\s)--type=' })
+          if ($otherBrowsers.Count -gt 0) { throw 'Activation left an additional Codex browser process.' }
+          Write-Host 'Package and protocol activation kept the original verified skinned browser.'
