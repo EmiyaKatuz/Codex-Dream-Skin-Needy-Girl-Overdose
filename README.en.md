@@ -8,7 +8,7 @@ An INTERNET ANGEL theme for Codex Desktop on Windows, macOS, and Linux.
   <img src="windows/assets/dream-reference.jpg" alt="INTERNET ANGEL theme background" width="900">
 </p>
 
-Current version: **1.8.0** · [Release notes](./docs/releases/v1.8.0-en.md) · [Download](https://github.com/EmiyaKatuz/Codex-Dream-Skin-Needy-Girl-Overdose/releases/latest)
+Current version **1.9.1** · [Release notes](./docs/releases/v1.9.1-en.md) · [Download](https://github.com/EmiyaKatuz/Codex-Dream-Skin-Needy-Girl-Overdose/releases/latest)
 
 ## Features
 
