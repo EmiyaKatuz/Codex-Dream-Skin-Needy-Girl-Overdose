@@ -52,6 +52,12 @@ jobs:
           . .\windows\scripts\common-windows.ps1
           $stateRoot = Join-Path $env:LOCALAPPDATA 'CodexDreamSkin'
           $port = 19335
+          $configDir = Join-Path $HOME '.codex'
+          $null = New-Item -ItemType Directory -Force -Path $configDir
+          $configPath = Join-Path $configDir 'config.toml'
+          if (-not (Test-Path -LiteralPath $configPath)) {
+            [System.IO.File]::WriteAllText($configPath, '# Dream Skin smoke test')
+          }
           $token = [guid]::NewGuid().ToString('N')
           $startScript = '.\windows\scripts\start-dream-skin.ps1'
           & powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File $startScript -Port $port -UseOfficialProfile -ResultToken $token
